@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { useTranslations } from 'next-intl'
 import { format } from 'date-fns'
-import { CalendarClock, CheckCircle2, Edit2, FileSpreadsheet, FileText, MoreHorizontal, PackageMinus, Search, Store, Table2, Tag, X } from 'lucide-react'
+import { CalendarClock, CheckCircle2, Edit2, FileSpreadsheet, FileText, MoreHorizontal, PackageCheck, PackageMinus, Search, Store, Table2, Tag, X } from 'lucide-react'
 import { useUnitLabel } from '@/lib/products/use-unit-label'
 import { useTableExport } from '@/lib/export/use-table-export'
 import { createClient } from '@/lib/supabase/client'
@@ -39,6 +39,7 @@ import { ProductThumbnail } from '@/components/stock/product-thumbnail'
 import { ProductSheetViewer } from '@/components/stock/product-sheet-viewer'
 import { LotDetailDrawer, LotStatusBadge, countdownTone, useLotTexts, type LotRow } from '@/components/stock/lot-detail-drawer'
 import { BatchAdjustDialog, BatchExpiryDialog, BatchPromoDialog, BatchRemoveConfirm } from '@/components/stock/batch-dialogs'
+import { BatchTreatmentDrawer, useBatchTreatmentsAvailable } from '@/components/stock/batch-treatment'
 import type { Category } from '@/lib/types/database'
 
 // Lots & péremptions : l'écran où l'on descend dans le détail des alertes de la
@@ -93,6 +94,10 @@ export default function ExpiryPage({ params: { locale } }: { params: { locale: s
   const [expiryLot, setExpiryLot] = useState<LotRow | null>(null)
   const [promoLot, setPromoLot] = useState<LotRow | null>(null)
   const [removeLot, setRemoveLot] = useState<LotRow | null>(null)
+  // Traitement d'un lot (179) : seulement quand le serveur sait l'enregistrer
+  const treatAvailable = useBatchTreatmentsAvailable()
+  const [treatLot, setTreatLot] = useState<LotRow | null>(null)
+  const [historyKey, setHistoryKey] = useState(0)
 
   const [wide, setWide] = useState(false)
   useEffect(() => {
@@ -254,11 +259,17 @@ export default function ExpiryPage({ params: { locale } }: { params: { locale: s
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-60">
+        {/* 179 présente + lot périmé : « Traiter » (destruction, retour…), jamais de promotion ni de retrait sans trace */}
+        {treatAvailable && statusOf(b) === 'expired' && (
+          <DropdownMenuItem onClick={() => setTreatLot(b)} className="gap-2.5 font-medium" data-lot-treat><PackageCheck className="h-4 w-4 shrink-0" />{t('batch_treatment.treat_action')}</DropdownMenuItem>
+        )}
         <DropdownMenuItem onClick={() => setAdjustLot(b)} className="gap-2.5"><Edit2 className="h-4 w-4 shrink-0" />{t('products.adjust_quantity_action')}</DropdownMenuItem>
         <DropdownMenuItem onClick={() => setExpiryLot(b)} className="gap-2.5"><CalendarClock className="h-4 w-4 shrink-0" />{t('products.edit_expiry_action')}</DropdownMenuItem>
-        <DropdownMenuItem onClick={() => setPromoLot(b)} className="gap-2.5"><Tag className="h-4 w-4 shrink-0" />{t('products.promo_action')}</DropdownMenuItem>
-        <DropdownMenuSeparator />
-        <DropdownMenuItem onClick={() => setRemoveLot(b)} className="gap-2.5 text-red-600 focus:text-red-600 dark:text-red-400 dark:focus:text-red-400"><PackageMinus className="h-4 w-4 shrink-0" />{t('expiry.action_remove')}</DropdownMenuItem>
+        {!(treatAvailable && statusOf(b) === 'expired') && <DropdownMenuItem onClick={() => setPromoLot(b)} className="gap-2.5"><Tag className="h-4 w-4 shrink-0" />{t('products.promo_action')}</DropdownMenuItem>}
+        {!(treatAvailable && statusOf(b) === 'expired') && <>
+          <DropdownMenuSeparator />
+          <DropdownMenuItem onClick={() => setRemoveLot(b)} className="gap-2.5 text-red-600 focus:text-red-600 dark:text-red-400 dark:focus:text-red-400"><PackageMinus className="h-4 w-4 shrink-0" />{t('expiry.action_remove')}</DropdownMenuItem>
+        </>}
       </DropdownMenuContent>
     </DropdownMenu>
   )
@@ -492,8 +503,22 @@ export default function ExpiryPage({ params: { locale } }: { params: { locale: s
         onEditExpiry={setExpiryLot}
         onPromo={setPromoLot}
         onRemove={setRemoveLot}
+        onTreat={treatAvailable ? setTreatLot : undefined}
+        historyKey={historyKey}
+        onChanged={fetchData}
       />
       <ProductSheetViewer productId={sheetProductId} onClose={() => setSheetProductId(null)} />
+      <BatchTreatmentDrawer
+        open={!!treatLot}
+        expired={!!treatLot && statusOf(treatLot) === 'expired'}
+        lot={treatLot ? {
+          id: treatLot.id, quantity: treatLot.quantity, expiry_date: treatLot.expiry_date, received_at: treatLot.received_at,
+          productName: treatLot.products?.name || '', unit: unitLabel(treatLot.products?.unit, treatLot.quantity),
+          shopName: userShops.length > 1 ? shopById[treatLot.shop_id]?.name : null, supplierName: treatLot.suppliers?.name ?? null,
+        } : null}
+        onClose={() => setTreatLot(null)}
+        onSaved={() => { fetchData(); setHistoryKey(k => k + 1) }}
+      />
 
       {/* Fenêtres d'action : routes existantes, la liste se recharge sans quitter l'écran ni perdre filtres et défilement */}
       <BatchAdjustDialog batch={adjustLot} onClose={() => setAdjustLot(null)} onSaved={fetchData} />

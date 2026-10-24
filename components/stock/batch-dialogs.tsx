@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useLocale, useTranslations } from 'next-intl'
 import { CalendarClock, Edit2, PackageMinus, Tag } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -13,6 +13,8 @@ import { formatLocaleDate } from '@/lib/i18n/date-format'
 import { dayOf, localDate } from '@/lib/stock/batch-status'
 import { withTimeout } from '@/lib/utils/with-timeout'
 import { ExpiryDateField, usePastExpiryConfirm } from '@/components/stock/expiry-date-field'
+import { Textarea } from '@/components/ui/textarea'
+import { newRequestId, useBatchTreatmentsAvailable } from '@/components/stock/batch-treatment'
 
 // Fenêtres d'action sur UN lot : corriger la quantité, modifier la date de
 // péremption, mettre en promo, retirer du stock. Elles appellent les routes
@@ -32,8 +34,12 @@ export interface BatchTarget {
   promo_start?: string | null
 }
 
+// Motifs d'une correction de quantité. Migration 179 présente : motifs de l'historique des lots (« Erreur de
+// comptage » remplace « Correction », plus de motif « Expiration » — un lot périmé se TRAITE) ; avant elle,
+// motifs d'origine (le serveur fait la correspondance dans les deux sens).
 export const BATCH_REASON_CODES = ['correction', 'damage', 'loss', 'theft', 'expiry', 'other'] as const
-type ReasonCode = typeof BATCH_REASON_CODES[number]
+export const TREATMENT_REASON_CODES = ['counting_error', 'damage', 'loss', 'theft', 'other'] as const
+type ReasonCode = typeof BATCH_REASON_CODES[number] | typeof TREATMENT_REASON_CODES[number]
 
 type DialogProps<T = BatchTarget> = {
   batch: T | null
@@ -48,8 +54,9 @@ async function call(url: string, method: 'PATCH' | 'DELETE', body: unknown): Pro
   return { ok: res.ok, status: res.status, error: json?.error }
 }
 
-function ReasonSelect({ value, onChange, id }: { value: ReasonCode; onChange: (v: ReasonCode) => void; id: string }) {
+function ReasonSelect({ value, onChange, id, treatments }: { value: ReasonCode; onChange: (v: ReasonCode) => void; id: string; treatments: boolean }) {
   const t = useTranslations()
+  const codes: readonly ReasonCode[] = treatments ? TREATMENT_REASON_CODES : BATCH_REASON_CODES
   return (
     <div className="space-y-1.5">
       <Label htmlFor={id}>{t('products.adjustment_reason')}</Label>
@@ -57,26 +64,43 @@ function ReasonSelect({ value, onChange, id }: { value: ReasonCode; onChange: (v
         id={id} value={value} onChange={e => onChange(e.target.value as ReasonCode)}
         className="h-11 w-full rounded-md border border-input bg-background px-2 text-sm sm:h-9"
       >
-        {BATCH_REASON_CODES.map(code => <option key={code} value={code}>{t(`products.${code}` as any)}</option>)}
+        {codes.map(code => <option key={code} value={code}>{t(`products.${code}` as any)}</option>)}
       </select>
     </div>
   )
 }
 
+/** Note d'une correction (179) : obligatoire pour une date, ou pour un motif « Autre » */
+function NoteField({ id, value, onChange, required }: { id: string; value: string; onChange: (v: string) => void; required: boolean }) {
+  const t = useTranslations('batch_treatment')
+  return (
+    <div className="space-y-1.5">
+      <Label htmlFor={id}>{required ? t('note_required') : t('note_label')}</Label>
+      <Textarea id={id} value={value} onChange={e => onChange(e.target.value)} rows={2} maxLength={1000} placeholder={t('note_placeholder')} />
+    </div>
+  )
+}
+
+const defaultReason = (treatments: boolean): ReasonCode => (treatments ? 'counting_error' : 'correction')
+
 // ── Corriger la quantité ─────────────────────────────────────────────────────
 export function BatchAdjustDialog({ batch, onClose, onSaved }: DialogProps) {
   const t = useTranslations()
   const { toast } = useToast()
+  const treatments = useBatchTreatmentsAvailable()
   const [quantity, setQuantity] = useState('')
   const [reason, setReason] = useState<ReasonCode>('correction')
+  const [note, setNote] = useState('')
   const [saving, setSaving] = useState(false)
-  useEffect(() => { if (batch) { setQuantity(String(batch.quantity)); setReason('correction') } }, [batch?.id]) // eslint-disable-line react-hooks/exhaustive-deps
+  const requestId = useRef(newRequestId())
+  useEffect(() => { if (batch) { setQuantity(String(batch.quantity)); setReason(defaultReason(treatments)); setNote(''); requestId.current = newRequestId() } }, [batch?.id, treatments]) // eslint-disable-line react-hooks/exhaustive-deps
+  const noteRequired = treatments && reason === 'other'
 
   const submit = async () => {
-    if (!batch || quantity === '') return
+    if (!batch || quantity === '' || (noteRequired && !note.trim())) return
     setSaving(true)
     try {
-      const r = await call('/api/product-batches/adjust', 'PATCH', { id: batch.id, shop_id: batch.shop_id, new_quantity: Number(quantity), reason_code: reason })
+      const r = await call('/api/product-batches/adjust', 'PATCH', { id: batch.id, shop_id: batch.shop_id, new_quantity: Number(quantity), reason_code: reason, note: note.trim() || null, request_id: requestId.current })
       if (!r.ok) { toast({ title: r.error || t('errors.generic'), variant: 'destructive' }); return }
       toast({ title: t('products.batch_quantity_adjusted_toast'), variant: 'success' })
       onClose(); onSaved()
@@ -95,11 +119,12 @@ export function BatchAdjustDialog({ batch, onClose, onSaved }: DialogProps) {
                 <Label htmlFor="batch-adjust-qty">{t('products.new_quantity_label')}</Label>
                 <Input id="batch-adjust-qty" type="number" inputMode="numeric" min={0} value={quantity} onChange={e => setQuantity(e.target.value)} className="h-11 sm:h-9" />
               </div>
-              <ReasonSelect id="batch-adjust-reason" value={reason} onChange={setReason} />
+              <ReasonSelect id="batch-adjust-reason" value={reason} onChange={setReason} treatments={treatments} />
+              {treatments && <NoteField id="batch-adjust-note" value={note} onChange={setNote} required={noteRequired} />}
             </div>
           </PremiumDialogBody>
           <PremiumDialogFooter onCancel={onClose} cancelLabel={t('actions.cancel')}>
-            <Button variant="stockshop" className="h-11 flex-1 rounded-lg font-semibold" onClick={submit} loading={saving} disabled={quantity === ''}>
+            <Button variant="stockshop" className="h-11 flex-1 rounded-lg font-semibold" onClick={submit} loading={saving} disabled={quantity === '' || (noteRequired && !note.trim())}>
               {t('actions.save')}
             </Button>
           </PremiumDialogFooter>
@@ -113,18 +138,23 @@ export function BatchAdjustDialog({ batch, onClose, onSaved }: DialogProps) {
 export function BatchExpiryDialog({ batch, onClose, onSaved }: DialogProps) {
   const t = useTranslations()
   const { toast } = useToast()
+  const treatments = useBatchTreatmentsAvailable()
   const [date, setDate] = useState('')
+  const [note, setNote] = useState('')
   const [saving, setSaving] = useState(false)
+  const requestId = useRef(newRequestId())
   const pastExpiry = usePastExpiryConfirm()
-  useEffect(() => { if (batch) setDate(batch.expiry_date ? dayOf(batch.expiry_date) : '') }, [batch?.id]) // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { if (batch) { setDate(batch.expiry_date ? dayOf(batch.expiry_date) : ''); setNote(''); requestId.current = newRequestId() } }, [batch?.id]) // eslint-disable-line react-hooks/exhaustive-deps
+  // 179 : toute date enregistrée qui change garde sa raison
+  const noteMissing = treatments && !note.trim()
 
   const save = async (value: string | null) => {
-    if (!batch) return
+    if (!batch || noteMissing) return
     // Date déjà passée : avertissement et confirmation, jamais interdite
     if (value && !(await pastExpiry.confirm([value]))) return
     setSaving(true)
     try {
-      const r = await call('/api/product-batches/expiry', 'PATCH', { id: batch.id, shop_id: batch.shop_id, expiry_date: value })
+      const r = await call('/api/product-batches/expiry', 'PATCH', { id: batch.id, shop_id: batch.shop_id, expiry_date: value, note: note.trim() || null, request_id: requestId.current })
       if (!r.ok) { toast({ title: r.error || t('errors.generic'), variant: 'destructive' }); return }
       toast({ title: t('products.expiry_saved'), variant: 'success' })
       onClose(); onSaved()
@@ -138,17 +168,18 @@ export function BatchExpiryDialog({ batch, onClose, onSaved }: DialogProps) {
       {batch && (
         <>
           <PremiumDialogBody>
-            <div data-testid="batch-expiry-dialog">
+            <div className="space-y-3" data-testid="batch-expiry-dialog">
               <ExpiryDateField id="batch-expiry-date" value={date} onChange={setDate} />
+              {treatments && <NoteField id="batch-expiry-note" value={note} onChange={setNote} required />}
             </div>
           </PremiumDialogBody>
           <PremiumDialogFooter onCancel={onClose} cancelLabel={t('actions.cancel')}>
             {batch.expiry_date && (
-              <Button variant="outline" className="h-11 rounded-lg font-semibold text-red-600 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300" onClick={() => save(null)} loading={saving}>
+              <Button variant="outline" className="h-11 rounded-lg font-semibold text-red-600 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300" onClick={() => save(null)} loading={saving} disabled={noteMissing}>
                 {t('products.clear_expiry_action')}
               </Button>
             )}
-            <Button variant="stockshop" className="h-11 flex-1 rounded-lg font-semibold" onClick={() => save(date)} loading={saving} disabled={!date}>
+            <Button variant="stockshop" className="h-11 flex-1 rounded-lg font-semibold" onClick={() => save(date)} loading={saving} disabled={!date || noteMissing}>
               {t('actions.save')}
             </Button>
           </PremiumDialogFooter>
@@ -296,17 +327,22 @@ export function BatchPromoDialog({ batch, onClose, onSaved, formatPrice }: Dialo
 export function BatchRemoveConfirm({ batch, onClose, onSaved, expired }: DialogProps & { expired?: boolean }) {
   const t = useTranslations()
   const { toast } = useToast()
+  const treatments = useBatchTreatmentsAvailable()
   const [reason, setReason] = useState<ReasonCode>('correction')
+  const [note, setNote] = useState('')
   const [saving, setSaving] = useState(false)
-  useEffect(() => { if (batch) setReason(expired ? 'expiry' : 'correction') }, [batch?.id]) // eslint-disable-line react-hooks/exhaustive-deps
+  const requestId = useRef(newRequestId())
+  useEffect(() => { if (batch) { setReason(treatments ? 'counting_error' : expired ? 'expiry' : 'correction'); setNote(''); requestId.current = newRequestId() } }, [batch?.id, treatments]) // eslint-disable-line react-hooks/exhaustive-deps
+  const noteRequired = treatments && reason === 'other'
 
   const submit = async () => {
-    if (!batch) return
+    if (!batch || (noteRequired && !note.trim())) return
     setSaving(true)
     try {
       let r = await call('/api/product-batches', 'DELETE', { id: batch.id, shop_id: batch.shop_id, reason_code: reason })
-      // 409 : lot déjà vendu en partie → on retire ce qu'il en reste
-      if (!r.ok && r.status === 409) r = await call('/api/product-batches/adjust', 'PATCH', { id: batch.id, shop_id: batch.shop_id, new_quantity: 0, reason_code: reason })
+      // 409 : lot déjà vendu en partie, ou avec un historique (179) → on retire ce qu'il en reste, par une
+      // correction de quantité tracée (jamais une suppression)
+      if (!r.ok && r.status === 409) r = await call('/api/product-batches/adjust', 'PATCH', { id: batch.id, shop_id: batch.shop_id, new_quantity: 0, reason_code: reason, note: note.trim() || null, request_id: requestId.current })
       if (!r.ok) { toast({ title: r.error || t('errors.generic'), variant: 'destructive' }); return }
       toast({ title: t('expiry.removed_toast'), variant: 'success' })
       onClose(); onSaved()
@@ -320,9 +356,14 @@ export function BatchRemoveConfirm({ batch, onClose, onSaved, expired }: DialogP
       open={!!batch} onOpenChange={open => { if (!open) onClose() }}
       title={t('expiry.action_remove')} description={t('expiry.remove_confirm')}
       icon={<PackageMinus className="h-4 w-4" />} tone="danger"
-      confirmLabel={t('expiry.action_remove')} loading={saving} onConfirm={submit}
+      confirmLabel={t('expiry.action_remove')} loading={saving} disabled={noteRequired && !note.trim()} onConfirm={submit}
     >
-      {batch && <ReasonSelect id="batch-remove-reason" value={reason} onChange={setReason} />}
+      {batch && (
+        <div className="space-y-3">
+          <ReasonSelect id="batch-remove-reason" value={reason} onChange={setReason} treatments={treatments} />
+          {treatments && <NoteField id="batch-remove-note" value={note} onChange={setNote} required={noteRequired} />}
+        </div>
+      )}
     </ConfirmModal>
   )
 }

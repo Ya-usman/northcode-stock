@@ -35,6 +35,8 @@ export async function DELETE(request: Request) {
     if (error) {
       if (error.message?.includes('batch_not_found')) return NextResponse.json({ error: t('batch_not_found') }, { status: 404 })
       if (error.message?.includes('batch_already_sold')) return NextResponse.json({ error: t('batch_already_sold') }, { status: 409 })
+      // 179 : un lot ayant un historique (traitement, mouvement lié) n'est jamais supprimé — 409, comme un lot vendu
+      if (error.message?.includes('batch_has_history') || error.code === '23503') return NextResponse.json({ error: t('batch_has_history') }, { status: 409 })
       return NextResponse.json({ error: error.message }, { status: 400 })
     }
 

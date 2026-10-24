@@ -29,7 +29,7 @@ const BASE = 'http://localhost:3000'
   let valueText = ''
   for (let i = 0; i < 100; i++) { valueText = (await valueCard.innerText()).replace(/\s+/g, ' '); if (/\d/.test(valueText)) break; await page.waitForTimeout(150) }
   ok(/F CFA|FCFA|\d/.test(valueText) && /au prix d’achat/.test(valueText), `KPI Valeur du stock : « ${valueText.slice(0, 60)} »`)
-  const cardLabels = ['Ruptures', 'Stock bas', 'Péremptions proches', 'Stock dormant']
+  const cardLabels = ['Ruptures', 'Stock bas', 'Lots périmés', 'Expirent bientôt', 'Stock dormant']  // 179 : cartes de lots
   const found = []
   for (const l of cardLabels) if (await kpis.locator('button').filter({ hasText: new RegExp(`\\d+\\s*${l}`) }).count()) found.push(l)
   ok(found.length === cardLabels.length, `KPI cliquables : ${found.join(', ')}`)

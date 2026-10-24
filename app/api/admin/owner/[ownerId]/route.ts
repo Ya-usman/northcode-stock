@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/server'
 import { requireAdmin } from '@/lib/api/require-admin'
 import { getOwnerShopIds } from '@/lib/api/shop-auth'
+import { purgeTreatmentPhotos } from '@/lib/api/batch-photos-cleanup'
 
 // DELETE /api/admin/owner/[ownerId]
 // Suppression définitive d'un propriétaire et de toutes ses boutiques.
@@ -31,6 +32,14 @@ export async function DELETE(
     // périmée.
     const shopIds = await getOwnerShopIds(admin, ownerId)
     if (shopIds.length > 0) {
+      // Photos de traitement de lot (179) : fichiers privés supprimés AVANT les boutiques ; s'il en reste,
+      // rien n'est supprimé (pas de références effacées laissant des fichiers orphelins — la base le refuse
+      // de toute façon). Les autres espaces (photos produits, logos, justificatifs) : suivi séparé.
+      const purge = await purgeTreatmentPhotos(admin, shopIds)
+      if (!purge.ok) {
+        console.error('[admin/owner] nettoyage des photos de traitement impossible', ownerId, purge.error, purge.remaining.slice(0, 20))
+        return NextResponse.json({ error: 'Suppression annulée : les photos justificatives des lots n\'ont pas pu être supprimées. Rien n\'a été supprimé ; réessayez.', remaining: purge.remaining.length }, { status: 409 })
+      }
       const { error: shopsError } = await (admin as any).from('shops').delete().in('id', shopIds)
       if (shopsError) return NextResponse.json({ error: shopsError.message }, { status: 500 })
     }

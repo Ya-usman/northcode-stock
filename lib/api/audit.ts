@@ -53,6 +53,7 @@ export type AuditAction =
   | 'bulk_update_category'
   | 'update_batch_promo'
   | 'update_batch_expiry'
+  | 'batch_photo_orphan'
   | 'bulk_update_promo'
   | 'admin.suspend_shop'
   | 'admin.reactivate_shop'

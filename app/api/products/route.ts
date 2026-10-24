@@ -5,6 +5,7 @@ import { writeAuditLog, getClientIp } from '@/lib/api/audit'
 import { canWriteFeature } from '@/lib/api/role-permissions'
 import { getApiTranslator } from '@/lib/api/i18n'
 import { classifyBarcode } from '@/lib/products/barcode'
+import { productsWithHistory } from '@/lib/api/product-history'
 
 // Écriture de la fiche produit = niveau « modification » de Produits / Stock
 // (règle unique, lot 1 du 5 oct. 2026). Plus de passe-droit pour le caissier :
@@ -404,6 +405,13 @@ export async function DELETE(request: Request) {
     // Avant suppression : le prix d'achat est figé dans les lignes de vente (précision des rapports)
     const freezeCosts = (rows: any[]) => Promise.all(rows.filter(p => p.buying_price > 0).map(p =>
       (admin as any).from('sale_items').update({ buying_price: Number(p.buying_price) }).eq('product_id', p.id).eq('buying_price', 0)))
+    // Archivage d'un produit conservé pour son historique : même journal que l'archivage manuel
+    const writeArchiveLog = async (list: any[], shopId: string) => {
+      for (const p of list) await Promise.resolve((admin as any).from('audit_logs').insert({
+        shop_id: shopId, actor_id: user.id, actor_email: user.email, action: 'archive_product', target_id: p.id, target_type: 'product',
+        metadata: { actor_name: await actor(), product_name: p.name, sku: p.sku, reason: 'history_kept_on_delete' },
+      })).catch(() => {})
+    }
 
     // ── Suppression unitaire ─────────────────────────────────────────────
     if (singleId) {
@@ -414,7 +422,14 @@ export async function DELETE(request: Request) {
       if (!rights.canDelete) return NextResponse.json({ error: t('insufficient_permission_delete_products') }, { status: 403 })
       await freezeCosts([product])
       await (admin as any).from('products').update({ is_active: false }).eq('id', product.id).eq('shop_id', product.shop_id)
-      const { error } = await (admin as any).from('products').delete().eq('id', product.id).eq('shop_id', product.shop_id)
+      // Historique métier (ventes, traitements, lots vendus…) : archivage, jamais de suppression (D5, 179) ;
+      // une clé étrangère qui refuserait malgré tout la suppression laisse le produit archivé, sans erreur technique
+      const hasHistory = (await productsWithHistory(admin, [product.id])).has(product.id)
+      const { error } = hasHistory ? { error: null } : await (admin as any).from('products').delete().eq('id', product.id).eq('shop_id', product.shop_id)
+      if (hasHistory || error?.code === '23503') {
+        await writeArchiveLog([product], product.shop_id)
+        return NextResponse.json({ ok: true, archived: true, message: t('product_archived_history') })
+      }
       if (error) return NextResponse.json({ error: error.message }, { status: 400 })
 
       // Audit log — non bloquant. Une requête Supabase n'a pas de .catch : l'ancien appel levait une
@@ -476,13 +491,19 @@ export async function DELETE(request: Request) {
     if (!visible) return NextResponse.json({ ok: true, deleted: 0 })
     if (!allowed.length) return NextResponse.json({ error: t('insufficient_permission_delete_products') }, { status: 403 })
 
-    let deleted = 0
+    let deleted = 0, archived = 0
     for (const [shopId, list] of allowed) {
-      const ids = list.map(p => p.id)
       await freezeCosts(list)
-      await (admin as any).from('products').update({ is_active: false }).in('id', ids).eq('shop_id', shopId)
+      await (admin as any).from('products').update({ is_active: false }).in('id', list.map(p => p.id)).eq('shop_id', shopId)
+      // Produits ayant un historique : archivés (déjà is_active = false ci-dessus), jamais supprimés (D5, 179)
+      const keep = await productsWithHistory(admin, list.map(p => p.id))
+      const kept = list.filter(p => keep.has(p.id))
+      if (kept.length) { await writeArchiveLog(kept, shopId); archived += kept.length }
+      const ids = list.filter(p => !keep.has(p.id)).map(p => p.id)
+      if (!ids.length) continue
       const { error } = await (admin as any).from('products').delete().in('id', ids).eq('shop_id', shopId)
-      if (error) return NextResponse.json({ error: error.message, deleted }, { status: 400 })
+      if (error?.code === '23503') { await writeArchiveLog(list.filter(p => ids.includes(p.id)), shopId); archived += ids.length; continue }
+      if (error) return NextResponse.json({ error: error.message, deleted, archived }, { status: 400 })
       deleted += ids.length
       await Promise.resolve((admin as any).from('audit_logs').insert({
         shop_id: shopId,
@@ -499,7 +520,7 @@ export async function DELETE(request: Request) {
       })).catch(() => {}) // non-blocking (même correction que la suppression unitaire)
     }
 
-    return NextResponse.json({ ok: true, deleted, skipped: rows.length - deleted })
+    return NextResponse.json({ ok: true, deleted, archived, skipped: rows.length - deleted - archived })
   } catch (e: any) {
     return NextResponse.json({ error: e.message }, { status: 500 })
   }

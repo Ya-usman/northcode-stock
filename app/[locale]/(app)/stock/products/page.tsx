@@ -28,6 +28,7 @@ import { emitOnboarding } from '@/lib/onboarding/events'
 import { DetailDrawer } from '@/components/ui/detail-drawer'
 import { ConfirmModal } from '@/components/ui/confirm-modal'
 import { ExpiryDateField, usePastExpiryConfirm } from '@/components/stock/expiry-date-field'
+import { BatchAdjustDialog, BatchExpiryDialog, BatchRemoveConfirm } from '@/components/stock/batch-dialogs'
 import { PRODUCT_FORM_ID, type ProductFormState } from '@/components/stock/product-form-submit'
 import { Skeleton } from '@/components/ui/skeleton'
 import { useCurrency } from '@/lib/hooks/use-currency'
@@ -180,8 +181,6 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
   const [promoSuggestionKey, setPromoSuggestionKey] = useState<'expiry' | 'dormant' | null>(null)
   const [promoBatch, setPromoBatch] = useState<any | null>(null)
   const [expiryBatch, setExpiryBatch] = useState<any | null>(null)
-  const [expiryDate, setExpiryDate] = useState('')
-  const [savingExpiry, setSavingExpiry] = useState(false)
   // Fiche produit : `batchesProduct` est le produit affiché ; la fiche s'ouvre en haut, ou sur ses lots (icône « Lots »)
   const [batchesProduct, setBatchesProduct] = useState<Product | null>(null)
   const [detailSection, setDetailSection] = useState<ProductDetailSection>('top')
@@ -189,12 +188,7 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
   const [productBatches, setProductBatches] = useState<any[]>([])
   const [loadingBatches, setLoadingBatches] = useState(false)
   const [adjustBatch, setAdjustBatch] = useState<any | null>(null)
-  const [adjustQuantity, setAdjustQuantity] = useState('')
-  const [adjustReason, setAdjustReason] = useState('correction')
-  const [savingAdjust, setSavingAdjust] = useState(false)
   const [deleteBatchConfirm, setDeleteBatchConfirm] = useState<any | null>(null)
-  const [deleteBatchReason, setDeleteBatchReason] = useState('correction')
-  const [deletingBatch, setDeletingBatch] = useState(false)
   const [showAddModal, setShowAddModal] = useState(false)
   const [addFormKey, setAddFormKey] = useState(0)
   const [sessionAddCount, setSessionAddCount] = useState(0)
@@ -849,97 +843,6 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
     }
   }
 
-  const submitExpiry = async () => {
-    if (!expiryBatch || !shop?.id || !expiryDate) return
-    if (!(await pastExpiry.confirm([expiryDate]))) return
-    setSavingExpiry(true)
-    try {
-      const res = await withTimeout(fetch('/api/product-batches/expiry', {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id: expiryBatch.id, shop_id: expiryBatch.shop_id, expiry_date: expiryDate }),
-      }))
-      const json = await res.json()
-      if (!res.ok) { toast({ title: json.error || t('toast.error'), variant: 'destructive' }); return }
-      toast({ title: t('products.expiry_saved'), variant: 'success' })
-      setExpiryBatch(null)
-      fetchStockSignals()
-      refreshProductDetail()
-    } catch (err: any) {
-      toast({ title: err.message || t('toast.error'), variant: 'destructive' })
-    } finally {
-      setSavingExpiry(false)
-    }
-  }
-
-  const clearExpiry = async () => {
-    if (!expiryBatch || !shop?.id) return
-    setSavingExpiry(true)
-    try {
-      const res = await withTimeout(fetch('/api/product-batches/expiry', {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id: expiryBatch.id, shop_id: expiryBatch.shop_id, expiry_date: null }),
-      }))
-      const json = await res.json()
-      if (!res.ok) { toast({ title: json.error || t('toast.error'), variant: 'destructive' }); return }
-      toast({ title: t('products.expiry_saved'), variant: 'success' })
-      setExpiryBatch(null)
-      fetchStockSignals()
-      refreshProductDetail()
-    } catch (err: any) {
-      toast({ title: err.message || t('toast.error'), variant: 'destructive' })
-    } finally {
-      setSavingExpiry(false)
-    }
-  }
-
-  const submitAdjustQuantity = async () => {
-    if (!adjustBatch || !shop?.id || adjustQuantity === '') return
-    setSavingAdjust(true)
-    try {
-      const res = await withTimeout(fetch('/api/product-batches/adjust', {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id: adjustBatch.id, shop_id: adjustBatch.shop_id, new_quantity: Number(adjustQuantity), reason_code: adjustReason }),
-      }))
-      const json = await res.json()
-      if (!res.ok) { toast({ title: json.error || t('toast.error'), variant: 'destructive' }); return }
-      toast({ title: t('products.batch_quantity_adjusted_toast'), variant: 'success' })
-      setAdjustBatch(null)
-      fetchProducts()
-      fetchStockSignals()
-      refreshProductDetail()
-    } catch (err: any) {
-      toast({ title: err.message || t('toast.error'), variant: 'destructive' })
-    } finally {
-      setSavingAdjust(false)
-    }
-  }
-
-  const submitDeleteBatch = async () => {
-    if (!deleteBatchConfirm || !shop?.id) return
-    setDeletingBatch(true)
-    try {
-      const res = await withTimeout(fetch('/api/product-batches', {
-        method: 'DELETE',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id: deleteBatchConfirm.id, shop_id: deleteBatchConfirm.shop_id, reason_code: deleteBatchReason }),
-      }))
-      const json = await res.json()
-      if (!res.ok) { toast({ title: json.error || t('toast.error'), variant: 'destructive' }); return }
-      toast({ title: t('products.batch_deleted_toast'), variant: 'success' })
-      setDeleteBatchConfirm(null)
-      fetchProducts()
-      fetchStockSignals()
-      refreshProductDetail()
-    } catch (err: any) {
-      toast({ title: err.message || t('toast.error'), variant: 'destructive' })
-    } finally {
-      setDeletingBatch(false)
-    }
-  }
-
   const archiveProduct = async () => {
     if (!archiveConfirmProduct) return
     setArchiving(true)
@@ -987,7 +890,9 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
         const json = await res.json()
         toast({ title: json.error || t('toast.error'), variant: 'destructive' })
       } else {
-        toast({ title: t('toast.product_deleted'), variant: 'success' })
+        // Produit avec historique : archivé pour garder la traçabilité, pas supprimé (179)
+        const json = await res.json().catch(() => ({}))
+        toast({ title: json.archived ? t('products.archived_history_toast') : t('toast.product_deleted'), variant: 'success' })
         setDeleteConfirmProduct(null)
         fetchProducts()
       }
@@ -1050,7 +955,7 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
     const payloads = isAll
       ? [{ shop_id: effectiveShopIds[0], all: true }]
       : selectionByShop().map(g => ({ shop_id: g.shopId, ids: g.ids }))
-    let count = 0
+    let count = 0, archivedCount = 0
     let failure: string | null = null
     for (const payload of payloads) {
       try {
@@ -1062,15 +967,18 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
         const json = await res.json()
         if (!res.ok) { failure = json.error || t('toast.error'); continue }
         count += json.deleted ?? 0
+        archivedCount += json.archived ?? 0
       } catch (err: any) {
         failure = err.message || t('toast.error')
       }
     }
     setBulkDeleting(false)
     if (failure) toast({ title: failure, variant: 'destructive' })
-    if (failure && count === 0) { fetchProducts(); return }
+    if (failure && count === 0 && archivedCount === 0) { fetchProducts(); return }
     toast({
       title: isAll ? t('products.all_deleted_toast') : t('products.bulk_deleted_toast', { count }),
+      // Produits avec historique : archivés pour garder la traçabilité (179)
+      description: archivedCount ? t('products.bulk_archived_history', { count: archivedCount }) : undefined,
       variant: 'success',
     })
     setBulkDeleteDialog(false)
@@ -2242,7 +2150,7 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
           batches: productBatches,
           loading: loadingBatches,
           canWrite: canWriteStock,
-          onAdjust: b => { setAdjustBatch(b); setAdjustQuantity(String(b.quantity)); setAdjustReason('correction') },
+          onAdjust: b => setAdjustBatch(b),
           onPromo: b => {
             setPromoProduct(batchesProduct)
             setPromoBatch(b)
@@ -2253,8 +2161,8 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
             setPromoSuggestionReason(null)
             setPromoSuggestionKey(null)
           },
-          onDelete: b => { setDeleteBatchConfirm(b); setDeleteBatchReason('correction') },
-          onEditExpiry: b => { setExpiryBatch(b); setExpiryDate(b.expiry_date ? b.expiry_date.slice(0, 10) : '') },
+          onDelete: b => setDeleteBatchConfirm(b),
+          onEditExpiry: b => setExpiryBatch(b),
         }}
         actions={{
           // Mêmes fenêtres et mêmes routes que la liste ; chaque action n'est proposée qu'à qui peut la faire
@@ -2267,102 +2175,12 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
         onChanged={fetchStockSignals}
       />
 
-      {/* Correction de la date de péremption d'un lot */}
-      <PremiumDialog
-        open={!!expiryBatch}
-        onOpenChange={open => { if (!open) setExpiryBatch(null) }}
-        title={t('products.edit_expiry_action')}
-        icon={<CalendarClock className="h-4 w-4" />}
-      >
-        {expiryBatch && (
-          <>
-            <PremiumDialogBody>
-              <ExpiryDateField id="product-batch-expiry-date" value={expiryDate} onChange={setExpiryDate} />
-            </PremiumDialogBody>
-            <PremiumDialogFooter onCancel={() => setExpiryBatch(null)} cancelLabel={t('actions.cancel')}>
-              {expiryBatch.expiry_date && (
-                <Button variant="outline" className="h-11 rounded-lg font-semibold text-red-600 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300" onClick={clearExpiry} loading={savingExpiry}>
-                  {t('products.clear_expiry_action')}
-                </Button>
-              )}
-              <Button variant="stockshop" className="flex-1 h-11 rounded-lg font-semibold" onClick={submitExpiry} loading={savingExpiry} disabled={!expiryDate}>
-                {t('actions.save')}
-              </Button>
-            </PremiumDialogFooter>
-          </>
-        )}
-      </PremiumDialog>
-
+      {/* Fenêtres de lot COMMUNES avec Stock › Lots (batch-dialogs) : date, quantité, retrait — mêmes routes,
+          note et motifs de l'historique des lots dès que la migration 179 est présente */}
+      <BatchExpiryDialog batch={expiryBatch} onClose={() => setExpiryBatch(null)} onSaved={() => { fetchStockSignals(); refreshProductDetail() }} />
       {pastExpiry.dialog}
-
-      {/* Correction de la quantité d'un lot */}
-      <PremiumDialog
-        open={!!adjustBatch}
-        onOpenChange={open => { if (!open) setAdjustBatch(null) }}
-        title={t('products.adjust_quantity_action')}
-        icon={<Edit2 className="h-4 w-4" />}
-      >
-        {adjustBatch && (
-          <>
-            <PremiumDialogBody>
-              <div className="space-y-3">
-                <div className="space-y-1.5">
-                  <Label>{t('products.new_quantity_label')}</Label>
-                  <Input type="number" min={0} value={adjustQuantity} onChange={e => setAdjustQuantity(e.target.value)} className="h-9" />
-                </div>
-                <div className="space-y-1.5">
-                  <Label>{t('products.adjustment_reason')}</Label>
-                  {/* select natif — un Select Radix imbriqué dans ce Dialog laisse
-                      pointer-events bloqué après fermeture (même bug que dans
-                      Inventaire physique) */}
-                  <select
-                    value={adjustReason}
-                    onChange={e => setAdjustReason(e.target.value)}
-                    className="h-9 w-full rounded-md border border-input bg-background px-2 text-sm"
-                  >
-                    {(['correction', 'damage', 'loss', 'theft', 'expiry', 'other'] as const).map(code => (
-                      <option key={code} value={code}>{t(`products.${code}` as any)}</option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-            </PremiumDialogBody>
-            <PremiumDialogFooter onCancel={() => setAdjustBatch(null)} cancelLabel={t('actions.cancel')}>
-              <Button variant="stockshop" className="flex-1 h-11 rounded-lg font-semibold" onClick={submitAdjustQuantity} loading={savingAdjust} disabled={adjustQuantity === ''}>
-                {t('actions.save')}
-              </Button>
-            </PremiumDialogFooter>
-          </>
-        )}
-      </PremiumDialog>
-
-      {/* Suppression d'un lot : confirmation avec motif, bouton rouge */}
-      <ConfirmModal
-        open={!!deleteBatchConfirm}
-        onOpenChange={open => { if (!open) setDeleteBatchConfirm(null) }}
-        title={t('products.delete_batch_action')}
-        description={t('products.delete_batch_confirm')}
-        icon={<Trash2 className="h-4 w-4" />}
-        tone="danger"
-        confirmLabel={t('products.delete_batch_action')}
-        loading={deletingBatch}
-        onConfirm={submitDeleteBatch}
-      >
-        {deleteBatchConfirm && (
-          <div className="space-y-1.5">
-            <Label>{t('products.adjustment_reason')}</Label>
-            <select
-              value={deleteBatchReason}
-              onChange={e => setDeleteBatchReason(e.target.value)}
-              className="h-9 w-full rounded-md border border-input bg-background px-2 text-sm"
-            >
-              {(['correction', 'damage', 'loss', 'theft', 'expiry', 'other'] as const).map(code => (
-                <option key={code} value={code}>{t(`products.${code}` as any)}</option>
-              ))}
-            </select>
-          </div>
-        )}
-      </ConfirmModal>
+      <BatchAdjustDialog batch={adjustBatch} onClose={() => setAdjustBatch(null)} onSaved={() => { fetchProducts(); fetchStockSignals(); refreshProductDetail() }} />
+      <BatchRemoveConfirm batch={deleteBatchConfirm} onClose={() => setDeleteBatchConfirm(null)} onSaved={() => { fetchProducts(); fetchStockSignals(); refreshProductDetail() }} />
       {/* Bulk category assignment dialog */}
       <PremiumDialog
         open={bulkCategoryDialog}

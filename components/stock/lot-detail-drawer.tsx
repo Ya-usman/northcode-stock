@@ -1,7 +1,9 @@
 'use client'
 
+import { useEffect } from 'react'
 import { useLocale, useTranslations } from 'next-intl'
-import { CalendarClock, ChevronRight, Edit2, MoreHorizontal, PackageMinus, ShoppingBasket, Tag } from 'lucide-react'
+import { CalendarClock, ChevronRight, Edit2, MoreHorizontal, PackageCheck, PackageMinus, ShoppingBasket, Tag } from 'lucide-react'
+import { BatchTreatmentHistory, UnallocatedBanner, useBatchTreatmentsAvailable, useLotTreatments } from '@/components/stock/batch-treatment'
 import { DetailDrawer } from '@/components/ui/detail-drawer'
 import { DrawerSection } from '@/components/ui/app-drawer'
 import { Badge } from '@/components/ui/badge'
@@ -116,19 +118,37 @@ export interface LotDetailDrawerProps {
   onEditExpiry: (lot: LotRow) => void
   onPromo: (lot: LotRow) => void
   onRemove: (lot: LotRow) => void
+  /** Migration 179 présente : « Traiter le lot périmé » (destruction, retour, corrections tracées) */
+  onTreat?: (lot: LotRow) => void
+  /** Change après un traitement ou une attribution : l'historique se recharge */
+  historyKey?: number
+  /** Après l'attribution d'une vente au lot : la liste se recharge */
+  onChanged?: () => void
 }
 
-export function LotDetailDrawer({ lot, status, today, onClose, shopName, cost, formatPrice, fefoFirst, canWrite, onViewProduct, onAdjust, onEditExpiry, onPromo, onRemove }: LotDetailDrawerProps) {
+export function LotDetailDrawer({ lot, status, today, onClose, shopName, cost, formatPrice, fefoFirst, canWrite, onViewProduct, onAdjust, onEditExpiry, onPromo, onRemove, onTreat, historyKey, onChanged }: LotDetailDrawerProps) {
   const t = useTranslations()
   const texts = useLotTexts()
   const unitLabel = useUnitLabel()
   const p = lot?.products ?? null
   const promoActive = !!lot && isPromoActive(lot)
   const sourceLabel = lot ? t(`products.batch_source_${lot.source}` as any) : ''
+  // 179 : historique, ventes à attribuer et « Traiter » — rien n'est demandé au serveur tant qu'elle est absente
+  const available = useBatchTreatmentsAvailable()
+  const treatments = useLotTreatments(available ? lot?.id : null)
+  const { reload } = treatments
+  useEffect(() => { if (historyKey) reload() }, [historyKey]) // eslint-disable-line react-hooks/exhaustive-deps
+  const canTreat = available && canWrite && !!onTreat && !!lot && status === 'expired' && lot.quantity > 0
+  const remove = (l: LotRow) => (canTreat && onTreat ? onTreat(l) : onRemove(l))
 
   const footer = lot && (onViewProduct || canWrite) ? (
     <div className="flex flex-wrap gap-2" data-testid="lot-detail-actions">
-      {canWrite && (
+      {canTreat && (
+        <Button variant="stockshop" size="sm" className="h-10 gap-1.5 px-3 text-[13px] sm:text-sm" onClick={() => onTreat!(lot)} data-testid="lot-detail-treat">
+          <PackageCheck className="hidden h-4 w-4 sm:block" />{t('batch_treatment.treat_action')}
+        </Button>
+      )}
+      {canWrite && !canTreat && (
         // Téléphone : texte seul, pour que les trois boutons tiennent sur une ligne
         <Button variant="outline" size="sm" className="h-10 gap-1.5 px-3 text-[13px] sm:text-sm" onClick={() => onAdjust(lot)} data-testid="lot-detail-adjust">
           <Edit2 className="hidden h-4 w-4 sm:block" />{t('products.adjust_quantity_action')}
@@ -147,10 +167,14 @@ export function LotDetailDrawer({ lot, status, today, onClose, shopName, cost, f
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-60">
+            {canTreat && <DropdownMenuItem onClick={() => onAdjust(lot)} className="gap-2.5 py-2.5"><Edit2 className="h-4 w-4 shrink-0" />{t('products.adjust_quantity_action')}</DropdownMenuItem>}
             <DropdownMenuItem onClick={() => onEditExpiry(lot)} className="gap-2.5 py-2.5"><CalendarClock className="h-4 w-4 shrink-0" />{t('products.edit_expiry_action')}</DropdownMenuItem>
-            <DropdownMenuItem onClick={() => onPromo(lot)} className="gap-2.5 py-2.5"><Tag className="h-4 w-4 shrink-0" />{t('products.promo_action')}</DropdownMenuItem>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem onClick={() => onRemove(lot)} className="gap-2.5 py-2.5 text-red-600 focus:text-red-600 dark:text-red-400 dark:focus:text-red-400"><PackageMinus className="h-4 w-4 shrink-0" />{t('expiry.action_remove')}</DropdownMenuItem>
+            {/* Jamais de promotion proposée pour un lot déjà périmé (179) */}
+            {!(available && status === 'expired') && <DropdownMenuItem onClick={() => onPromo(lot)} className="gap-2.5 py-2.5"><Tag className="h-4 w-4 shrink-0" />{t('products.promo_action')}</DropdownMenuItem>}
+            {!canTreat && <>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={() => onRemove(lot)} className="gap-2.5 py-2.5 text-red-600 focus:text-red-600 dark:text-red-400 dark:focus:text-red-400"><PackageMinus className="h-4 w-4 shrink-0" />{t('expiry.action_remove')}</DropdownMenuItem>
+            </>}
           </DropdownMenuContent>
         </DropdownMenu>
       )}
@@ -193,9 +217,12 @@ export function LotDetailDrawer({ lot, status, today, onClose, shopName, cost, f
           {status === 'expired' && (
             <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2.5 text-sm text-red-700 dark:border-red-900 dark:bg-red-950/30 dark:text-red-400" data-testid="lot-detail-hint" data-hint="expired">
               {t('expiry.hint_expired')}
-              {canWrite && <>{' '}<button type="button" onClick={() => onRemove(lot)} className="font-semibold underline underline-offset-2">{t('expiry.action_remove')}</button></>}
+              {canWrite && <>{' '}<button type="button" onClick={() => remove(lot)} className="font-semibold underline underline-offset-2">{canTreat ? t('batch_treatment.treat_action') : t('expiry.action_remove')}</button></>}
             </p>
           )}
+          {available && canWrite && treatments.data?.candidates?.length ? (
+            <UnallocatedBanner lotId={lot.id} lotQuantity={lot.quantity} candidates={treatments.data.candidates} onResolved={() => { reload(); onChanged?.() }} />
+          ) : null}
           {status === 'expiring' && !promoActive && canWrite && (
             <p className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2.5 text-sm text-amber-800 dark:border-amber-900 dark:bg-amber-950/30 dark:text-amber-400" data-testid="lot-detail-hint" data-hint="promo">
               {t('expiry.hint_promo')}{' '}
@@ -232,6 +259,12 @@ export function LotDetailDrawer({ lot, status, today, onClose, shopName, cost, f
             <p className="flex items-center gap-2 text-xs text-muted-foreground" data-testid="lot-detail-fefo">
               <ShoppingBasket className="h-3.5 w-3.5 shrink-0" />{t('expiry.fefo_first')}
             </p>
+          )}
+
+          {available && treatments.data?.available && (
+            <DrawerSection title={t('batch_treatment.history_title')}>
+              <BatchTreatmentHistory events={treatments.data.treatments} unit={n => unitLabel(p?.unit, n)} />
+            </DrawerSection>
           )}
         </div>
       )}

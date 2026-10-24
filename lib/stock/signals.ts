@@ -311,6 +311,34 @@ export function isExpiringSoon(p: { id: string; category_id: string | null; shop
   return !!exp && exp >= today && exp <= expiryCutoffFor(p, ctx)
 }
 
+/** Lots datés encore en stock (quantité > 0), avec la catégorie de leur produit : base des compteurs de LOTS */
+export type DatedLot = { shop_id: string; expiry_date: string; category_id: string | null }
+export async function fetchDatedLots(supabase: Db, shopIds: string[]): Promise<DatedLot[]> {
+  const { data, error } = await withTimeout<any>(supabase
+    .from('product_batches')
+    .select('shop_id, expiry_date, products(category_id)')
+    .in('shop_id', shopIds)
+    .gt('quantity', 0)
+    .not('expiry_date', 'is', null), 20_000)
+  if (error) throw error
+  return ((data || []) as any[]).map(b => ({ shop_id: b.shop_id, expiry_date: b.expiry_date, category_id: b.products?.category_id ?? null }))
+}
+
+/**
+ * Nombre de LOTS périmés (date < date de la boutique, quantité > 0 : ce qui reste réellement à traiter) et de
+ * lots qui expirent bientôt (même délai d'alerte que partout : catégorie, sinon boutique) — jamais des produits.
+ */
+export function lotExpiryCounts(lots: DatedLot[], ctx: StockRulesContext): { expired: number; expiring: number } {
+  let expired = 0, expiring = 0
+  for (const l of lots) {
+    const p = { shop_id: l.shop_id, category_id: l.category_id }
+    const day = l.expiry_date.slice(0, 10)
+    if (day < todayFor(p, ctx)) expired++
+    else if (day <= expiryCutoffFor(p, ctx)) expiring++
+  }
+  return { expired, expiring }
+}
+
 export function isDormant(p: { id: string; quantity: number }, ctx: StockRulesContext): boolean {
   return ctx.soldQtyLoaded && p.quantity > 0 && !(ctx.soldQtyByProduct[p.id] > 0)
 }

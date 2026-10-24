@@ -9,6 +9,7 @@ import { dateLocaleTag } from '@/lib/i18n/date-format'
 import { isPromoActive } from '@/lib/stock/signals'
 import { shopToday } from '@/lib/stock/sellable'
 import { useAuthContext } from '@/lib/contexts/auth-context'
+import { ExhaustedLots } from '@/components/stock/batch-treatment'
 
 // Lots d'un produit (quantité, origine, date de réception, péremption, promo
 // du lot) et leurs actions. UNE seule implémentation : c'est la section
@@ -40,7 +41,9 @@ export function ProductBatchesList({ product, batches: rawBatches, loading, canW
   const { userShops } = useAuthContext()
 
   if (loading) return <div className="space-y-2">{[...Array(3)].map((_, i) => <Skeleton key={i} className="h-16" />)}</div>
-  if (batches.length === 0) return <p className="py-4 text-center text-sm text-muted-foreground">{t('products.no_batches')}</p>
+  // Lots épuisés / traités : toujours retrouvables depuis le produit (179), sous la liste de travail
+  const exhausted = product?.id ? <ExhaustedLots productId={product.id} unit={n => unitLabel(product.unit, n)} /> : null
+  if (batches.length === 0) return <div><p className="py-4 text-center text-sm text-muted-foreground">{t('products.no_batches')}</p>{exhausted}</div>
 
   // Date métier de la boutique DU produit (shops.timezone, migration 178)
   const today = shopToday(userShops.find(s => s.id === (product as any)?.shop_id) ?? null)
@@ -118,6 +121,7 @@ export function ProductBatchesList({ product, batches: rawBatches, loading, canW
           </div>
         )
       })}
+      {exhausted}
     </div>
   )
 }

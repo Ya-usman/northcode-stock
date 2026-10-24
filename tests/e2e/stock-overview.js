@@ -1,5 +1,6 @@
-// Étape 2 — Vue d'ensemble, sur le build de production, lecture seule :
-// six KPI principaux (Promo n'en fait plus partie), valeur immobilisée du
+// Étape 2 — Vue d'ensemble, sur le build de production, lecture seule (mis à jour pour la 179 : cartes
+// « Lots périmés » / « Expirent bientôt » en nombre de lots, priorités séparées ruptures / stock bas) :
+// KPI principaux (Promo n'en fait plus partie), valeur immobilisée du
 // stock dormant, zone « Opportunités » cohérente avec les KPI, liens profonds
 // vers Produits (filtre) et Lots & péremptions (filtre), téléphone.
 const { openPage, SCR } = require('./lib/session.js')
@@ -22,11 +23,12 @@ async function kpiValue(page, label) {
   await kpiSection.waitFor({ timeout: 20000 })
 
   // ── KPI ──────────────────────────────────────────────────────────────────
-  const labels = ['Valeur du stock', 'Produits', 'Ruptures', 'Stock bas', 'Péremptions proches', 'Stock dormant']
+  // 179 : « Péremptions proches » (produits) remplacée par deux cartes en nombre de LOTS
+  const labels = ['Valeur du stock', 'Produits', 'Ruptures', 'Stock bas', 'Lots périmés', 'Expirent bientôt', 'Stock dormant']
   const kpiText = (await kpiSection.innerText()).replace(/\s+/g, ' ')
-  ok(labels.every(l => kpiText.includes(l)), `six KPI : ${labels.join(' · ')}`)
+  ok(labels.every(l => kpiText.includes(l)) && !/Péremptions proches/.test(kpiText), `sept KPI : ${labels.join(' · ')}`)
   ok(!/Promo/.test(kpiText), 'Promo n’est plus un KPI principal')
-  ok((await kpiSection.locator('button, div.rounded-xl').count()) >= 6, 'six cartes rendues')
+  ok((await kpiSection.locator('button, div.rounded-xl').count()) >= 7, 'sept cartes rendues')
   // Le stock dormant arrive avec les ventes 30 j : on attend le chiffre final
   let dormant = { value: 0, txt: '' }
   for (let i = 0; i < 100; i++) { dormant = await kpiValue(page, 'Stock dormant'); if (dormant.value > 0) break; await page.waitForTimeout(100) }
@@ -34,46 +36,42 @@ async function kpiValue(page, label) {
   // Ruptures et stock bas tiennent compte des lots périmés et des réservations, chargés à part : chiffres stables
   let out = -1, low = -1
   for (let i = 0; i < 60; i++) { const o2 = (await kpiValue(page, 'Ruptures')).value, l2 = (await kpiValue(page, 'Stock bas')).value; const same = o2 === out && l2 === low; out = o2; low = l2; if (same && i >= 8) break; await page.waitForTimeout(250) }
-  const expiring = (await kpiValue(page, 'Péremptions proches')).value
+  const expiredLots = (await kpiValue(page, 'Lots périmés')).value
+  const expiring = (await kpiValue(page, 'Expirent bientôt')).value
   const total = (await kpiValue(page, 'Produits')).value
-  ok(total > 0 && out >= 0 && low >= 0 && expiring >= 0, `KPI : produits ${total}, ruptures ${out}, stock bas ${low}, péremptions ${expiring}`)
-  // Ordinateur : le montant tient sur une ligne, sans déborder ; deux rangées (2 larges + 4)
+  ok(total > 0 && out >= 0 && low >= 0 && expiredLots >= 0 && expiring >= 0, `KPI : produits ${total}, ruptures ${out}, stock bas ${low}, lots périmés ${expiredLots}, lots qui expirent ${expiring}`)
+  // Ordinateur : le montant tient sur une ligne ; Valeur + Produits, puis quatre alertes, puis Stock dormant
   const dk = await kpiSection.locator(':scope > *').evaluateAll(els => els.map(e => { const r = e.getBoundingClientRect(); const p = e.querySelector('p'); return { top: Math.round(r.top), w: Math.round(r.width), overflow: e.scrollWidth > e.clientWidth + 1, valueH: p ? Math.round(p.getBoundingClientRect().height) : 0 } }))
   ok(!dk[0].overflow && dk[0].valueH <= 32, `ordinateur : montant de la valeur sur une ligne (hauteur ${dk[0].valueH} px, largeur de carte ${dk[0].w} px)`)
-  ok(dk[0].top === dk[1].top && dk[2].top === dk[5].top && dk[1].top !== dk[2].top, `ordinateur : deux rangées (Valeur + Produits, puis quatre alertes)`)
+  ok(dk.length === 7 && dk[0].top === dk[1].top && dk[2].top === dk[5].top && dk[1].top !== dk[2].top && dk[6].top > dk[5].top,
+    `ordinateur : Valeur + Produits, puis quatre alertes, puis Stock dormant`)
 
-  // ── Opportunités ─────────────────────────────────────────────────────────
+  // ── Priorités : ordre 179 (lots périmés, ruptures, stock bas, expirent bientôt, dormant), 3 visibles ──
   const opp = page.locator('section[aria-label="Priorités stock"]')
   await opp.waitFor({ timeout: 10000 })
   const oppText = (await opp.innerText()).replace(/\s+/g, ' ')
   ok(/Actions recommandées/.test(oppText), 'zone « Priorités stock » affichée')
-  const reorderRow = oppText.match(/(\d+) produits? à réapprovisionner/)
-  ok(!!reorderRow && num(reorderRow[1]) === out + low, `opportunité réapprovisionnement = ruptures + stock bas (${reorderRow?.[1]} = ${out} + ${low})`)
-  const dormantRow = oppText.match(/(\d+) produits? sans vente/)
-  ok(!!dormantRow && num(dormantRow[1]) === dormant.value, `opportunité ventes lentes = KPI (${dormantRow?.[1]})`)
-  const expRow = oppText.match(/(\d+) produits? avec un lot/)
-  ok(expiring === 0 ? !expRow : !!expRow && num(expRow[1]) === expiring, `opportunité péremption = KPI (${expRow?.[1] ?? 'absente'})`)
+  const expected = [['expired_lots', expiredLots], ['out', out], ['low', low], ['expiring', expiring], ['dormant', dormant.value]].filter(([, n]) => n > 0).map(([k]) => k).slice(0, 3)
+  const shown = await opp.locator('[data-priority]').evaluateAll(els => els.map(e => e.getAttribute('data-priority')))
+  ok(shown.join(',') === expected.join(','), `priorités affichées = ordre attendu (${shown.join(' › ')})`)
+  const rowCount = (re, n, label) => { const m = oppText.match(re); return ok(!shown.includes(label) || (!!m && num(m[1]) === n), `priorité « ${label} » = carte (${m?.[1] ?? 'non affichée'})`) }
+  rowCount(/(\d+) lots? périmés? à traiter/, expiredLots, 'expired_lots')
+  rowCount(/(\d+) produits? en rupture/, out, 'out')
+  rowCount(/(\d+) produits? en stock bas/, low, 'low')
+  ok(!/à réapprovisionner/.test(oppText), 'plus de priorité groupée « à réapprovisionner » (ruptures et stock bas séparés)')
   ok(!/Rien à signaler/.test(oppText), 'pas d’état vide alors que des opportunités existent')
   await page.screenshot({ path: SCR + '/stock-overview-v2-desktop.png', fullPage: true })
 
-  // ── Lien profond vers Lots & péremptions ─────────────────────────────────
-  if (expRow) {
-    await opp.locator('[data-priority=expiring]').click()
+  // ── Cartes de lots → Lots & péremptions, filtre correspondant ───────────
+  for (const [label, filter] of [['Lots périmés', /^Périm/], ['Expirent bientôt', /^Expire/]]) {
+    await page.locator('section[aria-label="Chiffres clés"] button').filter({ hasText: label }).click()
     await page.waitForURL(/\/fr\/stock\/expiry/, { timeout: 15000 })
-    await page.waitForFunction(() => !location.search, null, { timeout: 10000 }).catch(() => {})
-    const trig = page.locator('button[role="combobox"]').filter({ hasText: /^À traiter$/ })
-    await trig.waitFor({ timeout: 10000 }).catch(() => {})
-    ok(await trig.count() === 1 && !new URL(page.url()).search, 'Lots & péremptions ouvert avec le filtre « À traiter » (périmés + expire bientôt), URL nettoyée')
+    const trig = page.locator('button[role="combobox"]').filter({ hasText: filter })
+    await trig.first().waitFor({ timeout: 10000 }).catch(() => {})
+    ok(await trig.count() >= 1, `KPI ${label} → Lots & péremptions, filtre « ${filter.source.slice(1)}… »`)
     await page.goBack({ waitUntil: 'domcontentloaded' })
     await kpiSection.waitFor({ timeout: 20000 })
   }
-
-  // ── KPI Péremptions proches → Produits filtrés ──────────────────────────
-  await page.locator('section[aria-label="Chiffres clés"] button').filter({ hasText: 'Péremptions proches' }).click()
-  await page.waitForURL(/\/fr\/stock\/expiry/, { timeout: 15000 })
-  const trigP = page.locator('button[role="combobox"]').filter({ hasText: /^À traiter$/ })
-  await trigP.waitFor({ timeout: 10000 }).catch(() => {})
-  ok(await trigP.count() === 1, 'KPI Péremptions proches → Lots & péremptions avec le filtre « À traiter »')
   await browser.close()
 
   // ── Téléphone ────────────────────────────────────────────────────────────
@@ -84,8 +82,8 @@ async function kpiValue(page, label) {
   const geo = await mk.locator(':scope > *').evaluateAll(els => els.map(e => { const r = e.getBoundingClientRect(); return { top: Math.round(r.top), w: Math.round(r.width) } }))
   const vw = await m.page.evaluate(() => window.innerWidth)
   // Valeur et Produits sur toute la largeur (montant long lisible), alertes par deux
-  ok(geo.length >= 6 && geo[0].w > vw * 0.8 && geo[1].w > vw * 0.8 && geo[2].top === geo[3].top && geo[4].top === geo[5].top,
-    `téléphone : Valeur et Produits pleine largeur (${geo[0].w}, ${geo[1].w} px sur ${vw}), alertes par deux`)
+  ok(geo.length >= 7 && geo[0].w > vw * 0.8 && geo[1].w > vw * 0.8 && geo[2].top === geo[3].top && geo[4].top === geo[5].top && geo[6].w > vw * 0.8,
+    `téléphone : Valeur et Produits pleine largeur (${geo[0].w}, ${geo[1].w} px sur ${vw}), alertes par deux, Stock dormant pleine largeur`)
   const valueOverflow = await mk.locator(':scope > *').first().evaluate(el => el.scrollWidth > el.clientWidth + 1)
   ok(!valueOverflow, 'téléphone : le montant de la valeur du stock ne déborde pas de sa carte')
   const mOpp = m.page.locator('section[aria-label="Priorités stock"]')

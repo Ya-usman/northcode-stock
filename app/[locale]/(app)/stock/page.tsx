@@ -24,7 +24,7 @@ import { cn } from '@/lib/utils/cn'
 import { LoadErrorFallback } from '@/components/ui/load-error-fallback'
 import { Skeleton } from '@/components/ui/skeleton'
 import { StockTabs } from '@/components/stock/stock-tabs'
-import { computeStockKpis, fetchExpiryByProduct, fetchExpiredQtyByProduct, fetchSoldQty30dForShops, readSignalsCache, shopRulesOf, writeSignalsCache, type StockProductLike } from '@/lib/stock/signals'
+import { computeStockKpis, fetchDatedLots, fetchExpiryByProduct, fetchExpiredQtyByProduct, fetchSoldQty30dForShops, lotExpiryCounts, readSignalsCache, shopRulesOf, writeSignalsCache, type DatedLot, type StockProductLike } from '@/lib/stock/signals'
 import { fetchStockPipeline, type StockPipeline } from '@/lib/stock/pipeline'
 import { fetchReservedQtyByProduct } from '@/lib/stock/reservations'
 import { PRODUCT_PUBLIC_COLUMNS } from '@/lib/products/columns'
@@ -112,6 +112,8 @@ export default function StockOverviewPage({ params: { locale } }: { params: { lo
   const [reservedQtyByProduct, setReservedQtyByProduct] = useState<Record<string, number>>(() => readSignalsCache(effectiveShopIds)?.reservedQtyByProduct ?? {})
   // Stock à venir (en transit, en commande) : null tant qu'il n'est ni en cache ni chargé
   const [pipeline, setPipeline] = useState<StockPipeline | null>(() => readSignalsCache(effectiveShopIds)?.pipeline ?? null)
+  // Lots datés encore en stock : cartes « Lots périmés » / « Expirent bientôt » en nombre de LOTS
+  const [datedLots, setDatedLots] = useState<DatedLot[]>([])
 
   const { canViewCost } = useRolePermissions()
   const [showAllPriorities, setShowAllPriorities] = useState(false)
@@ -164,6 +166,9 @@ export default function StockOverviewPage({ params: { locale } }: { params: { lo
       setSoldQtyByProduct(sold)
       setSoldQtyLoaded(true)
       writeSignalsCache(effectiveShopIds, { soldQtyByProduct: sold })
+    } catch { /* idem */ }
+    try {
+      setDatedLots(await fetchDatedLots(supabase, effectiveShopIds))
     } catch { /* idem */ }
     try {
       const expiredQty = await fetchExpiredQtyByProduct(supabase, effectiveShopIds)
@@ -227,26 +232,46 @@ export default function StockOverviewPage({ params: { locale } }: { params: { lo
     startNavigationProgress(href)
     router.push(href)
   }
-  const reorderCount = kpis.out + kpis.low
   // Stock à venir : une carte par notion que la personne a le droit de voir ; l'en-transit n'a de sens qu'avec plusieurs boutiques
   const showTransit = !!pipeline && pipeline.visible?.inTransit !== false && userShops.length > 1
   const showOnOrder = !!pipeline && pipeline.visible?.onOrder !== false
   const goTo = (href: string) => { startNavigationProgress(href); router.push(href) }
 
-  // Priorités stock : seulement celles qui ont quelque chose à montrer, par ordre d'importance
-  // (réapprovisionner, lots périmés ou proches, stock dormant, puis les promotions)
+  // Lots (et non produits) : périmés encore en stock = à traiter ; proches de la péremption
+  const lots = useMemo(() => lotExpiryCounts(datedLots, {
+    shopRules: shopRulesOf(userShops),
+    shopExpiryAlertDays: shop?.expiry_alert_days,
+    categoryAlertDays: Object.fromEntries(categories.map(c => [c.id, c.expiry_alert_days])),
+    expiryByProduct: {}, soldQtyByProduct: {}, soldQtyLoaded: false,
+  }), [datedLots, userShops, shop?.expiry_alert_days, categories])
+
+  // Priorités stock : seulement celles qui ont quelque chose à montrer, par ordre d'importance —
+  // 1. lots périmés à traiter, 2. ruptures, 3. stock bas, 4. lots qui expirent bientôt, 5. stock dormant,
+  // puis les promotions à revoir / en cours. Jamais « vendre » ni « promotion » pour un lot déjà périmé.
   const priorities = [
-    reorderCount > 0 && {
-      key: 'reorder', tone: 'amber' as Tone, icon: ShoppingCart,
-      title: t('stock_overview.opp_reorder', { count: reorderCount }),
-      desc: t('stock_overview.opp_reorder_desc', { out: kpis.out, low: kpis.low }),
-      action: t('stock_overview.act_reorder'), onClick: () => goToProducts(kpis.out > 0 ? 'out' : 'low'),
+    lots.expired > 0 && {
+      key: 'expired_lots', tone: 'red' as Tone, icon: AlertTriangle,
+      title: t('stock_overview.opp_expired_lots', { count: lots.expired }),
+      desc: t('stock_overview.opp_expired_lots_desc'),
+      action: t('stock_overview.act_treat_lots'), onClick: () => goToLots('expired'),
     },
-    kpis.expiring > 0 && {
+    kpis.out > 0 && {
+      key: 'out', tone: 'red' as Tone, icon: PackageX,
+      title: t('stock_overview.opp_out', { count: kpis.out }),
+      desc: t('stock_overview.opp_out_desc'),
+      action: t('stock_overview.act_reorder'), onClick: () => goToProducts('out'),
+    },
+    kpis.low > 0 && {
+      key: 'low', tone: 'amber' as Tone, icon: ShoppingCart,
+      title: t('stock_overview.opp_low', { count: kpis.low }),
+      desc: t('stock_overview.opp_low_desc'),
+      action: t('stock_overview.act_reorder'), onClick: () => goToProducts('low'),
+    },
+    lots.expiring > 0 && {
       key: 'expiring', tone: 'orange' as Tone, icon: CalendarClock,
-      title: t('stock_overview.opp_expiring', { count: kpis.expiring }),
+      title: t('stock_overview.opp_expiring_lots', { count: lots.expiring }),
       desc: t('stock_overview.opp_expiring_desc'),
-      action: t('stock_overview.act_lots'), onClick: () => goToLots('attention'),
+      action: t('stock_overview.act_lots'), onClick: () => goToLots('expiring'),
     },
     kpis.dormant > 0 && {
       key: 'dormant', tone: 'blue' as Tone, icon: TrendingDown,
@@ -304,9 +329,11 @@ export default function StockOverviewPage({ params: { locale } }: { params: { lo
             <KpiCard id="products" className={showValueCard ? 'col-span-2' : 'col-span-2 sm:col-span-4 md:col-span-2 lg:col-span-4'} icon={Package} label={t('stock_overview.products_count')} value={kpis.total} actionLabel={t('stock_overview.open_products')} onClick={() => goToProducts()} />
             <KpiCard id="out" tone={alertTone(kpis.out, 'red')} icon={PackageX} label={t('stock_overview.kpi_out')} value={kpis.out} actionLabel={t('stock_overview.open_products')} onClick={() => goToProducts('out')} />
             <KpiCard id="low" tone={alertTone(kpis.low, 'amber')} icon={PackageMinus} label={t('stock_overview.kpi_low')} value={kpis.low} actionLabel={t('stock_overview.open_products')} onClick={() => goToProducts('low')} />
-            <KpiCard id="expiring" tone={alertTone(kpis.expiring, 'orange')} icon={CalendarClock} label={t('stock_overview.kpi_expiring')} value={kpis.expiring} actionLabel={t('stock_overview.act_lots')} onClick={() => goToLots('attention')} />
+            {/* Nombre de LOTS : périmés encore en stock (à traiter), puis proches de la péremption */}
+            <KpiCard id="expired_lots" tone={alertTone(lots.expired, 'red')} icon={AlertTriangle} label={t('stock_overview.kpi_expired_lots')} value={lots.expired} actionLabel={t('stock_overview.act_lots')} onClick={() => goToLots('expired')} />
+            <KpiCard id="expiring" tone={alertTone(lots.expiring, 'orange')} icon={CalendarClock} label={t('stock_overview.kpi_expiring_lots')} value={lots.expiring} actionLabel={t('stock_overview.act_lots')} onClick={() => goToLots('expiring')} />
             <KpiCard
-              id="dormant" tone={alertTone(kpis.dormant, 'blue')} icon={TrendingDown} label={t('stock_overview.kpi_dormant')} value={kpis.dormant}
+              id="dormant" className="col-span-2 sm:col-span-4 md:col-span-2 lg:col-span-4" tone={alertTone(kpis.dormant, 'blue')} icon={TrendingDown} label={t('stock_overview.kpi_dormant')} value={kpis.dormant}
               hint={canSeeValue && kpis.dormant > 0 ? t('stock_overview.hint_immobilized', { amount: fmt(kpis.dormantValue) }) : undefined}
               actionLabel={t('stock_overview.open_products')}
               onClick={() => goToProducts('dormant')}
