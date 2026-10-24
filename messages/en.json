@@ -727,7 +727,10 @@
     "min_price_badge": "minimum",
     "notes_placeholder": "Remarks about this sale…",
     "new_selling_price": "New selling price",
-    "pending_invoices_title": "Pending invoices"
+    "pending_invoices_title": "Pending invoices",
+    "target_shown": "Sale {number} shown, on its date.",
+    "target_unavailable": "This sale is no longer available or you do not have access to its shop.",
+    "target_clear": "Back to the history"
   },
   "customers": {
     "title": "Customers",

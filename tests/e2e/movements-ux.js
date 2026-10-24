@@ -309,6 +309,99 @@ async function openMovement(page, locale, m) {
   }
   await s.browser.close()
 
+  // ══ 4 bis. « Voir la vente » : vente CIBLÉE par son identifiant, quelle que soit sa date ═════════════════════
+  console.log('\n4 bis. « Voir la vente » — vente ciblée (sale_id)')
+  const saleOf = async (m) => (await admin.from('sales').select('id, sale_number, shop_id, created_at, cashier_id').eq('shop_id', m.shop_id).eq('sale_number', m.view.origin.ref).maybeSingle()).data
+  const localDayOf = iso => { const d = new Date(iso); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}` }
+  const todayLocal = localDayOf(new Date().toISOString())
+  const saleMoves = W.moves.filter(m => m.view.labelKey === 'label_sale' && W.product[m.product_id] && m.view.origin?.ref)
+  // Ouvre « Voir la vente » depuis le détail du mouvement, puis attend la vente dans l'Historique
+  const viaMovement = async (pg, m, sale) => {
+    await openMovement(pg, 'fr', m)
+    await drawer(pg).locator('[data-testid="movement-detail-origin-action"]').click()
+    await pg.waitForURL(/\/fr\/sales\/history\?sale_id=/, { timeout: 30000 })
+    await pg.locator(`main [data-sale-row="${sale.id}"]`).waitFor({ timeout: 30000 }).catch(() => {})
+    await pg.waitForTimeout(1200)
+  }
+  const shown = async (pg, sale) => {
+    const row = pg.locator(`main [data-sale-row="${sale.id}"]`)
+    return { visible: (await row.count()) === 1 && await row.isVisible(), expanded: (await row.count()) === 1 && (await row.getAttribute('aria-expanded')) === 'true', shop: (await row.count()) ? await row.getAttribute('data-sale-shop') : null, banner: (await pg.locator('[data-testid=sale-target-banner]').count()) === 1, url: pg.url() }
+  }
+  const scopeAll = jiti(ROOT + '/lib/filters/multi-select.ts').filterScopeKey(null, W.ids)
+
+  // A. Vente du jour
+  const todayMove = saleMoves.find(m => localDayOf(m.created_at) === todayLocal)
+  if (todayMove) {
+    const t0 = await open('fr', 1440, 900); const sale = await saleOf(todayMove)
+    await viaMovement(t0.page, todayMove, sale); const r0 = await shown(t0.page, sale)
+    check(`A. vente du jour ${sale.sale_number} : visible et dépliée`, r0.visible && r0.expanded && r0.banner, JSON.stringify(r0))
+    await t0.browser.close()
+  } else console.log('  info  A. aucune vente du jour dans les données réelles du compte de test : cas non exécutable aujourd’hui (même chemin que B)')
+
+  // B. Vente ancienne + C. toutes les boutiques (vente d'une boutique qui n'est PAS la boutique active)
+  const oldMove = saleMoves.find(m => localDayOf(m.created_at) < todayLocal && m.shop_id === ALPHA)
+  const otherShopMove = saleMoves.find(m => localDayOf(m.created_at) < todayLocal && m.shop_id !== ALPHA)
+  const b = await open('fr', 1440, 900)
+  const oldSale = await saleOf(oldMove)
+  await viaMovement(b.page, oldMove, oldSale)
+  let r = await shown(b.page, oldSale)
+  check(`B. vente ancienne ${oldSale.sale_number} (${localDayOf(oldSale.created_at)}) : visible malgré « Aujourd’hui » par défaut, dépliée, bandeau`, r.visible && r.expanded && r.banner && r.url.includes(`sale_id=${oldSale.id}`), JSON.stringify(r))
+  // H. Rafraîchir garde la vente ciblée ; retour : l'écran Mouvements
+  await b.page.reload({ waitUntil: 'domcontentloaded' }); await b.page.locator(`main [data-sale-row="${oldSale.id}"]`).waitFor({ timeout: 30000 }).catch(() => {}); await b.page.waitForTimeout(1200)
+  r = await shown(b.page, oldSale)
+  check('H. rafraîchir la page : la vente ciblée reste affichée', r.visible && r.banner, JSON.stringify(r))
+  await b.page.goBack({ waitUntil: 'domcontentloaded' }); await b.page.waitForTimeout(2500)
+  check('H. bouton retour : retour à Stock › Mouvements', /\/fr\/stock\/movements/.test(b.page.url()), b.page.url())
+  if (otherShopMove) {
+    const otherSale = await saleOf(otherShopMove)
+    await viaMovement(b.page, otherShopMove, otherSale)
+    r = await shown(b.page, otherSale)
+    check(`C. toutes les boutiques : vente ${otherSale.sale_number} de ${W.shopName[otherSale.shop_id]} retrouvée, dans SA boutique (boutique active : ${W.shopName[ALPHA]})`, r.visible && r.shop === otherSale.shop_id, JSON.stringify(r))
+  } else console.log('  info  C. aucune vente ancienne hors Boutique Alpha pour ce compte : cas C vérifié avec la vitrine ci-dessous')
+  // E. Filtre mémorisé incompatible : la vente ciblée l'emporte, la préférence n'est PAS détruite
+  const prefKey = `filters_session_sales_history_${scopeAll}`
+  const pref = { filters: { search: 'zzz-introuvable', dateFilter: 'today', methodFilter: 'card', statusFilter: 'pending', saleStatusFilter: 'cancelled', customStart: '', customEnd: '' }, date: new Date().toISOString().slice(0, 10) }
+  await b.page.evaluate(([k, v]) => sessionStorage.setItem(k, JSON.stringify(v)), [prefKey, pref])
+  await viaMovement(b.page, oldMove, oldSale)
+  r = await shown(b.page, oldSale)
+  const kept = await b.page.evaluate(k => sessionStorage.getItem(k), prefKey)
+  check('E. filtre mémorisé incompatible (recherche, aujourd’hui, carte, en attente, annulées) : vente ciblée visible', r.visible && r.banner, JSON.stringify(r))
+  check('E. … la préférence mémorisée n’est pas modifiée par le lien', kept && JSON.parse(kept).filters.search === 'zzz-introuvable' && JSON.parse(kept).filters.methodFilter === 'card', kept)
+  // Quitter le mode ciblé : retour aux préférences de l'utilisateur
+  await b.page.locator('[data-testid=sale-target-clear]').click(); await b.page.waitForTimeout(2500)
+  check('E. « Revenir à l’historique » : URL sans sale_id, préférences restaurées (recherche « zzz-introuvable »)', !/sale_id=/.test(b.page.url()) && (await b.page.locator(`main input[placeholder="${MSG('fr').sales.search_history}"]`).inputValue().catch(() => '')) === 'zzz-introuvable', b.page.url())
+  await b.page.evaluate(k => sessionStorage.removeItem(k), prefKey)
+  // F. Identifiant inexistant ; G. vente d'une autre entreprise (Marché Soleil) : état propre, rien d'exposé
+  await goto(b.page, '/fr/sales/history?sale_id=00000000-0000-4000-8000-000000000000', 4000)
+  check('F. identifiant inexistant : message « plus disponible ou pas d’accès », aucune vente ciblée', (await b.page.locator('[data-testid=sale-target-missing]').count()) === 1 && (await b.page.locator('[data-testid=sale-target-banner]').count()) === 0)
+  const { data: foreign } = await admin.from('sales').select('id, sale_number').in('shop_id', V.ids).eq('sale_status', 'active').order('created_at', { ascending: false }).limit(1).single()
+  const foreignBodies = b.bodies.length
+  await goto(b.page, `/fr/sales/history?sale_id=${foreign.id}`, 4000)
+  const fMain = (await b.page.locator('main').innerText()).replace(/\s+/g, ' ')
+  const leaked = b.bodies.slice(foreignBodies).some(x => x.text.includes(foreign.id) && /"sale_number"/.test(x.text))
+  check(`G. vente d’une autre entreprise : même message générique, ni numéro (${foreign.sale_number}) ni donnée renvoyée`, (await b.page.locator('[data-testid=sale-target-missing]').count()) === 1 && !fMain.includes(foreign.sale_number) && !leaked, fMain.slice(0, 160))
+  await b.browser.close()
+
+  // C. Toutes les boutiques, compte à plusieurs boutiques ayant vendu (vitrine, consultation seulement) : vente d'une
+  // boutique qui n'est PAS la boutique active, retrouvée dans sa propre boutique
+  const vActive = V.ids[0]
+  const vMove = V.moves.find(m => m.view.labelKey === 'label_sale' && V.product[m.product_id] && m.view.origin?.ref && m.shop_id !== vActive && localDayOf(m.created_at) < todayLocal)
+  if (vMove) {
+    const c = await open('fr', 1440, 900, { email: VITRINE, shop: vActive })
+    const vSale = (await admin.from('sales').select('id, sale_number, shop_id, created_at').eq('shop_id', vMove.shop_id).eq('sale_number', vMove.view.origin.ref).maybeSingle()).data
+    await viaMovement(c.page, vMove, vSale)
+    r = await shown(c.page, vSale)
+    check(`C. toutes les boutiques (vitrine) : vente ${vSale.sale_number} de ${V.shopName[vSale.shop_id]} retrouvée dans SA boutique (boutique active : ${V.shopName[vActive]}), dépliée`, r.visible && r.expanded && r.shop === vSale.shop_id && r.banner, JSON.stringify(r))
+    await c.browser.close()
+  } else check('C. une vente hors boutique active existe dans les données de test', false)
+
+  // D. Une boutique précise dans l'en-tête : la vente de cette boutique
+  const d = await open('fr', 1440, 900, { only: ALPHA })
+  await viaMovement(d.page, oldMove, oldSale)
+  r = await shown(d.page, oldSale)
+  check(`D. une boutique précise (${W.shopName[ALPHA]}) : vente ${oldSale.sale_number} visible`, r.visible && r.expanded && r.shop === ALPHA, JSON.stringify(r))
+  await d.browser.close()
+
   // Une boutique précise : son nom n'est pas répété sur les lignes
   const one = await open('fr', 1440, 900, { only: ALPHA })
   await goto(one.page, '/fr/stock/movements', 6500)

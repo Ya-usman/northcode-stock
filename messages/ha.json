@@ -727,7 +727,10 @@
     "min_price_badge": "mafi ƙaranci",
     "notes_placeholder": "Bayanai kan wannan siyarwar…",
     "new_selling_price": "Sabon farashin sayarwa",
-    "pending_invoices_title": "Lissafin da ake jira"
+    "pending_invoices_title": "Lissafin da ake jira",
+    "target_shown": "An nuna siyarwa {number}, a ranar ta.",
+    "target_unavailable": "Wannan siyarwa ba ta samuwa yanzu ko ba ka da damar shiga shagonta.",
+    "target_clear": "Koma tarihin"
   },
   "customers": {
     "title": "Abokan Ciniki",

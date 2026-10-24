@@ -727,7 +727,10 @@
     "min_price_badge": "minimum",
     "notes_placeholder": "Remarques sur cette vente…",
     "new_selling_price": "Nouveau prix de vente",
-    "pending_invoices_title": "Factures en attente"
+    "pending_invoices_title": "Factures en attente",
+    "target_shown": "Vente {number} affichée, à sa date.",
+    "target_unavailable": "Cette vente n'est plus disponible ou vous n'avez pas accès à sa boutique.",
+    "target_clear": "Revenir à l'historique"
   },
   "customers": {
     "title": "Clients",

@@ -33,7 +33,7 @@ export interface MovementRow extends MovementLike {
 }
 
 type ServerOrigin =
-  | { kind: 'sale'; ref: string; status: string | null; created_at: string; can_open: boolean }
+  | { kind: 'sale'; id: string; ref: string; status: string | null; created_at: string; can_open: boolean }
   | { kind: 'purchase_order'; ref: string; supplier_name: string | null; can_open: boolean }
   | { kind: 'transfer'; ref: string; source_shop: string | null; destination_shop: string | null; can_open: boolean }
 
@@ -43,11 +43,6 @@ interface ServerDetail {
     product: { id: string; name: string; sku: string | null; unit: string | null; image_url: string | null } | null
   }
   origin: ServerOrigin | null
-}
-
-const localDay = (iso: string) => {
-  const d = new Date(iso)
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
 }
 
 function Row({ label, children, testId }: { label: string; children: React.ReactNode; testId?: string }) {
@@ -119,9 +114,10 @@ export function MovementDetailDrawer({ movement, onClose, showShop, onViewProduc
   const openOrigin = () => {
     if (!found?.can_open) return
     if (found.kind === 'sale') {
-      const day = localDay(found.created_at)
-      presetPersistedFilters('sales_history', shop?.id, { search: found.ref, dateFilter: 'custom', customStart: day, customEnd: day, methodFilter: 'all', statusFilter: 'all', saleStatusFilter: 'all' })
-      router.push(`/${locale}/sales/history`)
+      // Lien ciblé par l'identifiant de la vente : l'Historique la retrouve quelle que soit sa date, dans le
+      // contexte de l'en-tête, sans écraser les filtres mémorisés de l'utilisateur (avant : préréglage écrit sous
+      // la boutique ACTIVE alors que l'Historique lit sous son contexte → « Aujourd'hui » masquait la vente)
+      router.push(`/${locale}/sales/history?sale_id=${encodeURIComponent(found.id)}`)
     } else if (found.kind === 'purchase_order') {
       presetPersistedFilters('purchase_orders', shop?.id, { search: found.ref, status: '', dateFrom: '', dateTo: '' })
       router.push(`/${locale}/suppliers?view=purchase_orders`)

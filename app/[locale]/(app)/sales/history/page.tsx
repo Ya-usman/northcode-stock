@@ -42,7 +42,8 @@ import { receiptLabelsFromT } from '@/lib/receipt/receipt-labels'
 import { hideStockShopBranding } from '@/lib/receipt/branding'
 import { normalize } from '@/lib/utils/normalize'
 import { withTimeout } from '@/lib/utils/with-timeout'
-import { format, startOfDay, endOfDay, subDays, subMonths, startOfWeek, startOfMonth, startOfYear } from 'date-fns'
+import { format, parseISO, startOfDay, endOfDay, subDays, subMonths, startOfWeek, startOfMonth, startOfYear } from 'date-fns'
+import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import type { Sale } from '@/lib/types/database'
 import { setPageCache, getPageCache } from '@/lib/offline/page-cache'
 import { useOffline } from '@/lib/offline/use-offline'
@@ -181,11 +182,35 @@ export default function SalesHistoryPage() {
   const [salesOffset, setSalesOffset] = useState(0)
   const [hasMoreSales, setHasMoreSales] = useState(false)
   const [periodStats, setPeriodStats] = useState<{ count: number; ca: number; collected: number; balance: number } | null>(null)
-  const [{ search, dateFilter, methodFilter, statusFilter, saleStatusFilter, customStart, customEnd }, setFilter] = usePersistedFilters(
+  const [persistedFilters, setPersistedFilter] = usePersistedFilters(
     'sales_history', filterScope,
     { search: '', dateFilter: 'today', methodFilter: 'all', statusFilter: 'all', saleStatusFilter: 'all' as 'all' | 'active' | 'cancelled', customStart: '', customEnd: '' },
     { keepPerScope: true }
   )
+  // Vente CIBLÉE (?sale_id=…, « Voir la vente » depuis Stock › Mouvements) : relue avec les droits de l'utilisateur
+  // (base + règle « ses propres ventes » du caissier), dans le contexte de l'en-tête — jamais une boutique cachée.
+  // Ses filtres (jour de la vente + numéro) sont TEMPORAIRES : rien n'est mémorisé tant que l'utilisateur ne
+  // change pas lui-même un filtre ; ses préférences restent intactes. Vente introuvable ou inaccessible : message
+  // générique, aucun détail.
+  const router = useRouter()
+  const pathname = usePathname()
+  const targetSaleId = useSearchParams().get('sale_id')
+  const [target, setTarget] = useState<{ id: string; number: string; day: string } | null>(null)
+  const [targetMissing, setTargetMissing] = useState(false)
+  const targetOverride = target ? {
+    search: target.number, dateFilter: 'custom', customStart: target.day, customEnd: target.day,
+    methodFilter: 'all', statusFilter: 'all', saleStatusFilter: 'all' as 'all' | 'active' | 'cancelled',
+  } : null
+  const { search, dateFilter, methodFilter, statusFilter, saleStatusFilter, customStart, customEnd } = targetOverride ? { ...persistedFilters, ...targetOverride } : persistedFilters
+  const dropTarget = () => {
+    setTarget(null); setTargetMissing(false)
+    if (targetSaleId) router.replace(pathname)
+  }
+  // Un changement de filtre par l'utilisateur part de ce qu'il voit, puis quitte le mode « vente ciblée »
+  const setFilter = (updates: Partial<typeof persistedFilters>) => {
+    if (targetOverride) { setPersistedFilter({ ...targetOverride, ...updates }); dropTarget() }
+    else setPersistedFilter(updates)
+  }
   // Lazy initializers: read cache synchronously so first render shows cached data, not a skeleton.
   // Search mode fetches a different row count (SEARCH_LIMIT, unpaginated)
   // than normal browsing (PAGE_SIZE) — the cache key carries a distinct
@@ -247,6 +272,31 @@ export default function SalesHistoryPage() {
     return q.or(`${col}.eq.${profile.id},shop_id.in.(${otherShopIds.join(',')})`)
   }
 
+  // Vente ciblée : lue par la base sous les droits de l'utilisateur, limitée au contexte et aux ventes qu'il voit
+  useEffect(() => {
+    if (!targetSaleId) { setTarget(null); setTargetMissing(false); return }
+    if (!effectiveShopIds.length) return
+    let cancelled = false
+    const valid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(targetSaleId)
+    const read = valid
+      ? onlyMine(supabase.from('sales').select('id, sale_number, created_at').eq('id', targetSaleId).in('shop_id', effectiveShopIds).in('sale_status', ['active', 'cancelled']), 'cashier_id').maybeSingle()
+      : Promise.resolve({ data: null })
+    Promise.resolve(read).then(({ data }: any) => {
+      if (cancelled) return
+      if (!data) { setTarget(null); setTargetMissing(true); return }
+      const d = new Date(data.created_at)
+      const day = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+      setTargetMissing(false); setView('sales'); setTarget({ id: data.id, number: data.sale_number, day })
+    }).catch(() => { if (!cancelled) { setTarget(null); setTargetMissing(true) } })
+    return () => { cancelled = true }
+  }, [targetSaleId, effectiveShopIds.join(','), cashierShopIds.join(',')]) // eslint-disable-line react-hooks/exhaustive-deps
+  // La vente ciblée, une fois chargée dans la liste, est dépliée (détail existant) et amenée à l'écran
+  useEffect(() => {
+    if (!target || loading || !sales.some(s => s.id === target.id)) return
+    setExpandedId(target.id)
+    requestAnimationFrame(() => document.querySelector(`[data-sale-row="${target.id}"]`)?.scrollIntoView({ block: 'center' }))
+  }, [target?.id, loading, sales]) // eslint-disable-line react-hooks/exhaustive-deps
+
   // Écran vide guidé : seulement si la boutique n'a JAMAIS vendu (une journée
   // sans vente chez un commerçant installé garde le message court habituel)
   const [neverSold, setNeverSold] = useState(false)
@@ -275,8 +325,9 @@ export default function SalesHistoryPage() {
         end   = endOfDay(subDays(now, 1))
         break
       case 'custom':
-        start = customStart ? startOfDay(new Date(customStart)) : startOfDay(subDays(now, 1))
-        end   = customEnd   ? endOfDay(new Date(customEnd))     : endOfDay(now)
+        // « AAAA-MM-JJ » lu à minuit LOCAL (new Date(…) le lisait en UTC : un jour plus tôt dans un fuseau négatif)
+        start = customStart ? startOfDay(parseISO(customStart)) : startOfDay(subDays(now, 1))
+        end   = customEnd   ? endOfDay(parseISO(customEnd))     : endOfDay(now)
         break
       default: start = startOfDay(now)
     }
@@ -869,7 +920,7 @@ export default function SalesHistoryPage() {
         <TableRow
           className={`cursor-pointer ${isCancelled ? 'opacity-50 bg-red-50/30 dark:bg-red-950/20' : 'hover:bg-muted/30'}`}
           onClick={() => setExpandedId(expandedId === sale.id ? null : sale.id)}
-          data-sale-row={sale.id} data-sale-shop={saleShopId}
+          data-sale-row={sale.id} data-sale-shop={saleShopId} aria-expanded={expandedId === sale.id}
         >
           <TableCell className="font-mono text-xs font-medium text-stockshop-blue dark:text-blue-400">
             #{sale.sale_number}
@@ -1360,6 +1411,15 @@ export default function SalesHistoryPage() {
               </div>
             ))}
           </div>
+        </div>
+      )}
+
+      {/* Vente ciblée (« Voir la vente ») : rappel, ou message générique si elle n'est pas accessible */}
+      {view === 'sales' && (target || targetMissing) && (
+        <div role="status" data-testid={target ? 'sale-target-banner' : 'sale-target-missing'}
+          className={`flex flex-wrap items-center justify-between gap-2 rounded-lg border px-3 py-2.5 text-sm ${target ? 'border-stockshop-blue/30 bg-stockshop-blue-muted text-stockshop-blue dark:border-blue-900 dark:bg-blue-950/30 dark:text-blue-300' : 'border-amber-200 bg-amber-50 text-amber-900 dark:border-amber-900 dark:bg-amber-950/30 dark:text-amber-200'}`}>
+          <span>{target ? t('sales.target_shown', { number: target.number }) : t('sales.target_unavailable')}</span>
+          <Button variant="outline" size="sm" className="h-10" onClick={dropTarget} data-testid="sale-target-clear">{t('sales.target_clear')}</Button>
         </div>
       )}
 

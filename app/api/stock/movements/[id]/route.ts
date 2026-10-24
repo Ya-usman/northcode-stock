@@ -45,7 +45,8 @@ export async function GET(request: Request, { params }: { params: { id: string }
         // L'historique ne montre à un vendeur que ses propres ventes : le bouton n'apparaît que s'il peut lire celle-ci
         const { data: readable } = await supabase.from('sales').select('id').eq('id', sales[0].id).maybeSingle()
         origin = {
-          kind: 'sale', ref: sales[0].sale_number, status: sales[0].sale_status, created_at: sales[0].created_at,
+          // id : cible sans ambiguïté de « Voir la vente » (le numéro reste pour l'affichage)
+          kind: 'sale', id: sales[0].id, ref: sales[0].sale_number, status: sales[0].sale_status, created_at: sales[0].created_at,
           can_open: !!readable && await canViewFeature(supabase, role, shopId, 'sales_history'),
         }
       }
