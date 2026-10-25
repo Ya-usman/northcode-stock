@@ -36,6 +36,7 @@ import { triggerSaleFeedback, unlockAudio } from '@/lib/utils/sale-feedback'
 import { useOffline } from '@/lib/offline/use-offline'
 import { useOfflineRoutes } from '@/lib/offline/use-offline-routes'
 import { CacheBanner } from './cache-banner'
+import { RouteGuard } from './route-guard'
 import Script from 'next/script'
 
 const supabase = createClient()
@@ -468,7 +469,8 @@ export function AppLayout({ children, locale }: { children: React.ReactNode; loc
         <main className="flex-1 p-4 sm:p-6 pb-24 sm:pb-6 overflow-x-hidden">
           <CacheBanner ageMs={cacheAgeMs} isOnline={!isOffline} />
           {pageAnnouncement && <LivePageAnnouncement item={pageAnnouncement} currentPath={appPath(pathname)} onDismiss={whatsNew.dismiss} />}
-          {children}
+          {/* Écran masqué pour le rôle (même par l'adresse) : non rendu, aucune donnée lue */}
+          <RouteGuard pathname={pathname}>{children}</RouteGuard>
         </main>
       </div>
 

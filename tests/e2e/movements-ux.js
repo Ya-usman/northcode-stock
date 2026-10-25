@@ -458,12 +458,12 @@ async function openMovement(page, locale, m) {
   check(`caissier : aucun prix d’achat, coût, marge ni valeur dans les ${ca.bodies.length} réponses reçues par le navigateur pendant ce parcours`, ca.bodies.length > 20 && leaks.length === 0, leaks.map(b => b.url.slice(0, 90)).join(' , '))
   await ca.browser.close()
 
-  // Garde d'entrée : le droit « Mouvements » retiré au caissier DANS LE NAVIGATEUR seulement (base intacte)
+  // Garde d'entrée commune (components/layout/route-guard.tsx, avant l'écran) : le droit « Mouvements » retiré au caissier DANS LE NAVIGATEUR seulement (base intacte)
   const ng = await open('fr', 1280, 900, { email: CASHIER, patchPerms: rp => { rp.cashier = { ...(rp.cashier || {}), movements: false } } })
   let asked = 0
   ng.page.on('request', r => { if (/\/api\/stock\/movements/.test(r.url())) asked++ })
   await goto(ng.page, '/fr/stock/movements', 6500)
-  check('sans le droit « Mouvements », l’adresse tapée à la main : « Accès non autorisé », rien n’est demandé au serveur', (await ng.page.locator('[data-testid="movements-no-access"]').count()) === 1 && (await ng.page.locator('main [data-movement-row]').count()) === 0 && asked === 0, asked)
+  check('sans le droit « Mouvements », l’adresse tapée à la main : « Accès non autorisé », rien n’est demandé au serveur', (await ng.page.locator('[data-testid="route-no-access"][data-feature="movements"]').count()) === 1 && (await ng.page.locator('main [data-movement-row]').count()) === 0 && asked === 0, asked)
   await ng.browser.close()
 
   // ══ 7. Langues ═══════════════════════════════════════════════════════════════════════════════════════════

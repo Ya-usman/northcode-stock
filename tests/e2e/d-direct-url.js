@@ -1,8 +1,9 @@
 // Étape D — accès DIRECT par l'adresse aux écrans masqués pour un rôle (EN LIGNE, LECTURE SEULE). Pour chaque écran,
 // on compare le droit « voir » (règle réelle, réglages relus en base) à ce que l'écran affiche quand on tape l'adresse.
 // Usage : OUT_DIR=<dossier> EMAIL=<compte> SHOP=<boutique> node tests/e2e/d-direct-url.js
-process.env.CAPTURE_BASE = 'https://stockshop.tech'
-process.env.CAPTURE_PROD_READONLY = '1'
+// En ligne par défaut (lecture seule) ; LOCAL=1 → serveur local (toute écriture reste bloquée par lib/capture.js)
+process.env.CAPTURE_BASE = process.env.LOCAL ? 'http://localhost:3000' : 'https://stockshop.tech'
+if (!process.env.LOCAL) process.env.CAPTURE_PROD_READONLY = '1'
 const fs = require('fs')
 const path = require('path')
 const { pathToFileURL } = require('url')
@@ -19,6 +20,7 @@ const PAGES = [
   ['stock/inventory-count', 'inventory_count'], ['categories', 'categories'], ['suppliers', 'suppliers'], ['payments', 'payments'],
   ['customers', 'customers'], ['sales/history', 'sales_history'], ['expenses', 'expenses'], ['reports', 'reports'], ['notes', 'notes'], ['caisse', 'caisse'],
 ]
+let problems = 0
 ;(async () => {
   const P = await import(pathToFileURL(path.join(ROOT, 'lib/permissions/index.ts')).href)
   const u = (await db.auth.admin.listUsers({ page: 1, perPage: 1000 })).data.users.find(x => x.email === EMAIL)
@@ -27,8 +29,13 @@ const PAGES = [
   process.env.CAPTURE_EMAIL = EMAIL; process.env.PIN_SHOP = SHOP
   const s = await session({ width: 1366, height: 900, locale: 'fr' })
   console.log(`${EMAIL} (${role})`)
+  // Transferts : l'écran exige aussi au moins DEUX boutiques (stock/transfers/page.tsx)
+  const shopCount = (await db.from('shop_members').select('shop_id', { count: 'exact', head: true }).eq('user_id', u.id).eq('is_active', true)).count || 0
+  // Page neutre d'abord : le préchargement de la mise en page (caisse hors ligne) se fait ici, pas sur un écran testé
+  await s.page.goto(`${BASE}/fr/help`, { waitUntil: 'domcontentloaded', timeout: 120000 }).catch(() => {})
+  await wait(10000)
   for (const [p, feature] of PAGES) {
-    const allowed = P.canView(rp, role, feature)
+    const allowed = P.canView(rp, role, feature) && (feature !== 'transfers' || shopCount > 1)
     const reads = []
     const h = r => { const url = r.url(); if (r.status() === 200 && /\/rest\/v1\/|\/api\//.test(url) && r.request().method() === 'GET') reads.push(url.replace(/^.*\/(rest\/v1|api)\//, '').replace(/\?.*/, '')) }
     s.page.on('response', h)
@@ -37,11 +44,16 @@ const PAGES = [
     s.page.off('response', h)
     const finalPath = new URL(s.page.url()).pathname.replace(/^\/fr\//, '')
     const text = (await s.page.locator('main').innerText().catch(() => '')).replace(/\s+/g, ' ')
-    const blocked = finalPath !== p.split('?')[0] || /accès|autoris|pas le droit|Aucun accès|no access/i.test(text.slice(0, 400))
-    const shopReads = [...new Set(reads.filter(r => !/^(profiles|shops|shop_members|entities|entity_members|announcements|user_|app-version|whats|subscriptions|notifications|admin_notifications|support|referral)/.test(r)))]
-    const verdict = allowed ? 'autorisé' : (blocked ? 'BLOQUÉ' : 'OUVERT malgré le masquage')
+    const guard = await s.page.getByTestId('route-no-access').count()
+    const blocked = guard > 0 || finalPath !== p.split('?')[0] || /accès non autorisé|pas le droit|no access/i.test(text.slice(0, 400))
+    const shopReads = [...new Set(reads.filter(r => !/^(profiles|shops|shop_members|entities|entity_members|announcement|user_|app-version|whats|subscriptions|notifications|admin_notifications|support|referral)/.test(r)))]
+    const verdict = allowed ? (blocked ? 'BLOQUÉ À TORT' : 'autorisé') : (blocked ? 'BLOQUÉ' : 'OUVERT malgré le masquage')
+    if (verdict === 'BLOQUÉ À TORT' || verdict.startsWith('OUVERT')) problems++
+    if (!allowed && blocked && guard && shopReads.length) problems++, console.log(`    ⚠ données lues malgré la garde : ${shopReads.join(', ')}`)
     console.log(`  ${p.padEnd(22)} droit ${allowed ? 'oui' : 'NON'} → ${verdict}${!allowed && !blocked ? ` · données lues : ${shopReads.slice(0, 6).join(', ') || 'aucune'}` : ''}`)
     if (!allowed && !blocked) await s.page.screenshot({ path: path.join(OUT, `ouvert-${p.replace(/[^a-z]+/g, '-')}.png`) })
   }
   await s.browser.close().catch(() => {})
+  console.log(problems ? `${problems} problème(s)` : '0 problème')
+  process.exit(problems ? 1 : 0)
 })().catch(e => { console.error('ERREUR', e.message.slice(0, 300)); process.exit(1) })

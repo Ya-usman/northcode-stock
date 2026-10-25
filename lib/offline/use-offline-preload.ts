@@ -4,6 +4,7 @@ import { useEffect, useRef, useCallback } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { useAuthContext as useAuth } from '@/lib/contexts/auth-context'
 import { cacheProducts, cacheCustomers } from './db'
+import { useShopPermissions } from '@/lib/hooks/use-role-permissions'
 
 const DATA_TTL  = 60 * 60 * 1000   // données IndexedDB : refresh toutes les heures
 const PAGES_TTL = 20 * 60 * 1000   // pages SW : re-fetch toutes les 20 min
@@ -153,6 +154,12 @@ async function prefetchAllPages(locale: string): Promise<void> {
 export function useOfflinePreload(isOnline: boolean) {
   const { shop, effectiveShopIds } = useAuth()
   const shopId = shop?.id
+  // Copie sur l'appareil pour vendre hors ligne : produits seulement là où la personne peut VENDRE, clients (avec leur
+  // solde de crédit) seulement là où elle peut vendre ET voir les Clients — jamais pour un rôle qui ne vend pas
+  const { canAccessIn } = useShopPermissions()
+  const sellShops = effectiveShopIds.filter(id => canAccessIn(id, 'new_sale'))
+  const customerShops = sellShops.filter(id => canAccessIn(id, 'customers'))
+  const sellKey = sellShops.join(',') + '|' + customerShops.join(',')
   const dataRunning = useRef(false)
   const pagesRunning = useRef(false)
   const lastLocale = useRef('')
@@ -212,19 +219,19 @@ export function useOfflinePreload(isOnline: boolean) {
         if (!dataRunning.current && shouldRun(dataKey, DATA_TTL)) {
           dataRunning.current = true
           try {
-            const shopIds = effectiveShopIds
+            const shopIds = sellShops
             const [
               { data: products },
               { data: customers },
             ] = await Promise.all([
-              supabase
+              shopIds.length ? supabase
                 .from('products')
                 .select('id, shop_id, name, sku, selling_price, quantity, category_id, is_active, image_url, is_favorite')
-                .in('shop_id', shopIds).eq('is_active', true).order('name'),
-              supabase
+                .in('shop_id', shopIds).eq('is_active', true).order('name') : Promise.resolve({ data: [] }),
+              customerShops.length ? supabase
                 .from('customers')
                 .select('id, shop_id, name, phone, total_debt')
-                .in('shop_id', shopIds).order('name'),
+                .in('shop_id', customerShops).order('name') : Promise.resolve({ data: [] }),
             ])
 
             for (const sid of shopIds) {
@@ -236,6 +243,13 @@ export function useOfflinePreload(isOnline: boolean) {
                 const batch = customers.filter((c: any) => c.shop_id === sid)
                 if (batch.length) await cacheCustomers(sid, batch)
               }
+            }
+
+            // Copies d'avant le contrôle des droits (ou droit retiré depuis) : effacées pour les boutiques où la personne
+            // ne vend plus / ne voit plus les Clients
+            for (const sid of effectiveShopIds) {
+              if (!sellShops.includes(sid)) await cacheProducts(sid, [])
+              if (!customerShops.includes(sid)) await cacheCustomers(sid, [])
             }
 
             // ── Images produit : couverture déterministe de TOUT le
@@ -280,5 +294,5 @@ export function useOfflinePreload(isOnline: boolean) {
       document.removeEventListener('visibilitychange', onVisibility)
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [shopId, prefetchPages, isOnline])
+  }, [shopId, prefetchPages, isOnline, sellKey])
 }

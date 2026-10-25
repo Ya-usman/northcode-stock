@@ -75,6 +75,8 @@ const lastWrite = (s, re, method) => [...s.writes].reverse().find(w => re.test(w
   await page.getByTestId('product-detail-batches').locator('button[title="Modifier la date de péremption"]').first().click()
   // Fenêtre commune de correction de date (batch-dialogs), reprise par la page Produits depuis la 179
   await page.locator('#batch-expiry-date').fill(day(90))
+  // Depuis la 179 (appliquée), toute date modifiée garde sa raison : champ obligatoire quand il est affiché
+  if (await page.locator('#batch-expiry-note').count()) await page.locator('#batch-expiry-note').fill('Test fix-context — date corrigée (interceptée)')
   await page.getByRole('dialog').last().getByRole('button', { name: 'Enregistrer' }).click(); await page.waitForTimeout(1500)
   let w = lastWrite(s, /\/api\/product-batches\/expiry/)
   ok(w && w.body.shop_id === AKWA, `date d’un lot d’Akwa → requête vers ${NAME[w?.body.shop_id] || w?.body.shop_id} (boutique du lot, pas la boutique cachée)`)

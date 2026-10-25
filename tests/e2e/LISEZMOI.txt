@@ -54,3 +54,14 @@ Permission « Voir les prix d'achat et les coûts » (view_purchase_cost, lib/pe
 Dettes fournisseurs (étape C3) — corrections applicatives :
   node tests/e2e/c3-debts-pure.mjs        test PUR : bon vu selon coût / dette, /api/suppliers sans solde dû, paiement à la
                                           réception réservé au droit « payer », purge option A, contrôle de compilation étendu
+
+Étape D — droits par rôle vérifiés de bout en bout (comptes fixes d'Alpha : stocshopci+observateur / +magasinier) :
+  node tests/e2e/fixtures-d-accounts.js        vérifie (lecture) les comptes de test permanents et leurs rôles
+  node tests/e2e/d-role-matrix.js               EN LIGNE, lecture seule : coût et dettes fournisseurs par rôle (8 comptes)
+  CAPTURE_BASE=http://localhost:3000 node tests/e2e/d-hot-permission.js   ÉCRITURE autorisée (Alpha) : coût retiré puis
+                                                rétabli au Manager connecté ; réglages remis à l'identique, 2 entrées de journal
+  node tests/e2e/route-access-pure.mjs          test PUR : adresse → fonction de la garde d'entrée (lib/navigation/route-access)
+  EMAIL=<compte> SHOP=<boutique> node tests/e2e/d-direct-url.js   écrans tapés à la main : droit « voir » comparé à
+                                                l'écran affiché (garde « Accès non autorisé ») et aucune donnée lue derrière
+                                                la garde ; EN LIGNE par défaut (lecture seule), LOCAL=1 → serveur local
+  La caisse (sales/new) n'est pas dans la garde commune : elle se garde elle-même boutique par boutique.
