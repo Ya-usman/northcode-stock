@@ -1,8 +1,8 @@
-⚠ CONSIGNE PERMANENTE (25 oct. 2026) — NE JAMAIS LANCER « supabase db push », « supabase migration up » ni
-« supabase migration repair » sur la production sans un plan de réconciliation VALIDÉ. L'historique Supabase
-(supabase_migrations.schema_migrations) ne contient que 2 lignes horodatées (175 et 177) : pour la CLI, presque
-toutes les migrations du dépôt seraient « en attente » et pourraient être rejouées. Git fait foi. Détail et plan :
-supabase/drafts/migrations_audit_2026-10-25.txt.
+⚠ CONSIGNE PERMANENTE (mise à jour le 25 oct. 2026, après réparation) — l'historique Supabase
+(supabase_migrations.schema_migrations) est ALIGNÉ sur supabase/migrations/ (181 versions, « db push --dry-run » :
+à jour). Ne jamais lancer « supabase db push » ni « supabase migration up » sur la production sans accord explicite et
+sans « db push --dry-run » préalable. Une migration exécutée dans l'éditeur SQL doit ensuite être enregistrée par
+« supabase migration repair --status applied NNN ». Détail : supabase/drafts/migrations_audit_2026-10-25.txt (§ 8 et 9).
 
 Brouillons de migration NON appliqués (rien ici n'est exécuté automatiquement).
 - 176_transferts_workflow.sql : Transferts, traçabilité lot par lot — vérifié contre la base le 15 oct. 2026,
@@ -13,8 +13,8 @@ Reconstitués le 23 oct. 2026 depuis l'historique de la conversation après le n
 
 179 — traitement des lots périmés + résolution des ventes hors ligne non attribuées : APPLIQUÉE en production le
 25 oct. 2026 (exécutée dans l'éditeur SQL). Le fichier EXACT appliqué est désormais
-supabase/migrations/179_batch_treatments.sql (déplacé par git mv, SHA-256 2a465063… inchangé). Il n'est enregistré
-dans aucun historique Supabase, comme la 178 et la plupart des migrations du dépôt : voir la consigne ci-dessus.
+supabase/migrations/179_batch_treatments.sql (déplacé par git mv, SHA-256 2a465063… inchangé). Enregistrée dans
+l'historique Supabase depuis la réparation du 25 oct. 2026.
 Allocation vente → lot en NO ACTION DEFERRABLE INITIALLY IMMEDIATE + delete_shops(uuid[]) (seule voie de
 suppression d'une boutique). Validation en production : tests/e2e/prod-smoke-179-post.js (lecture seule) et
 tests/e2e/b179-real-test-shop.js (test réel dans une boutique TEST supprimée ensuite, 45/45).

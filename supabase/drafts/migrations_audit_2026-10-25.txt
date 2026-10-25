@@ -124,3 +124,22 @@ AUDIT DE L'HISTORIQUE DES MIGRATIONS — 25 oct. 2026 (lecture seule, aucune ré
      La CLI compare les versions comme du TEXTE : 0561 se range entre 056 et 057, et une future 181 reste poussable.
    - Résultat : 181 fichiers actifs, 181 versions uniques, aucune collision. Les références aux anciens noms dans les
      sections 1 à 7 décrivent l'état AVANT cette normalisation.
+
+9. Réparation de l'historique (25 oct. 2026, décision D6 — exécutée avec l'autorisation écrite du propriétaire)
+   Aucun SQL de migration exécuté : « migration repair » n'écrit que dans supabase_migrations.schema_migrations
+   (version, nom, instructions du fichier). CLI 2.122.0, connexion pooler en mode session, mot de passe jamais affiché.
+   Sauvegarde préalable des 2 lignes horodatées : supabase/drafts/schema_migrations_avant_reparation_2026-10-25/.
+     contrôle  migration list                                   181 seulement dépôt, 2 seulement base (attendu)
+     A         repair --status applied <181 versions>           « Migration history repaired »
+     B         migration list + lecture de la base              181 alignées + 2 horodatées ; 183 lignes, toutes avec
+                                                                instructions ; 002 = fix_sale_number, 0561/0571/0581 corrects
+     C         repair --status reverted 20261014224313 20261023163222
+     D         migration list                                   181 alignées, 0 / 0
+     E         db push --dry-run                                « Remote database is up to date »
+   Après réparation (lecture seule) : schema_migrations = 181 lignes (max 180), aucune horodatée, ni 002_saas, ni 174,
+   ni 176 ; objets 147 / 175 / 177 / 179 / 180 présents (clé sale_item_batches_batch_id_fkey toujours DEFERRABLE,
+   non différée par défaut) ; ventes BOU-0408 / 0483 / 0489 / 0504 présentes ; 0 verrou en attente.
+   Futur : « db push --dry-run » sur une copie du dossier avec une 181 factice → seule la 181 serait proposée.
+   Règle désormais : toute nouvelle migration a un numéro à 3 chiffres (181, 182…). Si elle est exécutée dans
+   l'éditeur SQL, l'enregistrer ensuite par « migration repair --status applied NNN » ; « db push » seulement sur
+   accord explicite, après « db push --dry-run ».

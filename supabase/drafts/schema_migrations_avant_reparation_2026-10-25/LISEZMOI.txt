@@ -1,0 +1,12 @@
+Copie EXACTE (au caractère près) des 2 seules lignes de supabase_migrations.schema_migrations AVANT la réparation
+du 25 oct. 2026. Ces lignes ont été retirées par « migration repair --status reverted » (étape C) ; elles sont
+conservées ici pour l'historique. NE PAS EXÉCUTER : ces textes sont des versions condensées (en-têtes abrégés) de
+supabase/migrations/175_inventory_sessions.sql et 177_entities_consolidation_currency.sql, déjà appliquées ; le SQL
+exécutable est identique aux fichiers Git (md5 normalisé, commentaires et lignes vides retirés : 175 f110c56c…,
+177 50a76a5b…).
+
+version          name                                 statements  md5 (statements[1])                longueur  created_by            idempotency_key  rollback
+20261014224313   175_inventory_sessions               1           e74f062eda54ffc2f4c4becd98b36508   19258     yahaya.dev@gmail.com  NULL             0
+20261023163222   177_entities_consolidation_currency  1           d214842d20e30f77d406bde02e6d0ac6   4097      yahaya.dev@gmail.com  NULL             0
+
+Fichiers : <version>_<nom>.statements.txt (contenu de statements[1], sans aucun ajout).
