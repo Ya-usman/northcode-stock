@@ -3735,6 +3735,7 @@
     "po_status_transition_not_allowed": "This status change is not allowed for this purchase order.",
     "po_items_or_status": "Change the lines or the status, not both at once.",
     "po_price_required": "The purchase price of some products on this order is not known. Someone allowed to view costs must record this receipt.",
+    "po_payment_forbidden": "You can receive this order, but not record a supplier payment. Choose « On credit » or ask an authorised person.",
     "draft_only_deletable": "Only a draft can be deleted",
     "shop_po_id_required": "shop_id and purchase_order_id required",
     "at_least_one_line_required": "At least one line is required",

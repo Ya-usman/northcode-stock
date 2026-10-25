@@ -3735,6 +3735,7 @@
     "po_status_transition_not_allowed": "Ce changement de statut n’est pas possible pour ce bon de commande.",
     "po_items_or_status": "Modifiez les lignes ou le statut, pas les deux en même temps.",
     "po_price_required": "Le prix d’achat de certains produits de ce bon n’est pas connu. Une personne autorisée à voir les coûts doit faire cette réception.",
+    "po_payment_forbidden": "Vous pouvez réceptionner ce bon, mais pas enregistrer de paiement fournisseur. Choisissez « À crédit » ou demandez à une personne autorisée.",
     "draft_only_deletable": "Seul un brouillon peut être supprimé",
     "shop_po_id_required": "shop_id et purchase_order_id requis",
     "at_least_one_line_required": "Au moins une ligne est requise",

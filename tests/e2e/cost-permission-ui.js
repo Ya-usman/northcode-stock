@@ -15,9 +15,23 @@ let pass = 0, fail = 0
 const ok = (c, m) => { c ? pass++ : fail++; console.log(`  ${c ? 'ok   ' : 'ÉCHEC'} ${m}`) }
 const AKWA = '7313d74e-43dd-4b36-a59e-17ba370d29a1', BASTOS = 'abec3e3f-3e92-4ff0-a374-d2d88f57899b'
 
-async function open(email, shop, path) {
+// noCost : depuis la 181, la magasinière de Bastos GARDE le coût (réglage explicite). Pour tester un rôle de stock SANS
+// la permission, CE navigateur seul lit stock_manager.view_purchase_cost = false (aucune écriture ; le serveur applique
+// ses propres règles, testées dans cost-permission-pure). Horaires neutralisés comme dans lib/capture.js.
+async function open(email, shop, path, { noCost = false } = {}) {
   process.env.CAPTURE_EMAIL = email; process.env.PIN_SHOP = shop
   const s = await session({ width: 1366, height: 900, locale: 'fr' })
+  if (noCost) await s.page.route(/\/rest\/v1\/shops\?/, async route => {
+    if (route.request().method() !== 'GET') return route.fallback()
+    const res = await route.fetch()
+    let body = (await res.text()).replace(/"hours_enabled":\s*true/g, '"hours_enabled":false')
+    try {
+      const fix = x => (x && typeof x === 'object' && 'role_permissions' in x
+        ? { ...x, role_permissions: { ...(x.role_permissions || {}), stock_manager: { ...((x.role_permissions || {}).stock_manager || {}), view_purchase_cost: false } } } : x)
+      const j = JSON.parse(body); body = JSON.stringify(Array.isArray(j) ? j.map(fix) : fix(j))
+    } catch {}
+    return route.fulfill({ response: res, body })
+  })
   s.errors = []; s.page.on('pageerror', e => s.errors.push(e.message.slice(0, 120)))
   s.bodies = []; s.costCalls = 0
   s.page.on('response', async r => {
@@ -37,8 +51,14 @@ const leaks = s => s.bodies.filter(b => /"buying_price"\s*:\s*-?\d/.test(b.t)).m
   const snap = async () => JSON.stringify((await db.from('shops').select('id, role_permissions').in('id', [AKWA, BASTOS]).order('id')).data)
   const before = await snap()
 
-  console.log('\n1. Magasinière (Bastos) — sans la permission : aucun coût, travail de stock possible')
+  console.log('\n0. Magasinière (Bastos), réglage RÉEL — accès au coût conservé par la 181')
   let s = await open('ghislainx123+mariam@gmail.com', BASTOS, 'stock/products')
+  ok(s.costCalls > 0, 'coûts demandés à /api/costs (droit conservé par la 181)')
+  ok(s.bodies.filter(b => /\/rest\/v1\//.test(b.u)).every(b => !/"buying_price"\s*:/.test(b.t)), 'lectures directes de la base : jamais de buying_price')
+  await s.browser.close()
+
+  console.log('\n1. Magasinière (Bastos) — permission retirée (dans ce navigateur seulement) : aucun coût, travail de stock possible')
+  s = await open('ghislainx123+mariam@gmail.com', BASTOS, 'stock/products', { noCost: true })
   let page = s.page
   ok(await page.locator('[data-product-row], [data-product-card]').count() > 0, 'liste des produits affichée')
   ok(s.costCalls === 0, 'aucune demande à /api/costs')
@@ -59,7 +79,7 @@ const leaks = s => s.bodies.filter(b => /"buying_price"\s*:\s*-?\d/.test(b.t)).m
   ok(s.errors.length === 0, `aucune erreur JavaScript${s.errors.length ? ' : ' + s.errors.join(' | ') : ''}`)
   await s.browser.close()
 
-  s = await open('ghislainx123+mariam@gmail.com', BASTOS, 'suppliers?view=purchase_orders')
+  s = await open('ghislainx123+mariam@gmail.com', BASTOS, 'suppliers?view=purchase_orders', { noCost: true })
   page = s.page
   const newPo = page.getByRole('button', { name: /Nouveau bon de commande/ }).first()
   if (await newPo.count()) {

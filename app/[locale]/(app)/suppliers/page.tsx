@@ -161,6 +161,9 @@ export default function SuppliersPage() {
   const scopeKey = scope.shopIds.join(',')
   const filterScope = useFilterScope()
   const { canWriteIn, canAccessIn, canViewCostIn } = useShopPermissions()
+  // Payer une dette fournisseur (même à la réception) : Crédits en modification ET Fournisseurs en lecture — même règle
+  // que le serveur (lib/api/supplier-access → canPaySupplierDebt)
+  const canPaySuppliersIn = (id?: string | null) => !!id && canWriteIn(id, 'payments') && canAccessIn(id, 'suppliers')
   const shopById = useMemo(() => Object.fromEntries(userShops.map(s => [s.id, s])) as Record<string, Shop>, [userShops])
   const canManageIn = (id?: string | null) => !!id && canWriteIn(id, 'suppliers')
   const canManageAny = scope.shopIds.some(id => canWriteIn(id, 'suppliers'))
@@ -796,7 +799,8 @@ export default function SuppliersPage() {
         expiry_date: receiveExpiryDates[it.id] || null,
         receipt_note: receiveNotes[it.id] || null,
       }))
-      const paymentAmount = receivePaymentStatus === 'paid'
+      const canPay = canPaySuppliersIn(receivingPo.shop_id)
+      const paymentAmount = !canPay ? 0 : receivePaymentStatus === 'paid'
         ? receiveTotal
         : receivePaymentStatus === 'partial'
           ? Number(receivePaymentAmount) || 0
@@ -810,8 +814,8 @@ export default function SuppliersPage() {
           items,
           payment_amount: paymentAmount > 0 ? paymentAmount : null,
           // « Payé » = tout le bon : montant calculé par le serveur (l'écran sans droit au coût ne le connaît pas)
-          payment_full: receivePaymentStatus === 'paid',
-          payment_method: (paymentAmount > 0 || receivePaymentStatus === 'paid') ? receivePaymentMethod : null,
+          payment_full: canPay && receivePaymentStatus === 'paid',
+          payment_method: canPay && (paymentAmount > 0 || receivePaymentStatus === 'paid') ? receivePaymentMethod : null,
         }),
       })
       const json = await res.json()
@@ -1976,6 +1980,8 @@ export default function SuppliersPage() {
               </div>
             </DrawerSection>
 
+            {/* Sans le droit de payer : réception « à crédit » seulement (aucun paiement envoyé) */}
+            {canPaySuppliersIn(receivingPo?.shop_id) && (
             <DrawerSection title={t('suppliers.section_payment')}>
               <div className="grid grid-cols-3 gap-1.5">
                 {(['paid', 'partial', 'credit'] as const).map(status => (
@@ -2021,6 +2027,7 @@ export default function SuppliersPage() {
                 <p className="text-[11px] text-muted-foreground">{t('suppliers.po_payment_credit_hint')}</p>
               )}
             </DrawerSection>
+            )}
           </>
         )}
       </FormDrawer>

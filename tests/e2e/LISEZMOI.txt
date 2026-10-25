@@ -50,3 +50,7 @@ Permission « Voir les prix d'achat et les coûts » (view_purchase_cost, lib/pe
                                               par la 181, changement à chaud, journal des réglages, gardes des routes
   CAPTURE_BASE=http://localhost:3000 node tests/e2e/cost-permission-ui.js   écrans par rôle, Marché Soleil en lecture seule
   Migrations 181 / 182 : SEED=<fichier> bash supabase/drafts/181_182_local_validation.sh (base locale jetable, db push réel)
+
+Dettes fournisseurs (étape C3) — corrections applicatives :
+  node tests/e2e/c3-debts-pure.mjs        test PUR : bon vu selon coût / dette, /api/suppliers sans solde dû, paiement à la
+                                          réception réservé au droit « payer », purge option A, contrôle de compilation étendu

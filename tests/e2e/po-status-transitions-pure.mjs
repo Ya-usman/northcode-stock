@@ -103,7 +103,7 @@ const MOCKS = {
   '@/lib/api/shop-auth': `export const getAuthedUser = async () => ({ user: { id: 'u1', email: 'test@example.invalid' }, supabase: {} }); export const checkShopRole = async () => globalThis.__po.role ?? 'owner'`,
   '@/lib/api/audit': `export const writeAuditLog = async (e) => { globalThis.__po.audit.push(e) }; export const getClientIp = () => '0.0.0.0'`,
   '@/lib/api/role-permissions': `export const canViewCost = async () => true; export const canViewFeature = async () => true; export const canWriteFeature = async () => globalThis.__po.canWrite ?? true`,
-  '@/lib/api/supplier-access': `export const orderWithoutCost = (x) => x`,
+  '@/lib/api/supplier-access': `export const orderWithoutCost = (x) => x; export const orderForViewer = (x) => x; export const canViewSupplierDebt = async () => true; export const canPaySupplierDebt = async () => true`,
   '@/lib/api/i18n': `export const getApiTranslator = () => (k) => 'T:' + k`,
   '@/lib/api/shop-objects': `export const supplierOfShop = async () => true; export const productsOutsideShop = async () => []`,
 }

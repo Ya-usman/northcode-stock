@@ -220,7 +220,8 @@ const RITEMS = [{ item_id: 'i1', product_id: 'p1', quantity_received: 2, unit_pr
   let r = await call(receive, 'POST', { shop_id: 'shop1', purchase_order_id: 'po1', items: RITEMS }, { role: 'stock_manager', rp: { stock_manager: { suppliers: true, suppliers_write: true } }, handler: recvHandler(0) })
   ok(r.res.status === 409 && r.res.body.code === 'purchase_order_price_required' && r.res.body.error === 'T:po_price_required' && !r.db.log.some(q => q.rpc),
      'réception SANS coût, ligne sans prix ni coût connu : 409 « une personne autorisée doit faire cette réception », rien reçu')
-  r = await call(receive, 'POST', { shop_id: 'shop1', purchase_order_id: 'po1', items: RITEMS, payment_full: true, payment_method: 'cash' }, { role: 'stock_manager', rp: { stock_manager: { suppliers: true, suppliers_write: true } }, handler: recvHandler(300) })
+  // Droit de PAYER donné (Crédits en modification) pour isoler la règle du COÛT — le refus du paiement sans ce droit est testé dans c3-debts-pure
+  r = await call(receive, 'POST', { shop_id: 'shop1', purchase_order_id: 'po1', items: RITEMS, payment_full: true, payment_method: 'cash' }, { role: 'stock_manager', rp: { stock_manager: { suppliers: true, suppliers_write: true, payments: true, payments_write: true } }, handler: recvHandler(300) })
   const rpc = r.db.log.find(q => q.rpc === 'apply_purchase_order_receipt'), pay = writes(r.db, 'supplier_payments')[0]
   ok(r.res.status === 200 && rpc.args.p_items[0].unit_price === 250 && rpc.args.p_items[1].unit_price === null, 'réception SANS coût : prix de l’appareil (999) ignorés → prix DÉJÀ connus du bon (250) / coût du produit (ligne sans prix)')
   ok(pay && pay.payload.amount === 5000, '« Payé en totalité » sans coût : montant calculé par le serveur (solde du bon), jamais 0')

@@ -4,13 +4,14 @@ import { getAuthedUser, checkShopRole } from '@/lib/api/shop-auth'
 import { writeAuditLog, getClientIp } from '@/lib/api/audit'
 import { canViewCost, canWriteFeature } from '@/lib/api/role-permissions'
 import { costVisible } from '@/lib/api/cost-fields'
+import { canPaySupplierDebt } from '@/lib/api/supplier-access'
 import { getApiTranslator } from '@/lib/api/i18n'
 import { productsOutsideShop } from '@/lib/api/shop-objects'
 
 // POST /api/purchase-orders/receive — verify received quantities and restock
 // in one atomic transaction (apply_purchase_order_receipt), instead of a
 // blind status flip followed by a separate manual restock.
-// body: { shop_id, purchase_order_id, items: [{item_id, product_id, quantity_received, unit_price, expiry_date, receipt_note}], payment_amount?, payment_method? }
+// body: { shop_id, purchase_order_id, items: [{item_id, product_id, quantity_received, unit_price, expiry_date, receipt_note}], payment_amount?, payment_full?, payment_method? }
 export async function POST(request: Request) {
   const t = getApiTranslator(request)
   try {
@@ -33,6 +34,12 @@ export async function POST(request: Request) {
       .from('purchase_orders').select('supplier_id, is_opening_balance').eq('id', purchase_order_id).eq('shop_id', shop_id).single()
     if (!po) return NextResponse.json({ error: t('po_not_found') }, { status: 404 })
     if (po.is_opening_balance) return NextResponse.json({ error: t('opening_not_editable') }, { status: 400 })
+
+    // Paiement déclaré à la réception = paiement d'une dette fournisseur : droit « payer » (Crédits en modification ET
+    // Fournisseurs en lecture), vérifié AVANT toute écriture. La réception « à crédit » reste ouverte.
+    const wantsPayment = payment_full === true || (Number(payment_amount) > 0)
+    if (wantsPayment && !(await canPaySupplierDebt(supabase, role, shop_id)))
+      return NextResponse.json({ error: t('po_payment_forbidden'), code: 'supplier_payment_forbidden' }, { status: 403 })
 
     // Sans le droit au coût (view_purchase_cost) : aucun prix venu de l'appareil n'est cru. Chaque ligne reprend le
     // prix DÉJÀ connu sur le bon ; une ligne reçue sans prix sur le bon NI coût connu du produit attend une personne

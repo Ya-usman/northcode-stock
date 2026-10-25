@@ -114,6 +114,11 @@ export function purgeCostCaches(): number {
       const v = localStorage.getItem(k)
       if (!v) continue
       let withCost = v.includes('"buying_price"')
+      // Option A de la C3 (25 oct. 2026) : les dettes fournisseurs restent en cache pour qui a le droit de les voir
+      // (écran Crédits, hors ligne) — mais une liste de fournisseurs ordinaire ne doit plus contenir de solde dû :
+      // une telle entrée date d'avant l'étape C0 (13 oct.) et est supprimée.
+      const debtCache = k.startsWith('pc_supplier_debtors_') || k.startsWith('pc_supplier_payments_hist_')
+      if (!withCost && !debtCache && v.includes('"total_owed"')) withCost = true
       if (!withCost && v.includes('"purchase_order_items"')) { try { withCost = containsCost(JSON.parse(v)) } catch { withCost = true } }
       if (withCost) { localStorage.removeItem(k); removed++ }
     }

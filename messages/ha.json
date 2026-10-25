@@ -3735,6 +3735,7 @@
     "po_status_transition_not_allowed": "Ba za a iya yin wannan canjin matsayi a wannan odar sayayya ba.",
     "po_items_or_status": "Gyara kaya ko matsayi, ba duka biyu lokaci ɗaya ba.",
     "po_price_required": "Ba a san farashin sayayya na wasu kaya a wannan odar ba. Wanda aka ba izinin ganin kuɗaɗe ne zai karɓi wannan odar.",
+    "po_payment_forbidden": "Kana iya karɓar wannan odar, amma ba za ka iya rubuta biyan mai samar ba. Zaɓi « Bashi » ko ka nemi wanda aka ba izini.",
     "draft_only_deletable": "Zane-zane kawai ake iya sharewa",
     "shop_po_id_required": "Ana buƙatar shop_id da purchase_order_id",
     "at_least_one_line_required": "Ana buƙatar aƙalla layi ɗaya",

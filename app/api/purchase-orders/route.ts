@@ -3,7 +3,7 @@ import { createAdminClient } from '@/lib/supabase/server'
 import { getAuthedUser, checkShopRole } from '@/lib/api/shop-auth'
 import { writeAuditLog, getClientIp } from '@/lib/api/audit'
 import { canViewCost, canViewFeature, canWriteFeature } from '@/lib/api/role-permissions'
-import { orderWithoutCost } from '@/lib/api/supplier-access'
+import { orderForViewer, canViewSupplierDebt } from '@/lib/api/supplier-access'
 import { getApiTranslator } from '@/lib/api/i18n'
 import { supplierOfShop, productsOutsideShop } from '@/lib/api/shop-objects'
 import {
@@ -46,11 +46,13 @@ export async function GET(request: Request) {
     if (!requested.length) return NextResponse.json({ error: t('shop_id_required') }, { status: 400 })
     const allowed: string[] = []
     const costShops = new Set<string>()
+    const debtShops = new Set<string>() // payé / solde / statut : droit dette (Crédits + Fournisseurs en lecture)
     for (const id of Array.from(new Set(requested))) {
       const role = await checkShopRole(supabase, user.id, id)
       if (!role || !(await canViewFeature(supabase, role, id, 'suppliers'))) continue
       allowed.push(id)
       if (await canViewCost(supabase, role, id)) costShops.add(id)
+      if (await canViewSupplierDebt(supabase, role, id)) debtShops.add(id)
     }
     if (!allowed.length) return NextResponse.json({ error: t('permission_denied') }, { status: 403 })
 
@@ -83,7 +85,7 @@ export async function GET(request: Request) {
     }))
 
     // Montants d'un bon : seulement si la personne peut voir les coûts dans SA boutique
-    const out = enriched.map((po: any) => (costShops.has(po.shop_id) ? po : orderWithoutCost(po)))
+    const out = enriched.map((po: any) => orderForViewer(po, { cost: costShops.has(po.shop_id), debt: debtShops.has(po.shop_id) }))
     return NextResponse.json({ data: out, cost: allowed.every(id => costShops.has(id)) })
   } catch (e: any) {
     return NextResponse.json({ error: e.message }, { status: 500 })
@@ -143,7 +145,7 @@ export async function POST(request: Request) {
     }
 
     const created = { ...po, purchase_order_items: itemRows }
-    return NextResponse.json({ data: seesCost ? created : orderWithoutCost(created) })
+    return NextResponse.json({ data: orderForViewer(created, { cost: seesCost, debt: await canViewSupplierDebt(supabase, role, shop_id) }) })
   } catch (e: any) {
     return NextResponse.json({ error: e.message }, { status: 500 })
   }
@@ -245,7 +247,7 @@ export async function PATCH(request: Request) {
       const { data, error } = await (admin as any)
         .from('purchase_orders').update({ updated_at: new Date().toISOString() }).eq('id', id).eq('shop_id', shop_id).select().single()
       if (error) return NextResponse.json({ error: error.message }, { status: 400 })
-      return NextResponse.json({ data: seesCost ? data : orderWithoutCost(data) })
+      return NextResponse.json({ data: orderForViewer(data, { cost: seesCost, debt: await canViewSupplierDebt(supabase, role, shop_id) }) })
     }
 
     // Même statut (ou rien à changer) : aucune écriture, aucune trace — le bon est renvoyé tel quel (sans montants)

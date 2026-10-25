@@ -60,6 +60,21 @@ export function debtOrder<T extends Record<string, any>>(po: T, showLines: boole
   return rest as T
 }
 
+/**
+ * Un bon de commande tel qu'une personne a le droit de le voir (étape C3, 25 oct. 2026) — champ ABSENT sinon :
+ *   prix unitaires des lignes : canViewCost ;
+ *   total du bon : canViewCost OU dette (la dette se montre bon par bon : total, payé, solde) ;
+ *   payé, solde, statut de paiement : dette seulement (canViewSupplierDebt = Crédits + Fournisseurs en lecture).
+ */
+export function orderForViewer<T extends Record<string, any>>(po: T, rights: { cost: boolean; debt: boolean }): T {
+  const out: Record<string, any> = { ...po }
+  if (!rights.cost && !rights.debt) delete out.total_amount
+  if (!rights.debt) { delete out.amount_paid; delete out.balance; delete out.payment_status }
+  if (!rights.cost && Array.isArray(po.purchase_order_items))
+    out.purchase_order_items = po.purchase_order_items.map(({ unit_price: _price, ...item }: any) => item)
+  return out as T
+}
+
 /** Écran Fournisseurs sans le droit de voir les coûts : lignes sans prix unitaire, bon sans montants. */
 export function orderWithoutCost<T extends Record<string, any>>(po: T): T {
   const { total_amount: _total, amount_paid: _paid, balance: _balance, ...rest } = po

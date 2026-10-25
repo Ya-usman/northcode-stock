@@ -3,6 +3,7 @@ import { createAdminClient } from '@/lib/supabase/server'
 import { getAuthedUser, checkShopRole } from '@/lib/api/shop-auth'
 import { writeAuditLog, getClientIp } from '@/lib/api/audit'
 import { canWriteFeature } from '@/lib/api/role-permissions'
+import { SUPPLIER_PUBLIC_COLUMNS } from '@/lib/suppliers/columns'
 import { getApiTranslator } from '@/lib/api/i18n'
 
 // POST /api/suppliers — create a supplier
@@ -21,7 +22,8 @@ export async function POST(request: Request) {
 
     const admin = await createAdminClient()
     const { data, error } = await (admin as any)
-      .from('suppliers').insert({ shop_id, name, phone: phone || null, city: city || null }).select().single()
+      // Fiche sans le solde dû (total_owed = dette : jamais renvoyée ici, voir /api/suppliers/balances)
+      .from('suppliers').insert({ shop_id, name, phone: phone || null, city: city || null }).select(SUPPLIER_PUBLIC_COLUMNS).single()
     if (error) return NextResponse.json({ error: error.message }, { status: 400 })
 
     return NextResponse.json({ data })
@@ -49,7 +51,7 @@ export async function PATCH(request: Request) {
       .from('suppliers')
       .update({ name, phone: phone || null, city: city || null })
       .eq('id', id).eq('shop_id', shop_id)
-      .select().single()
+      .select(SUPPLIER_PUBLIC_COLUMNS).single() // sans le solde dû
     if (error) return NextResponse.json({ error: error.message }, { status: 400 })
     if (!data) return NextResponse.json({ error: t('supplier_not_found_in_shop') }, { status: 404 })
 

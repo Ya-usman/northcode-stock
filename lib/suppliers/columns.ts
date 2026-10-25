@@ -3,5 +3,7 @@
 // est une donnée financière : l'écran qui en a besoin la demande au serveur
 // (/api/suppliers/balances), qui applique la règle « Crédits en lecture ET
 // Fournisseurs en lecture » (lib/api/supplier-access → canViewSupplierDebt).
-// À tenir à jour quand une colonne est ajoutée à `suppliers`.
+// À tenir à jour quand une colonne est ajoutée à `suppliers` — ET, depuis la migration 183 (C3), lui donner son
+// « GRANT SELECT (colonne) ON public.suppliers TO authenticated » dans la même migration : sans lui, le navigateur
+// ne peut pas la lire (règle « fail-closed » : total_owed n'est jamais accordé).
 export const SUPPLIER_PUBLIC_COLUMNS = 'id, shop_id, name, phone, city, email, created_at, deleted_at'

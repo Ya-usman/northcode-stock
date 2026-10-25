@@ -18,7 +18,8 @@
 const fs = require('fs')
 const path = require('path')
 
-const ROOT = path.resolve(__dirname, '..', '..')
+// CHECK_DIRECT_READS_ROOT : dossier d'essai (tests du contrôle lui-même) — sinon le dépôt
+const ROOT = process.env.CHECK_DIRECT_READS_ROOT ? path.resolve(process.env.CHECK_DIRECT_READS_ROOT) : path.resolve(__dirname, '..', '..')
 const RULES = require('./protected-data.json')
 const PROTECTED = RULES.protectedColumns
 const SERVER_ONLY = RULES.serverOnlyTables
@@ -67,10 +68,14 @@ for (const file of files) {
   browserFiles++
   const report = (index, message) => violations.push(`${rel}:${lineOf(source, index)}  ${message}`)
 
-  // 1. Lectures directes : .from('table') puis son .select(...)
-  for (const m of source.matchAll(/\.from\(\s*['"`]([a-z_]+)['"`]\s*\)/g)) {
-    const table = m[1]
-    if (SERVER_ONLY.includes(table)) { report(m.index, `table « ${table} » réservée au serveur`); continue }
+  // 1. Lectures directes : .from('table') — ou nom CALCULÉ (.from(x ? 'customers' : 'suppliers')) : chaque table
+  //    protégée citée dans l'argument compte — puis son .select(...)
+  for (const m of source.matchAll(/\.from\(/g)) {
+   const fromArg = firstArgument(source, m.index + m[0].length - 1).trim()
+   const literal = fromArg.match(/^['"`]([a-z_]+)['"`]$/)
+   const named = literal ? [literal[1]] : [...fromArg.matchAll(/['"`]([a-z_]+)['"`]/g)].map(x => x[1])
+   for (const table of new Set(named)) {
+    if (SERVER_ONLY.includes(table)) { report(m.index, `table « ${table} » réservée au serveur${literal ? '' : ' (nom calculé)'}`); continue }
     if (!(table in PROTECTED)) continue
     // La lecture s'arrête à la prochaine table ou à la fin de l'instruction
     const rest = source.slice(m.index + m[0].length)
@@ -83,13 +88,15 @@ for (const file of files) {
     else if (/(^|[\s'"`,])\*/.test(arg.replace(/\$\{[^}]*\}/g, ''))) report(m.index, `« ${table} » lue avec « * » (dont ${PROTECTED[table].join(', ')})`)
     else if (!/['"`]/.test(arg) && !/PUBLIC_COLUMNS/.test(arg)) report(m.index, `« ${table} » : liste de colonnes non vérifiable (${arg.slice(0, 40)}) — utiliser une constante …_PUBLIC_COLUMNS`)
     for (const col of PROTECTED[table]) if (new RegExp(`\\b${col}\\b`).test(arg)) report(m.index, `colonne protégée « ${table}.${col} » lue par le navigateur`)
+   }
   }
 
   // 2. Lectures imbriquées et colonnes protégées nommées dans n'importe quel select
   for (const m of source.matchAll(/\.select\(/g)) {
     const arg = firstArgument(source, m.index + m[0].length - 1)
-    for (const table of SERVER_ONLY) if (new RegExp(`\\b${table}\\s*(!inner)?\\s*\\(`).test(arg)) report(m.index, `table « ${table} » (réservée au serveur) imbriquée dans une lecture`)
-    for (const table of Object.keys(PROTECTED)) if (new RegExp(`\\b${table}\\s*(!inner)?\\s*\\(\\s*\\*`).test(arg)) report(m.index, `« ${table}(*) » imbriquée (dont ${PROTECTED[table].join(', ')})`)
+    // Indice de clé étrangère quelconque (!inner, !left, !nom_de_cle) ; « * » où qu'elle soit dans la sous-sélection
+    for (const table of SERVER_ONLY) if (new RegExp(`\\b${table}\\s*(![a-z_]+)?\\s*\\(`).test(arg)) report(m.index, `table « ${table} » (réservée au serveur) imbriquée dans une lecture`)
+    for (const table of Object.keys(PROTECTED)) if (new RegExp(`\\b${table}\\s*(![a-z_]+)?\\s*\\([^()]*\\*`).test(arg)) report(m.index, `« ${table}(*) » imbriquée (dont ${PROTECTED[table].join(', ')})`)
     for (const col of ALL_COLUMNS) if (new RegExp(`['"\`,\\s(]${col}\\b`).test(arg)) report(m.index, `colonne protégée « ${col} » nommée dans une lecture du navigateur`)
   }
 }
