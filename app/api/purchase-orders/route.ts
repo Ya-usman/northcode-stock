@@ -6,6 +6,9 @@ import { canViewCost, canViewFeature, canWriteFeature } from '@/lib/api/role-per
 import { orderWithoutCost } from '@/lib/api/supplier-access'
 import { getApiTranslator } from '@/lib/api/i18n'
 import { supplierOfShop, productsOutsideShop } from '@/lib/api/shop-objects'
+import {
+  checkPoStatusTransition, poTransitionErrorKey, updatePoStatusAtomically, PO_TRANSITION_NOT_ALLOWED, PO_STATUS_CHANGED,
+} from '@/lib/api/purchase-order-status'
 
 // Purchase orders live inside the Suppliers page/tab client-side (gated by
 // canAccess('suppliers') — there's no dedicated toggle wired up for them),
@@ -144,6 +147,9 @@ export async function POST(request: Request) {
 
 // PATCH /api/purchase-orders — change status, or replace items while still a draft
 // body: { id, shop_id, status?, items? }
+// Statut : seuls brouillon → envoyé, brouillon → annulé, envoyé → annulé (409 purchase_order_status_transition_not_allowed
+// sinon) ; « reçu » / « partiel » uniquement par /api/purchase-orders/receive. Écriture conditionnée au statut lu
+// (409 purchase_order_status_changed si le bon a changé entre-temps). Même statut : rien n'est écrit.
 export async function PATCH(request: Request) {
   const t = getApiTranslator(request)
   try {
@@ -164,6 +170,46 @@ export async function PATCH(request: Request) {
     if (fetchError || !existing) return NextResponse.json({ error: t('po_not_found') }, { status: 404 })
     if (existing.is_opening_balance) return NextResponse.json({ error: t('opening_not_editable') }, { status: 400 })
 
+    // Statut : matrice fermée, vérifiée AVANT toute écriture (lib/api/purchase-order-status)
+    const transition = status ? checkPoStatusTransition(existing.status, status) : null
+    if (transition?.kind === 'unknown_status')
+      return NextResponse.json({ error: t('invalid_status') }, { status: 400 })
+    if (transition?.kind === 'not_allowed')
+      return NextResponse.json(
+        { error: t(poTransitionErrorKey(transition.reason) as any), code: PO_TRANSITION_NOT_ALLOWED, reason: transition.reason },
+        { status: 409 }
+      )
+    if (transition?.kind === 'allowed' && Array.isArray(items))
+      return NextResponse.json({ error: t('po_items_or_status') }, { status: 400 })
+
+    if (transition?.kind === 'allowed') {
+      const now = new Date().toISOString()
+      const updates: Record<string, unknown> = { status, updated_at: now }
+      if (status === 'sent') { updates.sent_at = now; updates.sent_by = user.id }
+      if (status === 'cancelled') updates.cancelled_by = user.id
+
+      // UPDATE … WHERE id AND shop_id AND status = <statut lu> : 0 ligne si le bon a changé entre-temps
+      const result = await updatePoStatusAtomically(admin, { id, shopId: shop_id, from: existing.status, updates })
+      if (result.error) return NextResponse.json({ error: result.error.message }, { status: 400 })
+      if (result.conflict)
+        return NextResponse.json({ error: t('po_status_changed'), code: PO_STATUS_CHANGED }, { status: 409 })
+
+      // Trace permanente d'une annulation ou d'un envoi — même raisonnement
+      // que la suppression d'un brouillon : indépendante de la ligne elle-même.
+      const { data: actorProfile } = await (admin as any).from('profiles').select('full_name').eq('id', user.id).single()
+      await writeAuditLog({
+        action: status === 'cancelled' ? 'purchase_order.cancel' : 'purchase_order.send',
+        shop_id,
+        actor_id: user.id,
+        actor_email: user.email,
+        target_id: id,
+        target_type: 'purchase_order',
+        ip: getClientIp(request),
+        metadata: { actor_name: actorProfile?.full_name || user.email, reference: existing.reference },
+      })
+      return NextResponse.json({ data: result.data })
+    }
+
     if (Array.isArray(items)) {
       if (existing.status !== 'draft')
         return NextResponse.json({ error: t('draft_only_editable') }, { status: 400 })
@@ -181,39 +227,15 @@ export async function PATCH(request: Request) {
       }))
       const { error: itemsError } = await (admin as any).from('purchase_order_items').insert(itemRows)
       if (itemsError) return NextResponse.json({ error: itemsError.message }, { status: 400 })
+
+      const { data, error } = await (admin as any)
+        .from('purchase_orders').update({ updated_at: new Date().toISOString() }).eq('id', id).eq('shop_id', shop_id).select().single()
+      if (error) return NextResponse.json({ error: error.message }, { status: 400 })
+      return NextResponse.json({ data })
     }
 
-    const updates: Record<string, unknown> = { updated_at: new Date().toISOString() }
-    if (status) {
-      if (!['draft', 'sent', 'received', 'cancelled'].includes(status))
-        return NextResponse.json({ error: t('invalid_status') }, { status: 400 })
-      updates.status = status
-      if (status === 'sent') { updates.sent_at = new Date().toISOString(); updates.sent_by = user.id }
-      if (status === 'received') updates.received_at = new Date().toISOString()
-      if (status === 'cancelled') updates.cancelled_by = user.id
-    }
-
-    const { data, error } = await (admin as any)
-      .from('purchase_orders').update(updates).eq('id', id).eq('shop_id', shop_id).select().single()
-    if (error) return NextResponse.json({ error: error.message }, { status: 400 })
-
-    // Trace permanente d'une annulation ou d'un envoi — même raisonnement
-    // que la suppression d'un brouillon : indépendante de la ligne elle-même.
-    if (status === 'cancelled' || status === 'sent') {
-      const { data: actorProfile } = await (admin as any).from('profiles').select('full_name').eq('id', user.id).single()
-      await writeAuditLog({
-        action: status === 'cancelled' ? 'purchase_order.cancel' : 'purchase_order.send',
-        shop_id,
-        actor_id: user.id,
-        actor_email: user.email,
-        target_id: id,
-        target_type: 'purchase_order',
-        ip: getClientIp(request),
-        metadata: { actor_name: actorProfile?.full_name || user.email, reference: existing.reference },
-      })
-    }
-
-    return NextResponse.json({ data })
+    // Même statut (ou rien à changer) : aucune écriture, aucune trace — le bon est renvoyé tel quel (sans montants)
+    return NextResponse.json({ data: { id, shop_id, status: existing.status, reference: existing.reference }, unchanged: true })
   } catch (e: any) {
     return NextResponse.json({ error: e.message }, { status: 500 })
   }

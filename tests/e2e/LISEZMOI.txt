@@ -34,3 +34,10 @@ Mode ÉCRITURE (lib/write-mode.js), activé dans le code de chaque test, jamais 
   jamais de suppression large ;
 - photo complète d'Alpha avant / après : bilan « lignes créées / supprimées », aucune ligne préexistante supprimée ni
   modifiée, aucune trace restante — sinon le test échoue.
+
+Bons de commande — changements de statut (PATCH /api/purchase-orders, lib/api/purchase-order-status.ts) :
+  node tests/e2e/po-status-transitions-pure.mjs        test PUR : matrice des 25 couples, route réelle avec faux modules
+  bash tests/e2e/po-status-concurrency-local.sh        base PostgreSQL LOCALE jetable : annulation pendant une réception
+  CAPTURE_BASE=http://localhost:3000 node tests/e2e/po-status-ui.js   écran, Marché Soleil en lecture seule (409 simulés)
+  Cas historique conservé tel quel : BC-2026-0001 (Boutique Alpha, 14 juil. 2026), « reçu » par un simple changement de
+  statut, sans mouvement, sans lot, sans quantité reçue — antérieur à la réception actuelle ; aucune correction.

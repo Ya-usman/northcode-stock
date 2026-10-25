@@ -748,7 +748,12 @@ export default function SuppliersPage() {
         body: JSON.stringify({ id: po.id, shop_id: po.shop_id, status }),
       })
       const json = await res.json()
-      if (!res.ok) { toast({ title: json.error || t('toast.error'), variant: 'destructive' }); return }
+      if (!res.ok) {
+        toast({ title: json.error || t('toast.error'), variant: 'destructive' })
+        // 409 : bon modifié entre-temps ou changement refusé — l'écran montrait un état périmé, on recharge
+        if (res.status === 409) fetchPurchaseOrders()
+        return
+      }
       fetchPurchaseOrders()
     } finally {
       setPoActionLoading(null)
