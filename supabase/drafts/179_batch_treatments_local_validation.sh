@@ -7,7 +7,7 @@
 PGBIN="${PGBIN:-/c/Program Files/PostgreSQL/18/bin}"; PGPORT="${PGPORT:-55432}"
 P="$PGBIN/psql.exe"; [ -x "$P" ] || P="$PGBIN/psql"
 export PGCLIENTENCODING=UTF8   # SQL accentué : toujours par fichier ou entrée standard, jamais en argument -c
-D="supabase/drafts"; M="$D/179_batch_treatments.sql"; R="$D/179_batch_treatments_rollback.sql"
+D="supabase/drafts"; M="supabase/migrations/179_batch_treatments.sql"; R="$D/179_batch_treatments_rollback.sql"
 [ -f "$M" ] || { echo "Lancer depuis la racine du dépôt"; exit 1; }
 fresh() { "$P" -h localhost -p "$PGPORT" -U postgres -q -c "drop database if exists $1" -c "create database $1" 2>/dev/null
           "$P" -h localhost -p "$PGPORT" -U postgres -d "$1" -q -v ON_ERROR_STOP=1 -f "$D/179_batch_treatments_test_stub.sql" || exit 1; }
