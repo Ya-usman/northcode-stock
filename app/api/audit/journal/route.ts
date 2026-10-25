@@ -1,7 +1,8 @@
 import { NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/server'
 import { getAuthedUser, checkShopRole } from '@/lib/api/shop-auth'
-import { canWriteFeature } from '@/lib/api/role-permissions'
+import { canViewCost, canWriteFeature } from '@/lib/api/role-permissions'
+import { costVisible } from '@/lib/api/cost-fields'
 import { getApiTranslator } from '@/lib/api/i18n'
 
 // GET /api/audit/journal?shop_id=&feature=stock|expenses[&actions=a,b&from=&to=&q=&limit=]
@@ -51,7 +52,10 @@ export async function GET(request: Request) {
 
     const { data, count, error } = await query
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
-    return NextResponse.json({ logs: data || [], count: typeof count === 'number' ? count : null })
+    // Journal Stock : anciens / nouveaux prix d'achat (metadata.buying_price, changes.buying_price) seulement avec le
+    // droit au coût — « Stock en modification » ne le donne plus. L'entrée reste, sans la valeur.
+    const seesCost = spec.feature !== 'stock' || await canViewCost(supabase, role, shopId)
+    return NextResponse.json({ logs: costVisible(data || [], seesCost), count: typeof count === 'number' ? count : null })
   } catch (e: any) {
     return NextResponse.json({ error: e.message }, { status: 500 })
   }

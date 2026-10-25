@@ -82,7 +82,8 @@ export interface PendingMovement {
   quantity_to_add: number
   supplier_name: string | null
   supplier_id: string | null
-  buying_price: number | null
+  // Pas de prix d'achat : aucun coût n'est gardé sur l'appareil (décision D4 du 25 oct. 2026) — à la synchronisation,
+  // le serveur prend le coût déjà connu du produit
   expiry_date: string | null
   notes: string | null
   performed_by: string
@@ -321,12 +322,17 @@ export async function markSaleError(localId: string, error: string): Promise<voi
 
 export async function savePendingMovement(movement: PendingMovement): Promise<void> {
   const db = await getDB()
-  await db.put('pending_movements', movement)
+  const { buying_price: _never, ...clean } = movement as PendingMovement & { buying_price?: unknown }
+  await db.put('pending_movements', clean)
 }
 
 export async function getPendingMovements(shopId: string): Promise<PendingMovement[]> {
   const db = await getDB()
   const all = await db.getAllFromIndex('pending_movements', 'shop_id', shopId)
+  // Ancienne entrée enregistrée avec un prix d'achat : réécrite SANS lui (le réassort reste à synchroniser)
+  for (const m of all as Array<PendingMovement & { buying_price?: unknown }>) {
+    if ('buying_price' in m) { const { buying_price: _old, ...clean } = m; await db.put('pending_movements', clean); delete m.buying_price }
+  }
   return all.filter(m => !m.synced)
 }
 

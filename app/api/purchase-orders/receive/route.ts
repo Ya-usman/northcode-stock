@@ -2,7 +2,8 @@ import { NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/server'
 import { getAuthedUser, checkShopRole } from '@/lib/api/shop-auth'
 import { writeAuditLog, getClientIp } from '@/lib/api/audit'
-import { canWriteFeature } from '@/lib/api/role-permissions'
+import { canViewCost, canWriteFeature } from '@/lib/api/role-permissions'
+import { costVisible } from '@/lib/api/cost-fields'
 import { getApiTranslator } from '@/lib/api/i18n'
 import { productsOutsideShop } from '@/lib/api/shop-objects'
 
@@ -16,7 +17,8 @@ export async function POST(request: Request) {
     const { user, supabase } = await getAuthedUser()
     if (!user) return NextResponse.json({ error: t('not_authenticated') }, { status: 401 })
 
-    const { shop_id, purchase_order_id, items, payment_amount, payment_method } = await request.json()
+    const { shop_id, purchase_order_id, items: sentItems, payment_amount, payment_method, payment_full } = await request.json()
+    let items = sentItems
     if (!shop_id || !purchase_order_id) return NextResponse.json({ error: t('shop_po_id_required') }, { status: 400 })
     if (!Array.isArray(items) || items.length === 0)
       return NextResponse.json({ error: t('at_least_one_line_required') }, { status: 400 })
@@ -31,6 +33,25 @@ export async function POST(request: Request) {
       .from('purchase_orders').select('supplier_id, is_opening_balance').eq('id', purchase_order_id).eq('shop_id', shop_id).single()
     if (!po) return NextResponse.json({ error: t('po_not_found') }, { status: 404 })
     if (po.is_opening_balance) return NextResponse.json({ error: t('opening_not_editable') }, { status: 400 })
+
+    // Sans le droit au coût (view_purchase_cost) : aucun prix venu de l'appareil n'est cru. Chaque ligne reprend le
+    // prix DÉJÀ connu sur le bon ; une ligne reçue sans prix sur le bon NI coût connu du produit attend une personne
+    // autorisée (jamais de prix saisi à l'aveugle, jamais de coût 0 inventé).
+    const seesCost = await canViewCost(supabase, role, shop_id)
+    if (!seesCost) {
+      const { data: lines } = await (admin as any)
+        .from('purchase_order_items').select('id, product_id, unit_price').eq('purchase_order_id', purchase_order_id)
+      const known = new Map<string, { product_id: string | null; unit_price: number | null }>((lines || []).map((l: any) => [l.id, l]))
+      items = items.map((it: any) => ({ ...it, unit_price: known.get(it?.item_id)?.unit_price ?? null }))
+      const unpriced = items.filter((it: any) => Number(it.quantity_received) > 0 && !(Number(it.unit_price) > 0) && known.get(it.item_id)?.product_id)
+      if (unpriced.length) {
+        const ids = unpriced.map((it: any) => known.get(it.item_id)!.product_id)
+        const { data: prods } = await (admin as any).from('products').select('id, buying_price').in('id', ids).eq('shop_id', shop_id)
+        const costed = new Set((prods || []).filter((p: any) => Number(p.buying_price) > 0).map((p: any) => p.id))
+        if (ids.some((id: string) => !costed.has(id)))
+          return NextResponse.json({ error: t('po_price_required'), code: 'purchase_order_price_required' }, { status: 409 })
+      }
+    }
 
     const { data, error } = await (admin as any).rpc('apply_purchase_order_receipt', {
       p_shop_id: shop_id,
@@ -94,10 +115,11 @@ export async function POST(request: Request) {
     // directement dans supplier_payments, le trigger after_supplier_payment_insert
     // (migration 093) se charge d'ajuster amount_paid/payment_status/
     // suppliers.total_owed. Rien à faire si "à crédit" (payment_amount absent).
-    if (payment_amount && Number(payment_amount) > 0) {
+    if (payment_full === true || (payment_amount && Number(payment_amount) > 0)) {
       const { data: freshPo } = await (admin as any)
         .from('purchase_orders').select('balance').eq('id', purchase_order_id).single()
-      const applied = Math.min(Number(payment_amount), Number(freshPo?.balance) || 0)
+      // « Payé en totalité » : le montant est celui du bon, calculé ici (l'appareil sans droit au coût ne le connaît pas)
+      const applied = payment_full === true ? (Number(freshPo?.balance) || 0) : Math.min(Number(payment_amount), Number(freshPo?.balance) || 0)
       if (applied > 0) {
         await (admin as any).from('supplier_payments').insert({
           purchase_order_id,
@@ -108,7 +130,8 @@ export async function POST(request: Request) {
       }
     }
 
-    return NextResponse.json({ data })
+    // data.items[].price_from / price_to = ancien et nouveau prix d'achat : seulement avec le droit au coût
+    return NextResponse.json({ data: costVisible(data, seesCost) })
   } catch (e: any) {
     return NextResponse.json({ error: e.message }, { status: 500 })
   }

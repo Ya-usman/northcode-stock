@@ -1,7 +1,8 @@
 import { NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/server'
 import { getAuthedUser, checkShopRole } from '@/lib/api/shop-auth'
-import { canWriteFeature } from '@/lib/api/role-permissions'
+import { canViewCost, canWriteFeature } from '@/lib/api/role-permissions'
+import { costVisible } from '@/lib/api/cost-fields'
 import { getApiTranslator } from '@/lib/api/i18n'
 import { writeAuditLog, getClientIp } from '@/lib/api/audit'
 
@@ -67,7 +68,8 @@ export async function PATCH(request: Request) {
       })
     }
 
-    return NextResponse.json({ data })
+    // La ligne du lot contient son prix d'achat : envoyé seulement avec le droit au coût (sinon champ absent)
+    return NextResponse.json({ data: costVisible(data, await canViewCost(supabase, role, shop_id)) })
   } catch (e: any) {
     return NextResponse.json({ error: e.message }, { status: 500 })
   }

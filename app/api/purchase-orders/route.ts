@@ -113,6 +113,9 @@ export async function POST(request: Request) {
     if ((await productsOutsideShop(admin, items.map((it: any) => it?.product_id), shop_id)).length)
       return NextResponse.json({ error: t('po_product_wrong_shop') }, { status: 400 })
     const reference = await nextReference(admin, shop_id)
+    // Prix des lignes = prix d'achat : seulement avec le droit au coût (view_purchase_cost). Sans lui, le bon est créé
+    // SANS prix (une personne autorisée les complète) — jamais un prix saisi à l'aveugle.
+    const seesCost = await canViewCost(supabase, role, shop_id)
 
     const { data: po, error: poError } = await (admin as any)
       .from('purchase_orders')
@@ -131,7 +134,7 @@ export async function POST(request: Request) {
       product_name: it.product_name,
       unit: it.unit || null,
       quantity_ordered: Number(it.quantity_ordered),
-      unit_price: it.unit_price != null ? Number(it.unit_price) : null,
+      unit_price: seesCost && it.unit_price != null ? Number(it.unit_price) : null,
     }))
     const { error: itemsError } = await (admin as any).from('purchase_order_items').insert(itemRows)
     if (itemsError) {
@@ -139,7 +142,8 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: itemsError.message }, { status: 400 })
     }
 
-    return NextResponse.json({ data: { ...po, purchase_order_items: itemRows } })
+    const created = { ...po, purchase_order_items: itemRows }
+    return NextResponse.json({ data: seesCost ? created : orderWithoutCost(created) })
   } catch (e: any) {
     return NextResponse.json({ error: e.message }, { status: 500 })
   }
@@ -216,6 +220,14 @@ export async function PATCH(request: Request) {
       // Lignes : uniquement des produits de la boutique du bon (vérifié AVANT de remplacer les lignes)
       if ((await productsOutsideShop(admin, items.map((it: any) => it?.product_id), shop_id)).length)
         return NextResponse.json({ error: t('po_product_wrong_shop') }, { status: 400 })
+      // Sans le droit au coût : les prix déjà posés (par une personne autorisée) sont CONSERVÉS par produit — l'appareil
+      // ne les a pas reçus et ne doit ni les effacer ni les remplacer.
+      const seesCost = await canViewCost(supabase, role, shop_id)
+      const keptPrice = new Map<string, number | null>()
+      if (!seesCost) {
+        const { data: oldLines } = await (admin as any).from('purchase_order_items').select('product_id, unit_price').eq('purchase_order_id', id)
+        for (const l of oldLines || []) if (l.product_id) keptPrice.set(l.product_id, l.unit_price ?? null)
+      }
       await (admin as any).from('purchase_order_items').delete().eq('purchase_order_id', id)
       const itemRows = items.map((it: any) => ({
         purchase_order_id: id,
@@ -223,7 +235,9 @@ export async function PATCH(request: Request) {
         product_name: it.product_name,
         unit: it.unit || null,
         quantity_ordered: Number(it.quantity_ordered),
-        unit_price: it.unit_price != null ? Number(it.unit_price) : null,
+        unit_price: seesCost
+          ? (it.unit_price != null ? Number(it.unit_price) : null)
+          : (it.product_id ? keptPrice.get(it.product_id) ?? null : null),
       }))
       const { error: itemsError } = await (admin as any).from('purchase_order_items').insert(itemRows)
       if (itemsError) return NextResponse.json({ error: itemsError.message }, { status: 400 })
@@ -231,7 +245,7 @@ export async function PATCH(request: Request) {
       const { data, error } = await (admin as any)
         .from('purchase_orders').update({ updated_at: new Date().toISOString() }).eq('id', id).eq('shop_id', shop_id).select().single()
       if (error) return NextResponse.json({ error: error.message }, { status: 400 })
-      return NextResponse.json({ data })
+      return NextResponse.json({ data: seesCost ? data : orderWithoutCost(data) })
     }
 
     // Même statut (ou rien à changer) : aucune écriture, aucune trace — le bon est renvoyé tel quel (sans montants)

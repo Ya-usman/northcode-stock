@@ -3,6 +3,7 @@ import { randomUUID } from 'crypto'
 import { createAdminClient } from '@/lib/supabase/server'
 import { getAuthedUser, checkShopRole } from '@/lib/api/shop-auth'
 import { canWriteFeature } from '@/lib/api/role-permissions'
+import { omitCost } from '@/lib/api/cost-fields'
 import { getApiTranslator } from '@/lib/api/i18n'
 import { batchTreatmentsAvailable, batchTreatmentErrorResponse, legacyReason, treatmentReason, validRequestId } from '@/lib/api/batch-treatments'
 
@@ -40,7 +41,7 @@ export async function PATCH(request: Request) {
         p_performed_by: user.id, p_corrects_treatment_id: null,
       })
       if (error) return batchTreatmentErrorResponse(error, t) ?? NextResponse.json({ error: error.message }, { status: 400 })
-      return NextResponse.json({ data: { batch_quantity: data?.lot_quantity, product_quantity: data?.product_quantity, treatment: data } })
+      return NextResponse.json({ data: omitCost({ batch_quantity: data?.lot_quantity, product_quantity: data?.product_quantity, treatment: data }) })
     }
 
     const { data, error } = await admin.rpc('adjust_batch_quantity', {
@@ -57,7 +58,7 @@ export async function PATCH(request: Request) {
       return NextResponse.json({ error: error.message }, { status: 400 })
     }
 
-    return NextResponse.json({ data })
+    return NextResponse.json({ data: omitCost(data) }) // opération de stock : jamais de coût dans la réponse
   } catch (e: any) {
     return NextResponse.json({ error: e.message }, { status: 500 })
   }

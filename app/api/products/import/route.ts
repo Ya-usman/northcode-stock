@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createAdminClient, createClient } from '@/lib/supabase/server'
 import { getApiTranslator } from '@/lib/api/i18n'
-import { canWriteFeature } from '@/lib/api/role-permissions'
+import { canViewCost, canWriteFeature } from '@/lib/api/role-permissions'
 import { writeAuditLog, getClientIp } from '@/lib/api/audit'
 import { checkRows, summarize, IMPORT_FIELDS, IMPORT_MAX_ROWS, type RawRow, type RowReport } from '@/lib/import/products-import'
 
@@ -65,6 +65,9 @@ export async function POST(request: Request) {
 
     // ── Import : les lignes nouvelles, par paquets de 200 ─────────────────────
     const toCreate = reports.filter(r => r.status === 'new' && r.product)
+    // Colonne « prix d'achat » : prise en compte seulement avec le droit au coût — sinon coût inconnu (produit et lot)
+    const seesCost = await canViewCost(supabase, memberRow.role, shopId)
+    if (!seesCost) for (const r of toCreate) { delete (r.product as any).buying_price; if (r.lot) r.lot.cost = null }
     let inserted = 0
     for (let i = 0; i < toCreate.length; i += 200) {
       const chunk = toCreate.slice(i, i + 200)

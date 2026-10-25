@@ -3,6 +3,8 @@ import { createAdminClient, createClient } from '@/lib/supabase/server'
 import { getApiTranslator } from '@/lib/api/i18n'
 import { checkShopRole } from '@/lib/api/shop-auth'
 import { isAccountOwner } from '@/lib/team/roles'
+import { writeAuditLog, getClientIp } from '@/lib/api/audit'
+import { permissionChanges } from '@/lib/permissions'
 
 // Configuration des permissions — RÉSERVÉE AU PROPRIÉTAIRE (décision du
 // 5 oct. 2026). Avant, un Manager ou un Responsable pouvait modifier
@@ -27,10 +29,25 @@ export async function PATCH(request: Request) {
     }
 
     const admin = await createAdminClient() as any
+    const { data: before } = await admin.from('shops').select('role_permissions').eq('id', shop_id).maybeSingle()
     const { error } = await admin.from('shops').update({ role_permissions }).eq('id', shop_id)
     if (error) throw error
 
-    return NextResponse.json({ success: true })
+    // Journal : une entrée par droit RÉELLEMENT changé (valeur appliquée avant / après, anciens réglages compris) —
+    // aucune si le même réglage est renvoyé.
+    const changes = permissionChanges(before?.role_permissions ?? null, role_permissions)
+    if (changes.length) {
+      const { data: actorProfile } = await admin.from('profiles').select('full_name').eq('id', user.id).maybeSingle()
+      for (const c of changes) {
+        await writeAuditLog({
+          action: 'permissions.update', shop_id, actor_id: user.id, actor_email: user.email,
+          target_id: shop_id, target_type: 'shop', ip: getClientIp(request),
+          metadata: { actor_name: actorProfile?.full_name || user.email, role: c.role, permission: c.permission, from: c.from, to: c.to },
+        })
+      }
+    }
+
+    return NextResponse.json({ success: true, changes: changes.length })
   } catch (err: any) {
     return NextResponse.json({ error: err.message }, { status: 500 })
   }

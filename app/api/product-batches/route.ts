@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/server'
 import { getAuthedUser, checkShopRole } from '@/lib/api/shop-auth'
 import { canWriteFeature } from '@/lib/api/role-permissions'
+import { omitCost } from '@/lib/api/cost-fields'
 import { getApiTranslator } from '@/lib/api/i18n'
 
 // Lots = niveau « modification » de Produits / Stock (règle unique, lot 1).
@@ -40,7 +41,7 @@ export async function DELETE(request: Request) {
       return NextResponse.json({ error: error.message }, { status: 400 })
     }
 
-    return NextResponse.json({ data })
+    return NextResponse.json({ data: omitCost(data) }) // opération de stock : jamais de coût dans la réponse
   } catch (e: any) {
     return NextResponse.json({ error: e.message }, { status: 500 })
   }

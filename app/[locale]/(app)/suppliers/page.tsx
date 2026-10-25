@@ -710,7 +710,8 @@ export default function SuppliersPage() {
         product_name: p.name,
         unit: p.unit,
         quantity_ordered: Number(poQuantities[p.id]) || 1,
-        unit_price: poUnitPrice(p),
+        // Prix des lignes : seulement avec le droit au coût (sinon bon sans prix, complété par une personne autorisée)
+        unit_price: canViewCostIn(poShop?.id) ? poUnitPrice(p) : null,
       }))
     if (items.length === 0) {
       toast({ title: t('transfers.select_at_least_one_product'), variant: 'destructive' })
@@ -808,7 +809,9 @@ export default function SuppliersPage() {
           purchase_order_id: receivingPo.id,
           items,
           payment_amount: paymentAmount > 0 ? paymentAmount : null,
-          payment_method: paymentAmount > 0 ? receivePaymentMethod : null,
+          // « Payé » = tout le bon : montant calculé par le serveur (l'écran sans droit au coût ne le connaît pas)
+          payment_full: receivePaymentStatus === 'paid',
+          payment_method: (paymentAmount > 0 || receivePaymentStatus === 'paid') ? receivePaymentMethod : null,
         }),
       })
       const json = await res.json()
@@ -951,7 +954,8 @@ export default function SuppliersPage() {
         unitPriceLabel: it.unit_price != null ? fmt(it.unit_price) : '—',
         totalLabel: it.unit_price != null ? fmt(it.unit_price * it.quantity_ordered) : '—',
       })),
-      totalLabel: fmt(items.reduce((s: number, it: any) => s + (it.unit_price || 0) * it.quantity_ordered, 0)),
+      // Sans le droit au coût, les prix ne sont pas reçus : total « — », jamais un faux « 0 »
+      totalLabel: canViewCostIn(po.shop_id) ? fmt(items.reduce((s: number, it: any) => s + (it.unit_price || 0) * it.quantity_ordered, 0)) : '—',
     })
   }
 
@@ -1615,7 +1619,7 @@ export default function SuppliersPage() {
         submitDisabled={!poSupplierId}
         dirty={!!poSupplierId || !!poNotes.trim() || !!poDeliveryDate}
         testId="po-drawer"
-        footerExtra={poSupplierId ? (
+        footerExtra={poSupplierId && canViewCostIn(poShop?.id) ? (
           <div className="flex items-center justify-between rounded-lg bg-muted/50 px-3 py-2">
             <span className="text-sm font-medium">{t('suppliers.po_total_label')}</span>
             <span className="text-base font-bold tabular-nums text-stockshop-blue dark:text-blue-400" data-testid="po-total">{fmtIn(poShop?.id)(poTotal)}</span>
@@ -1667,6 +1671,7 @@ export default function SuppliersPage() {
                             className="w-14 h-8 text-center text-xs"
                           />
                         </div>
+                        {canViewCostIn(poShop?.id) && (
                         <div className="flex flex-col items-center gap-0.5">
                           <span className="text-[9px] text-muted-foreground">{t('suppliers.po_price_short')}</span>
                           <Input
@@ -1676,6 +1681,7 @@ export default function SuppliersPage() {
                             className="w-20 h-8 text-center text-xs"
                           />
                         </div>
+                        )}
                       </div>
                     </div>
                   ))}
@@ -1738,6 +1744,7 @@ export default function SuppliersPage() {
                       className="w-16 h-8 text-center text-xs"
                     />
                     <span className="text-[11px] text-muted-foreground">{unitLabel(it.unit, it.quantity_ordered)}</span>
+                    {canViewCostIn(editingPo?.shop_id) && (
                     <Input
                       type="number" min={0} inputMode="numeric"
                       value={it.unit_price}
@@ -1745,6 +1752,7 @@ export default function SuppliersPage() {
                       placeholder={t('suppliers.price_label')}
                       className="w-24 h-8 text-center text-xs"
                     />
+                    )}
                   </div>
                 </div>
                 <button
@@ -1794,6 +1802,7 @@ export default function SuppliersPage() {
                       className="w-16 h-8 text-center text-xs"
                     />
                     <span className="text-[11px] text-muted-foreground">{unitLabel(it.unit, it.quantity_ordered)}</span>
+                    {canViewCostIn(reorderPo?.shop_id) && (
                     <Input
                       type="number" min={0} inputMode="numeric"
                       value={it.unit_price}
@@ -1801,6 +1810,7 @@ export default function SuppliersPage() {
                       placeholder={t('suppliers.price_label')}
                       className="w-24 h-8 text-center text-xs"
                     />
+                    )}
                   </div>
                 </div>
                 <button
@@ -1918,7 +1928,7 @@ export default function SuppliersPage() {
         submitIcon={<CheckCircle2 className="h-4 w-4" />}
         dirty={receiveTouched}
         testId="po-receive-drawer"
-        footerExtra={(
+        footerExtra={canViewCostIn(receivingPo?.shop_id) && (
           <div className="flex items-center justify-between rounded-lg bg-muted/50 px-3 py-2">
             <span className="text-sm font-medium">{t('suppliers.po_total_label')}</span>
             <span className="text-base font-bold tabular-nums text-stockshop-blue dark:text-blue-400">{fmtIn(receivingPo?.shop_id)(receiveTotal)}</span>

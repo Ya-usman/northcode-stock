@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from 'react'
 import Link from 'next/link'
 import { useTranslations } from 'next-intl'
-import { Save, Upload, Globe, Moon, Sun, ShoppingCart, History, CreditCard, Users, Package, ArrowLeftRight, Tag, Truck, BarChart2, ShieldCheck, Bell, Receipt, NotebookPen, Trash2, ClipboardList, ClipboardCheck, TrendingUp, AlertTriangle, CalendarDays, Clock, Gift, ChevronRight, Printer, Bluetooth, Percent, Store } from 'lucide-react'
+import { Save, Upload, Globe, Moon, Sun, ShoppingCart, History, CreditCard, Users, Package, ArrowLeftRight, Tag, Truck, BarChart2, ShieldCheck, Bell, Receipt, NotebookPen, Trash2, ClipboardList, ClipboardCheck, TrendingUp, AlertTriangle, CalendarDays, Clock, Gift, ChevronRight, Printer, Bluetooth, Percent, Store, Coins, Lock } from 'lucide-react'
 import { readTicketSettings, writeTicketSettings, DEFAULT_TICKET_SETTINGS, type TicketPrintSettings } from '@/lib/receipt/print-settings'
 import { printSaleTicket, ticketErrorKey } from '@/lib/receipt/print-ticket'
 import { BluetoothPrinter, BLUETOOTH_IMAGING_CLASS, type PairedDevice } from '@/lib/receipt/bluetooth-printer'
@@ -1154,6 +1154,34 @@ export default function SettingsPage({ params: { locale } }: { params: { locale:
                 )
               })}
             </div>
+
+            {/* Finances & coûts : un seul droit, réglé rôle par rôle (jamais dans « Général ») ; le propriétaire l'a toujours */}
+            {activePermRole !== 'general' && (
+              <div data-testid="perm-section-finance">
+                <p className="px-3 pb-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                  {t('settings.perm_section_finance')}
+                </p>
+                <div className="flex items-start justify-between gap-3 rounded-lg px-3 py-2.5 hover:bg-muted/50 transition-colors">
+                  <div className="flex min-w-0 items-start gap-2.5 text-sm">
+                    <span className="mt-0.5 flex-shrink-0 text-muted-foreground"><Coins className="h-4 w-4" /></span>
+                    <span className="min-w-0">
+                      <span className="block">{t('settings.perm_view_purchase_cost')}</span>
+                      <span className="block text-xs text-muted-foreground">{t('settings.perm_view_purchase_cost_desc')}</span>
+                    </span>
+                  </div>
+                  <Switch
+                    checked={isPermChecked('view_purchase_cost')}
+                    onCheckedChange={val => onPermToggle('view_purchase_cost', val)}
+                    aria-label={t('settings.perm_view_purchase_cost')}
+                    data-testid="perm-view-purchase-cost"
+                  />
+                </div>
+                <div className="flex items-center justify-between gap-3 rounded-lg px-3 py-2 text-xs text-muted-foreground" data-testid="perm-owner-cost">
+                  <span className="flex items-center gap-2.5"><Lock className="h-3.5 w-3.5 flex-shrink-0" />{t('settings.perm_owner_keeps_cost')}</span>
+                  <Switch checked disabled aria-label={t('settings.perm_owner_keeps_cost')} />
+                </div>
+              </div>
+            )}
 
             {/* Dashboard widget toggles */}
             <div>

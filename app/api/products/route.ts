@@ -2,7 +2,8 @@ import { NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/server'
 import { getAuthedUser, checkShopRole } from '@/lib/api/shop-auth'
 import { writeAuditLog, getClientIp } from '@/lib/api/audit'
-import { canWriteFeature } from '@/lib/api/role-permissions'
+import { canViewCost, canWriteFeature } from '@/lib/api/role-permissions'
+import { costVisible } from '@/lib/api/cost-fields'
 import { getApiTranslator } from '@/lib/api/i18n'
 import { classifyBarcode } from '@/lib/products/barcode'
 import { productsWithHistory } from '@/lib/api/product-history'
@@ -56,6 +57,9 @@ export async function POST(request: Request) {
     const role = await checkShopRole(supabase, user.id, shop_id)
     if (!role || !(await canWriteProducts(supabase, role, shop_id)))
       return NextResponse.json({ error: t('permission_denied') }, { status: 403 })
+    // Prix d'achat : seulement avec le droit au coût (view_purchase_cost) — sinon ignoré, coût inconnu
+    const seesCost = await canViewCost(supabase, role, shop_id)
+    if (!seesCost) delete body.buying_price
     // Always null-ify empty SKU to avoid unique constraint on empty strings
     body.sku = body.sku?.trim() || null
     if (classifyBarcode(body.sku) === 'gtin_invalid') return NextResponse.json({ error: t('barcode_invalid'), field: 'sku' }, { status: 400 })
@@ -129,7 +133,7 @@ export async function POST(request: Request) {
       },
     })
 
-    return NextResponse.json({ data })
+    return NextResponse.json({ data: costVisible(data, seesCost) })
   } catch (e: any) {
     return NextResponse.json({ error: e.message }, { status: 500 })
   }
@@ -259,6 +263,9 @@ export async function PATCH(request: Request) {
       Object.entries(updates).filter(([k]) => PATCHABLE.has(k))
     )
     if ('is_favorite' in safeUpdates) safeUpdates.is_favorite = Boolean(safeUpdates.is_favorite)
+    // Prix d'achat : modifiable seulement avec le droit au coût — sinon ignoré (jamais écrit en silence)
+    const seesCost = !favoriteOnly && await canViewCost(supabase, role, shop_id)
+    if (!seesCost) delete safeUpdates.buying_price
     // Archiver / restaurer : couvert par « Stock : modification », déjà vérifié
     // ci-dessus (règle du 9 oct. 2026 : plus de réserve « propriétaire seulement »)
     if ('is_active' in updates) safeUpdates.is_active = Boolean(updates.is_active)
@@ -363,7 +370,7 @@ export async function PATCH(request: Request) {
     }
 
     // Favori seul (ouvert à qui peut vendre) : on ne renvoie pas la fiche entière, qui contient le prix d'achat
-    return NextResponse.json({ data: favoriteOnly ? { id: data.id, is_favorite: data.is_favorite } : data })
+    return NextResponse.json({ data: favoriteOnly ? { id: data.id, is_favorite: data.is_favorite } : costVisible(data, seesCost) })
   } catch (e: any) {
     return NextResponse.json({ error: e.message }, { status: 500 })
   }
@@ -569,7 +576,9 @@ export async function PUT(request: Request) {
     // stock and the newly received stock are pooled under one quantity, so
     // the resulting cost is a quantity-weighted average, not a straight
     // replacement — same logic as apply_purchase_order_receipt (migration 085).
-    const enteredPrice = Number(buying_price) > 0 ? Number(buying_price) : null
+    // Sans le droit au coût, le prix saisi est ignoré : le lot prend le coût déjà connu du produit
+    const seesCost = await canViewCost(supabase, role, shop_id)
+    const enteredPrice = seesCost && Number(buying_price) > 0 ? Number(buying_price) : null
     let newBuyingPrice: number | null = null
     const updatePayload: Record<string, unknown> = { quantity: newQty }
     if (enteredPrice !== null) {

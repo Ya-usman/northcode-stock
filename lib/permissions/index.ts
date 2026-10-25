@@ -29,6 +29,7 @@ export type LevelFeature = typeof LEVEL_FEATURES[number]
 export const SWITCH_FEATURES = [
   'new_sale', 'discount', 'reports', 'expiry_list', 'revenue_chart', 'notes',
   'delete_products', 'delete_expenses', 'caisse', 'inventory_count', 'extend_hours',
+  'view_purchase_cost',
 ] as const
 export type SwitchFeature = typeof SWITCH_FEATURES[number]
 
@@ -80,11 +81,14 @@ const W = (on: LevelFeature[]): Record<WriteKey, boolean> =>
 
 const ALL_WIDGETS_ON = Object.fromEntries(WIDGET_FEATURES.map(k => [k, true])) as Record<WidgetFeature, boolean>
 
+// view_purchase_cost (« Voir les prix d'achat et les coûts », décision D1 du 25 oct. 2026) : OUI par défaut pour
+// Responsable et Manager, NON pour Magasinier, Caissier et Observateur ; le propriétaire l'a toujours (canViewCost).
 const MANAGER_BASE: RolePerms = {
   new_sale: true, discount: true, sales_history: true, payments: true, customers: true,
   stock: true, movements: true, expiry_list: true, categories: true, suppliers: true, transfers: true,
   reports: true, revenue_chart: false, notes: true, expenses: true,
   delete_products: false, delete_expenses: true, caisse: true, inventory_count: true, extend_hours: false,
+  view_purchase_cost: true,
   ...ALL_WIDGETS_ON,
   widget_dashboard_revenue_chart: false, widget_top_products_chart: false,
   ...W(['sales_history', 'payments', 'customers', 'stock', 'movements', 'categories', 'suppliers', 'transfers', 'expenses']),
@@ -99,7 +103,7 @@ export const DEFAULT_PERMISSIONS: AllPerms = {
     new_sale: true, discount: true, sales_history: true, payments: true, customers: true,
     stock: false, movements: false, expiry_list: false, categories: false, suppliers: false, transfers: false,
     reports: false, revenue_chart: false, notes: false, expenses: false,
-    delete_products: false, delete_expenses: false, caisse: false, inventory_count: false, extend_hours: false,
+    delete_products: false, delete_expenses: false, caisse: false, inventory_count: false, extend_hours: false, view_purchase_cost: false,
     ...ALL_WIDGETS_ON,
     ...W(['customers', 'payments']),
   },
@@ -107,7 +111,7 @@ export const DEFAULT_PERMISSIONS: AllPerms = {
     new_sale: false, discount: false, sales_history: true, payments: true, customers: true,
     stock: true, movements: true, expiry_list: true, categories: true, suppliers: true, transfers: true,
     reports: true, revenue_chart: false, notes: false, expenses: false,
-    delete_products: false, delete_expenses: false, caisse: false, inventory_count: false, extend_hours: false,
+    delete_products: false, delete_expenses: false, caisse: false, inventory_count: false, extend_hours: false, view_purchase_cost: false,
     ...ALL_WIDGETS_ON,
     widget_outstanding_debt: false, widget_dashboard_revenue_chart: false, widget_top_products_chart: false,
     ...W([]),
@@ -116,7 +120,7 @@ export const DEFAULT_PERMISSIONS: AllPerms = {
     new_sale: false, discount: false, sales_history: false, payments: false, customers: false,
     stock: true, movements: true, expiry_list: true, categories: true, suppliers: true, transfers: true,
     reports: false, revenue_chart: false, notes: false, expenses: false,
-    delete_products: false, delete_expenses: false, caisse: false, inventory_count: true, extend_hours: false,
+    delete_products: false, delete_expenses: false, caisse: false, inventory_count: true, extend_hours: false, view_purchase_cost: false,
     ...ALL_WIDGETS_ON,
     widget_dashboard_revenue_chart: false, widget_top_products_chart: false,
     ...W(['stock', 'movements', 'categories', 'suppliers', 'transfers']),
@@ -131,9 +135,16 @@ export const DEFAULT_GENERAL: Record<PermFeature, boolean> = Object.fromEntries(
 // ── Résolution ──────────────────────────────────────────────────────────────
 export interface Resolved { view: boolean; write: boolean }
 
+/**
+ * Droits jamais masqués par l'onglet « Général » : le prix d'achat se règle rôle par rôle, et le propriétaire
+ * le garde toujours (canViewCost) — un « non » général l'aurait retiré à tout le monde.
+ */
+export const GENERAL_EXEMPT: readonly PermFeature[] = ['view_purchase_cost']
+
 export function resolvePermission(stored: StoredPermissions | null | undefined, role: string | null | undefined, feature: PermFeature): Resolved {
   if (role === 'super_admin') return { view: true, write: true }
-  const general = stored?.general && feature in stored.general ? stored.general[feature]! : DEFAULT_GENERAL[feature]
+  const general = GENERAL_EXEMPT.includes(feature) ? true
+    : stored?.general && feature in stored.general ? stored.general[feature]! : DEFAULT_GENERAL[feature]
   if (!general) return { view: false, write: false }
   if (!role || role === 'owner') return { view: true, write: true }
   const defaults = DEFAULT_PERMISSIONS[role as ConfigurableRole]
@@ -167,14 +178,15 @@ export const canWrite = (stored: StoredPermissions | null | undefined, role: str
  * bénéfice, prix des bons de commande, prix comparés des fournisseurs) : LA
  * règle, à un seul endroit.
  *
- * Décision du 13 oct. 2026, sans permission dédiée :
- *   propriétaire
- *   OU fonction Stock en MODIFICATION        (qui gère le stock a besoin du coût)
- *   OU fonction Fournisseurs en MODIFICATION (qui passe les commandes connaît les prix d'achat)
- * Stock en lecture seule, Fournisseurs en lecture seule, Observateur : non.
+ * Décision du 25 oct. 2026 (remplace la déduction « Stock ou Fournisseurs en modification » du 13 oct.) :
+ *   propriétaire (et super_admin) : TOUJOURS, quel que soit le réglage — il ne peut pas se le retirer ;
+ *   autres rôles : UNIQUEMENT la permission explicite `view_purchase_cost` (réglage du rôle dans la boutique,
+ *   sinon valeur par défaut : Responsable et Manager oui ; Magasinier, Caissier, Observateur non).
+ * Gérer le stock, l'inventaire, les lots, les transferts ou les fournisseurs ne donne plus le coût.
  * Sans rôle connu : non — jamais de coût affiché « par défaut ».
- * Pour la faire évoluer plus tard, ne changer que cette fonction : le serveur
- * (lib/api/role-permissions) et les écrans (useRolePermissions) la relaient.
+ * Permission MÉTIER, jamais un droit SQL : le navigateur ne lit buying_price nulle part (migration C2) ; le coût
+ * passe par les routes serveur, qui appliquent cette règle. Le serveur (lib/api/role-permissions) et les écrans
+ * (useRolePermissions) la relaient : ne la réécrire nulle part ailleurs.
  *
  * ATTENTION — ce droit n'OUVRE aucun écran. C'est une condition de plus, à
  * l'intérieur d'un écran auquel la personne a déjà accès :
@@ -187,7 +199,7 @@ export const canWrite = (stored: StoredPermissions | null | undefined, role: str
 export function canViewCost(stored: StoredPermissions | null | undefined, role: string | null | undefined): boolean {
   if (!role) return false
   if (role === 'owner' || role === 'super_admin') return true
-  return resolvePermission(stored, role, 'stock').write || resolvePermission(stored, role, 'suppliers').write
+  return resolvePermission(stored, role, 'view_purchase_cost').view
 }
 
 // ── Aide pour l'écran des réglages ──────────────────────────────────────────
@@ -198,6 +210,29 @@ export function mergeRolePerms(role: ConfigurableRole, stored: StoredPermissions
   // Même lecture des anciens « oui » que resolvePermission (niveau affiché = niveau appliqué)
   if (role !== 'viewer') for (const f of LEVEL_FEATURES) if (isLegacyGrant(own, f)) merged[writeKey(f)] = true
   return merged
+}
+
+/** Toutes les clés réglables d'un rôle (pages, niveaux « modification », interrupteurs, cartes) */
+export const ALL_PERM_KEYS: PermKey[] = [...LEVEL_FEATURES, ...LEVEL_FEATURES.map(writeKey), ...SWITCH_FEATURES, ...WIDGET_FEATURES]
+
+export interface PermissionChange { role: ConfigurableRole | 'general'; permission: PermKey; from: boolean; to: boolean }
+
+/**
+ * Droits réellement changés entre deux réglages d'une boutique (journal d'audit) : valeur APPLIQUÉE avant / après
+ * (défauts et anciens « oui » compris, comme mergeRolePerms) — renvoyer le même réglage ne produit aucun changement.
+ */
+export function permissionChanges(before: StoredPermissions | null | undefined, after: StoredPermissions | null | undefined): PermissionChange[] {
+  const out: PermissionChange[] = []
+  for (const role of CONFIGURABLE_ROLES) {
+    const a = mergeRolePerms(role, before), b = mergeRolePerms(role, after)
+    for (const k of ALL_PERM_KEYS) if (!!a[k] !== !!b[k]) out.push({ role, permission: k, from: !!a[k], to: !!b[k] })
+  }
+  const ga = { ...DEFAULT_GENERAL, ...(before?.general ?? {}) }, gb = { ...DEFAULT_GENERAL, ...(after?.general ?? {}) }
+  for (const k of Object.keys(DEFAULT_GENERAL) as PermFeature[]) {
+    if (GENERAL_EXEMPT.includes(k)) continue
+    if (!!ga[k] !== !!gb[k]) out.push({ role: 'general', permission: k, from: !!ga[k], to: !!gb[k] })
+  }
+  return out
 }
 
 export function levelOf(perms: RolePerms, role: ConfigurableRole, feature: LevelFeature): Level {

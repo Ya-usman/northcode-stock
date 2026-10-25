@@ -67,7 +67,7 @@ import { LoadErrorFallback } from '@/components/ui/load-error-fallback'
 
 import { savePendingMovement, updateCachedProductQuantity } from '@/lib/offline/db'
 import { registerBackgroundSync } from '@/lib/offline/sync'
-import { useRolePermissions } from '@/lib/hooks/use-role-permissions'
+import { useRolePermissions, useShopPermissions } from '@/lib/hooks/use-role-permissions'
 import { EmptyGuide } from '@/components/onboarding/empty-guide'
 import { useTableExport } from '@/lib/export/use-table-export'
 import { PRODUCT_UNITS } from '@/lib/import/products-import'
@@ -106,6 +106,8 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
   const { profile, shop, roleInActiveShop, effectiveShopIds, userShops } = useAuth()
   const effectiveRole = roleInActiveShop ?? profile?.role
   const { canAccess, canWrite, canViewCost } = useRolePermissions()
+  // Prix d'achat (saisie comprise) : droit au coût DANS la boutique du produit — « Stock en modification » ne le donne plus
+  const { canViewCostIn } = useShopPermissions()
   const isMultiShop = effectiveShopIds.length > 1
   const { fmt: formatNaira, symbol: currencySymbol } = useCurrency()
   const supabase = createClient()
@@ -714,7 +716,7 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
         quantity_to_add: data.quantity,
         supplier_name: suppliers.find(s => s.id === data.supplier_id)?.name || null,
         supplier_id: data.supplier_id || null,
-        buying_price: data.buying_price || null,
+        // Jamais de prix d'achat sur l'appareil : le serveur prend le coût déjà connu à la synchronisation
         expiry_date: data.expiry_date || null,
         notes: data.notes || null,
         performed_by: profile!.id,
@@ -1420,7 +1422,7 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
     categories: categories.filter((c: any) => !formShopId || c.shop_id === formShopId),
     suppliers: suppliers.filter((s: any) => !formShopId || s.shop_id === formShopId),
     currency: currencySymbol,
-    fullRights: fullStock,
+    fullRights: canViewCostIn(formShopId),
     shopId: formShopId,
   }
   const resetAddForm = () => { setShowAddModal(false); setSessionAddCount(0); setAddFormState({ dirty: false, busy: false }) }
@@ -1807,7 +1809,7 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
           shopId={createShop.id}
           shopLabel={createShopLabel}
           currency={currencySymbol}
-          fullRights={fullStock}
+          fullRights={canViewCostIn(createShop.id)}
           onSaved={(count) => { fetchProducts() }}
         />
       )}
@@ -1887,6 +1889,7 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
             categories={categories.filter((c: any) => c.shop_id === editingProduct.shop_id)}
             suppliers={suppliers.filter((s: any) => s.shop_id === editingProduct.shop_id)}
             shopId={editingProduct.shop_id}
+            fullRights={canViewCostIn(editingProduct.shop_id)}
             defaultValues={{ name: editingProduct.name, category_id: editingProduct.category_id || '', supplier_id: editingProduct.supplier_id || '', buying_price: editingProduct.buying_price, selling_price: editingProduct.selling_price, quantity: editingProduct.quantity, unit: editingProduct.unit, low_stock_threshold: editingProduct.low_stock_threshold || undefined, sku: editingProduct.sku || '', image_url: editingProduct.image_url || '', ...(editRestore?.values ?? {}) }}
             initialPhoto={editRestore?.file ?? null}
             startDirty={!!editRestore}
@@ -1982,7 +1985,8 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
                 <SelectContent>{suppliers.filter(s => s.shop_id === restockProduct?.shop_id).map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}</SelectContent>
               </Select>
             </div>
-            {fullStock && (
+            {/* Prix d'achat : avec le droit au coût, et en ligne seulement (aucun coût n'est gardé sur l'appareil) */}
+            {canViewCostIn(restockProduct?.shop_id) && isOnline && (
               <div className="space-y-1.5">
                 <Label>{t('products.restock_buying_price')}</Label>
                 <Input type="number" {...restockForm.register('buying_price')} placeholder={String(restockProduct?.buying_price)} />

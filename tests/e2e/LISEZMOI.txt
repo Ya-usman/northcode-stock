@@ -44,3 +44,9 @@ Bons de commande — changements de statut (PATCH /api/purchase-orders, lib/api/
 
 Prix d'achat — fuites applicatives (inventaire, cache local) :
   node tests/e2e/cost-leaks-pure.mjs     test PUR : value_delta absent sans droit au coût ; aucun coût dans le cache local
+
+Permission « Voir les prix d'achat et les coûts » (view_purchase_cost, lib/permissions → canViewCost) :
+  node tests/e2e/cost-permission-pure.mjs     test PUR : règle par rôle ON / OFF, propriétaire toujours, 3 accès conservés
+                                              par la 181, changement à chaud, journal des réglages, gardes des routes
+  CAPTURE_BASE=http://localhost:3000 node tests/e2e/cost-permission-ui.js   écrans par rôle, Marché Soleil en lecture seule
+  Migrations 181 / 182 : SEED=<fichier> bash supabase/drafts/181_182_local_validation.sh (base locale jetable, db push réel)
