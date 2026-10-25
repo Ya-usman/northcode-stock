@@ -65,3 +65,9 @@ Dettes fournisseurs (étape C3) — corrections applicatives :
                                                 l'écran affiché (garde « Accès non autorisé ») et aucune donnée lue derrière
                                                 la garde ; EN LIGNE par défaut (lecture seule), LOCAL=1 → serveur local
   La caisse (sales/new) n'est pas dans la garde commune : elle se garde elle-même boutique par boutique.
+
+Migration 184 — lectures selon le droit du rôle (dépenses ; mouvements / transferts / affectations réservés au serveur) :
+  node tests/e2e/rls-feature-pure.mjs     test PUR : constantes de la règle SQL = lib/permissions (échoue si l'un change seul)
+  node supabase/drafts/184_configs_from_prod.js <fichier>   relève en LECTURE SEULE les réglages réels (hors dépôt)
+  REAL=<fichier> bash supabase/drafts/184_local_validation.sh   base LOCALE jetable : db push réel, lectures par rôle,
+                                          règle SQL ↔ application cas par cas, retour arrière exact, garde-fou
