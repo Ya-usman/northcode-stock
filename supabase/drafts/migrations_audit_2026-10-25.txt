@@ -92,3 +92,23 @@ AUDIT DE L'HISTORIQUE DES MIGRATIONS — 25 oct. 2026 (lecture seule, aucune ré
          supabase migration repair --status applied <versions réellement appliquées>
          supabase migration list            (dépôt et base alignés)
          supabase db push --dry-run         (doit répondre qu'il n'y a rien à appliquer)
+
+7. État après corrections (25 oct. 2026, mis à jour après application de la 147 et de la 180)
+   Les sections 1 à 6 décrivent l'état AU MOMENT de l'audit ; elles ne sont pas réécrites. Depuis :
+   147 — 147_exchange_rates_override_reason.sql (SHA-256 1aef164c…) APPLIQUÉE directement en production (éditeur SQL,
+         « Success ») : colonne exchange_rates.override_reason présente (text, NULL autorisé, sans défaut), commentaires
+         sur override_reason et updated_by présents, 3357 lignes existantes à NULL, 0 taux manuel, aucune autre
+         modification (empreinte des données identique). Correction manuelle des taux réparée structurellement ;
+         aucun override réel testé. Toujours ABSENTE de schema_migrations.
+   180 — supabase/migrations/180_notes_missing_objects.sql (SHA-256 aee1dd3a…, identique au SQL exécuté) APPLIQUÉE
+         directement en production (éditeur SQL, « Success ») : idx_notes_owner_id et idx_notes_shop_id présents
+         (btree, non uniques, valides), fonction public.touch_notes_updated_at() (search_path vide, pas de SECURITY
+         DEFINER, aucun droit pour PUBLIC / anon / authenticated) et déclencheur notes_updated_at (BEFORE UPDATE, FOR
+         EACH ROW) présents. Banc local 15/15 ; test réel production vert (note TEST t180mvn6izijb9218b créée,
+         modifiée, supprimée par identifiant ; seules content et updated_at changent) ; 23 vraies notes inchangées.
+         Retour arrière : supabase/drafts/180_notes_missing_objects_rollback.sql. Toujours ABSENTE de
+         schema_migrations.
+   Dépôt : 182 fichiers dans supabase/migrations/ (001 → 180). schema_migrations : toujours 2 lignes (175, 177).
+   Les 147, 178, 179 et 180 sont réellement appliquées mais absentes de l'historique Supabase : c'est ce que la
+   réconciliation devra résoudre, après décision sur les doublons 002 / 056 / 057 / 058 et sur 002_saas.
+   Toujours aucune commande « supabase db push », « migration up » ni « migration repair ».
