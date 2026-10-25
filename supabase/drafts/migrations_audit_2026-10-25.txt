@@ -1,0 +1,94 @@
+AUDIT DE L'HISTORIQUE DES MIGRATIONS — 25 oct. 2026 (lecture seule, aucune réparation)
+=====================================================================================
+
+1. Dépôt (supabase/migrations/)
+   181 fichiers « NNN_nom.sql », 001 → 179 (179 ajoutée le 25 oct. par git mv, contenu identique au SQL appliqué,
+   SHA-256 2a46506391914feb2e45013dc88b9ff27745d43f7d9f121c2ffba84547cf7009). Pas de supabase/config.toml.
+   La CLI Supabase prend comme VERSION le nombre avant le premier « _ ». Convention retenue : 3 chiffres (180, 181…),
+   jamais d'horodatage, aucune conversion des anciens fichiers.
+   Numéros en DOUBLE (deux fichiers = même version pour la CLI) :
+     002  002_saas.sql (4 avr., fb7eb5b) — JAMAIS appliquée     | 002_fix_sale_number.sql (14 avr., 5b527e4) — remplacée
+     056  056_payment_is_repayment.sql (3 mai, f89e0ba) — appliquée | 056_can_delete_products.sql (26 juin, b86a058) — appliquée
+     057  057_quantity_guard_for_update.sql (3 mai, 7d6a633) — remplacée | 057_notify_push_new_expense.sql (26 juin, 550b292) — appliquée
+     058  058_validate_payment_real_balance.sql (3 mai, f89e0ba) — remplacée | 058_fix_owner_sales_rls.sql (29 juin, 93e3fcf) — remplacée (160)
+   Numéros absents : 174 (étape C2 « prix d'achat protégé », prévue) et 176 (transferts, brouillon NON appliqué).
+
+2. Historique Supabase (supabase_migrations.schema_migrations : version text PK, statements, name, created_by,
+   idempotency_key UNIQUE, rollback) : 2 lignes seulement, au format HORODATÉ (outil apply_migration) :
+     20261014224313  175_inventory_sessions
+     20261023163222  177_entities_consolidation_currency
+   Aucune version à 3 chiffres n'y figure (les autres migrations ont été exécutées dans l'éditeur SQL).
+   Aucune branche Supabase, aucune CI ni aucun script du dépôt ne lance la CLI (2.122.0 disponible via npx).
+
+3. Présence réelle en base (objets créés par chaque fichier ; objets supprimés par une migration plus récente
+   exclus) : 455 objets présents sur 470 attendus. Absents :
+     002_saas.sql — JAMAIS APPLIQUÉE : table plan_limits (+ 3 lignes, politique), fonction update_shop_counts,
+       déclencheurs trg_update_product_count / trg_update_user_count, colonnes shops.paystack_customer_code,
+       paystack_subscription_code, products_count, users_count ; la table subscriptions de production suit le schéma
+       de la 003 (expires_at, shop_id NOT NULL), pas celui de la 002 (ends_at). Contient aussi un UPDATE de données
+       (forfait d'Alpha). Seule dépendance : la 154 fait DROP POLICY IF EXISTS subscriptions_shop. Rien dans le code
+       ne s'en sert. DANGEREUSE À REJOUER (recréerait plan_limits et des colonnes retirées par la 106, modifierait
+       Alpha).
+     046_notes.sql — APPLIQUÉE EN PARTIE : table notes conforme, RLS + 4 politiques présentes (la 062 les recrée à
+       l'identique) ; ABSENTS : index idx_notes_owner_id (owner_id), idx_notes_shop_id (shop_id), fonction
+       touch_notes_updated_at() et déclencheur notes_updated_at (BEFORE UPDATE). Effet : updated_at ne change pas
+       à la modification d'une note (0 note sur 23 avec updated_at > created_at) alors que l'écran Notes trie et
+       affiche par updated_at.
+     147_exchange_rates_override_reason.sql — JAMAIS APPLIQUÉE (SHA-256 1aef164c…) : colonne
+       exchange_rates.override_reason absente, aucun commentaire sur updated_by, alors que
+       app/api/admin/exchange-rates/route.ts:127 écrit override_reason → la correction MANUELLE d'un taux de change
+       (admin) échoue (erreur 500). 0 taux manuel sur 3357 : la fonction n'a jamais servi.
+     003_saas_subscriptions.sql — index idx_shops_plan : normal, retiré avec la colonne plan par la 106.
+   33 fichiers ne créent aucun objet encore vérifiable (corrections de politiques ou de fonctions remplacées
+   ensuite) : pas de preuve automatique, ni contraire.
+   Migrations récentes vérifiées une à une : 170, 171, 172, 173, 175, 177, 178, 179 présentes ; 176 absente.
+
+4. Comportement RÉEL de la CLI (observé sur une base PostgreSQL LOCALE jetable reproduisant schema_migrations ;
+   jamais contre la production)
+   • « migration list » : chaque doublon apparaît comme DEUX entrées de même version ; aucun fichier n'est relié aux
+     deux lignes horodatées.
+   • « db push --dry-run » en l'état : refus DbPushMissingLocalError (« Remote migration versions not found in local
+     migrations directory ») avec la suggestion « migration repair --status reverted 20261014224313 20261023163222 ».
+   • Si l'on suivait seulement cette suggestion : les 181 fichiers seraient poussés, depuis 001_schema.sql.
+   • « migration repair --status applied 002 056 » n'enregistre QUE le premier fichier de chaque version
+     (002_fix_sale_number, 056_can_delete_products) ; le jumeau reste « en attente » (002_saas.sql proposé au
+     dry-run suivant, refus DbPushMissingRemoteError tant que --include-all n'est pas donné).
+   → Tant que les numéros en double existent, aucune réparation ne peut rendre l'historique propre.
+   → Le risque de rejeu concerne tous les fichiers du dépôt, pas seulement 178 / 179.
+
+5. Tableau Git ↔ schema_migrations ↔ objets (migrations problématiques)
+   version fichier                               Git   schema_migrations    objets en base                   état
+   002     002_fix_sale_number                   oui   non                  fonction présente (remplacée)     remplacée
+   002     002_saas                              oui   non                  aucun                             jamais appliquée
+   003     003_saas_subscriptions                oui   non                  présents (sauf idx_shops_plan)    appliquée
+   046     046_notes                             oui   non                  table+politiques ; 4 absents      partielle
+   056     056_payment_is_repayment              oui   non                  colonne présente                  appliquée
+   056     056_can_delete_products               oui   non                  colonne présente                  appliquée
+   057     057_quantity_guard_for_update         oui   non                  fonction remplacée                remplacée
+   057     057_notify_push_new_expense           oui   non                  colonne présente                  appliquée
+   058     058_validate_payment_real_balance     oui   non                  fonction remplacée                remplacée
+   058     058_fix_owner_sales_rls               oui   non                  politique remplacée (160)         remplacée
+   147     147_exchange_rates_override_reason    oui   non                  colonne absente                   absente
+   175     175_inventory_sessions                oui   20261014224313       présente                          appliquée (horodatée)
+   176     drafts/176_transferts_workflow        brouillon  non             absente                           non appliquée
+   177     177_entities_consolidation_currency   oui   20261023163222       présente                          appliquée (horodatée)
+   178     178_expired_not_sellable              oui   non                  présente (fichier exact)          appliquée
+   179     179_batch_treatments                  oui   non                  présente (2a465063…)              appliquée, validée
+   180     180_notes_missing_objects (prévue)    —     —                    —                                 à créer
+
+6. Décisions (25 oct. 2026) et ordre verrouillé
+   1) 147 : correctif nécessaire, contenu validé ; application sur « Applique 147 » après un dernier précheck.
+   2) 180_notes_missing_objects : NOUVELLE migration créant UNIQUEMENT idx_notes_owner_id, idx_notes_shop_id,
+      touch_notes_updated_at() et le déclencheur notes_updated_at ; jamais rejouer 046 ; aucun rattrapage de
+      updated_at. Rédigée après validation de la 147.
+   3) 002_saas : NON supprimée pour l'instant ; traitée pendant la réconciliation.
+   4) Doublons 002 / 056 / 057 / 058 : aucune renumérotation pour l'instant ; stratégie à décider AVANT toute
+      réparation.
+   5) Aucune commande « db push », « migration up », « migration repair » ; aucune écriture manuelle dans
+      schema_migrations. Réparation éventuelle plus tard, lancée par le propriétaire (mot de passe de la base,
+      jamais confié à l'assistant), après décision sur les doublons et 002_saas :
+         supabase link --project-ref buiegikcmgcouthavqig
+         supabase migration repair --status reverted 20261014224313 20261023163222
+         supabase migration repair --status applied <versions réellement appliquées>
+         supabase migration list            (dépôt et base alignés)
+         supabase db push --dry-run         (doit répondre qu'il n'y a rien à appliquer)

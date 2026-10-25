@@ -1,24 +1,30 @@
+⚠ CONSIGNE PERMANENTE (25 oct. 2026) — NE JAMAIS LANCER « supabase db push », « supabase migration up » ni
+« supabase migration repair » sur la production sans un plan de réconciliation VALIDÉ. L'historique Supabase
+(supabase_migrations.schema_migrations) ne contient que 2 lignes horodatées (175 et 177) : pour la CLI, presque
+toutes les migrations du dépôt seraient « en attente » et pourraient être rejouées. Git fait foi. Détail et plan :
+supabase/drafts/migrations_audit_2026-10-25.txt.
+
 Brouillons de migration NON appliqués (rien ici n'est exécuté automatiquement).
 - 176_transferts_workflow.sql : Transferts, traçabilité lot par lot — vérifié contre la base le 15 oct. 2026,
   corrigé le 15 oct. (statut « annulé » ; coût inconnu = NULL). À appliquer AVEC le minimum d'application
   (message insufficient_transferable_stock, type de mouvement transit_loss dans Mouvements), sur accord explicite.
 - 176_transferts_workflow_rollback.sql : retour arrière (anciennes fonctions reprises des migrations 102 / 104).
 Reconstitués le 23 oct. 2026 depuis l'historique de la conversation après le nettoyage du dossier temporaire.
-- 179_batch_treatments.sql : traitement des lots périmés + résolution des ventes hors ligne non attribuées.
-  Allocation vente → lot en NO ACTION DEFERRABLE INITIALLY IMMEDIATE + delete_shops(uuid[]) (seule voie de
-  suppression d'une boutique). ORDRE : application (lib/api/delete-shops.ts) en ligne AVANT la migration.
+
+179 — traitement des lots périmés + résolution des ventes hors ligne non attribuées : APPLIQUÉE en production le
+25 oct. 2026 (exécutée dans l'éditeur SQL). Le fichier EXACT appliqué est désormais
+supabase/migrations/179_batch_treatments.sql (déplacé par git mv, SHA-256 2a465063… inchangé). Il n'est enregistré
+dans aucun historique Supabase, comme la 178 et la plupart des migrations du dépôt : voir la consigne ci-dessus.
+Allocation vente → lot en NO ACTION DEFERRABLE INITIALLY IMMEDIATE + delete_shops(uuid[]) (seule voie de
+suppression d'une boutique). Validation en production : tests/e2e/prod-smoke-179-post.js (lecture seule) et
+tests/e2e/b179-real-test-shop.js (test réel dans une boutique TEST supprimée ensuite, 45/45).
 - 179_batch_treatments_rollback.sql : retour arrière exact, refusé dès qu'un historique existe.
 - 179_batch_treatments_rehearsal.sql : répétition transactionnelle (version v2, un bloc DO, objets TEST d'Alpha,
-  se termine TOUJOURS par EXPECTED_ROLLBACK / REHEARSAL_FAIL / PRECHECK_FAIL). Contient le texte EXACT du
-  brouillon (contrôlé par tests/e2e/b179-pure.js). Validée STATIQUEMENT seulement (analyse syntaxique sur base
-  jetable, 58 contrôles) ; JAMAIS exécutée en production : la 179 y a été installée directement le 25 oct. 2026
-  avant la répétition. Désormais non exécutable en l'état (son contrôle préalable détecte la 179 déjà présente) :
+  se termine TOUJOURS par EXPECTED_ROLLBACK / REHEARSAL_FAIL / PRECHECK_FAIL). Contient le texte EXACT de la
+  migration (contrôlé par tests/e2e/b179-pure.js). Validée STATIQUEMENT seulement (analyse syntaxique sur base
+  jetable, 58 contrôles) ; JAMAIS exécutée en production : la 179 y a été installée directement avant la
+  répétition. Désormais non exécutable en l'état (son contrôle préalable détecte la 179 déjà présente) :
   conservée comme référence historique uniquement.
-- 179 — ÉTAT AU 25 OCT. 2026 : 179_batch_treatments.sql (SHA-256 2a465063…) est IDENTIQUE au SQL installé en
-  production, mais n'est enregistrée dans aucun historique Supabase (schema_migrations). Elle reste ICI tant que
-  l'historique n'est pas réconcilié : dans supabase/migrations/, un futur « supabase db push » pourrait la
-  considérer comme en attente et la rejouer. Validation en production : tests/e2e/prod-smoke-179-post.js (lecture
-  seule) et tests/e2e/b179-real-test-shop.js (test réel dans une boutique TEST supprimée ensuite, 45/45).
 - 179_batch_treatments_test_stub.sql, 179_batch_treatments_tests.sql, 179_batch_treatments_fk_tests.sql et
   179_batch_treatments_local_validation.sh : tests sur une base PostgreSQL LOCALE jetable uniquement
   (sh supabase/drafts/179_batch_treatments_local_validation.sh, depuis la racine du dépôt).
