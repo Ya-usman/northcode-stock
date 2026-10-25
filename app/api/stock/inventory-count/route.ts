@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/server'
 import { getAuthedUser, checkShopRole } from '@/lib/api/shop-auth'
-import { canViewFeature, canWriteFeature } from '@/lib/api/role-permissions'
+import { canViewCost, canViewFeature, canWriteFeature } from '@/lib/api/role-permissions'
 import { getApiTranslator } from '@/lib/api/i18n'
 
 // POST /api/stock/inventory-count — apply a batch of physical stock counts
@@ -28,10 +28,18 @@ export async function POST(request: Request) {
     })
     if (error) return NextResponse.json({ error: error.message }, { status: 400 })
 
-    return NextResponse.json({ data })
+    // value_delta = écart en valeur au prix d'achat : envoyé seulement avec le droit au coût (sinon champ ABSENT)
+    return NextResponse.json({ data: await withoutValueDeltaUnlessCost(data, supabase, role, shop_id) })
   } catch (e: any) {
     return NextResponse.json({ error: e.message }, { status: 500 })
   }
+}
+
+async function withoutValueDeltaUnlessCost(data: any, supabase: any, role: string, shopId: string) {
+  if (!data || typeof data !== 'object' || !('value_delta' in data)) return data
+  if (await canViewCost(supabase, role, shopId)) return data
+  const { value_delta: _hidden, ...rest } = data
+  return rest
 }
 
 // GET /api/stock/inventory-count?shop_id= — most recent count session, for

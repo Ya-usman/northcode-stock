@@ -29,10 +29,33 @@ interface CacheEntry<T> {
 // on load and refresh silently in the background while online.
 const PAGE_CACHE_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000
 
+// Prix d'achat : JAMAIS sur l'appareil (localStorage), même pour une personne autorisée — l'écran l'affiche à partir
+// de la réponse du serveur, sans le garder. Coûts reconnus : `buying_price` (produits, lots, lignes de vente, lignes
+// de transfert) et le prix des lignes de bons de commande (`purchase_order_items[].unit_price`). Le `unit_price`
+// d'une vente est un prix de VENTE : conservé.
+function costFreeReplacer(this: unknown, k: string, v: unknown): unknown {
+  if (k === 'buying_price') return undefined
+  if (k === 'purchase_order_items' && Array.isArray(v))
+    return v.map(line => (line && typeof line === 'object' ? (({ unit_price: _price, ...rest }: any) => rest)(line) : line))
+  return v
+}
+
+/** Vrai si la valeur contient un coût (même règle que costFreeReplacer) */
+export function containsCost(value: unknown): boolean {
+  if (!value || typeof value !== 'object') return false
+  if (Array.isArray(value)) return value.some(containsCost)
+  for (const [k, v] of Object.entries(value as Record<string, unknown>)) {
+    if (k === 'buying_price') return true
+    if (k === 'purchase_order_items' && Array.isArray(v) && v.some(l => !!l && typeof l === 'object' && 'unit_price' in (l as object))) return true
+    if (containsCost(v)) return true
+  }
+  return false
+}
+
 export function setPageCache<T>(key: string, data: T): void {
   try {
     const entry: CacheEntry<T> = { data, cached_at: Date.now() }
-    localStorage.setItem(`pc_${key}`, JSON.stringify(entry))
+    localStorage.setItem(`pc_${key}`, JSON.stringify(entry, costFreeReplacer))
   } catch {}
 }
 
@@ -41,6 +64,8 @@ export function getPageCache<T>(key: string, maxAgeMs = PAGE_CACHE_MAX_AGE_MS): 
     const raw = localStorage.getItem(`pc_${key}`)
     if (!raw) return null
     const entry = JSON.parse(raw) as CacheEntry<T> | T
+    // Ancienne entrée écrite avec un coût : supprimée, jamais servie
+    if (containsCost(entry)) { localStorage.removeItem(`pc_${key}`); return null }
     if (entry && typeof entry === 'object' && 'cached_at' in entry && 'data' in entry) {
       const e = entry as CacheEntry<T>
       // Reject entries older than maxAgeMs
@@ -87,7 +112,10 @@ export function purgeCostCaches(): number {
     for (let i = 0; i < localStorage.length; i++) { const k = localStorage.key(i); if (k && (k.startsWith('pc_') || k === 'rq_cache_v2')) keys.push(k) }
     for (const k of keys) {
       const v = localStorage.getItem(k)
-      if (v && v.includes('"buying_price"')) { localStorage.removeItem(k); removed++ }
+      if (!v) continue
+      let withCost = v.includes('"buying_price"')
+      if (!withCost && v.includes('"purchase_order_items"')) { try { withCost = containsCost(JSON.parse(v)) } catch { withCost = true } }
+      if (withCost) { localStorage.removeItem(k); removed++ }
     }
   } catch {}
   return removed
