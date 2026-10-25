@@ -8,9 +8,17 @@ Reconstitués le 23 oct. 2026 depuis l'historique de la conversation après le n
   Allocation vente → lot en NO ACTION DEFERRABLE INITIALLY IMMEDIATE + delete_shops(uuid[]) (seule voie de
   suppression d'une boutique). ORDRE : application (lib/api/delete-shops.ts) en ligne AVANT la migration.
 - 179_batch_treatments_rollback.sql : retour arrière exact, refusé dès qu'un historique existe.
-- 179_batch_treatments_rehearsal.sql : répétition transactionnelle en production (un bloc DO, objets TEST
-  d'Alpha, se termine TOUJOURS par EXPECTED_ROLLBACK / REHEARSAL_FAIL / PRECHECK_FAIL). Contient le texte EXACT
-  du brouillon (contrôlé par tests/e2e/b179-pure.js). À n'exécuter que sur instruction explicite.
+- 179_batch_treatments_rehearsal.sql : répétition transactionnelle (version v2, un bloc DO, objets TEST d'Alpha,
+  se termine TOUJOURS par EXPECTED_ROLLBACK / REHEARSAL_FAIL / PRECHECK_FAIL). Contient le texte EXACT du
+  brouillon (contrôlé par tests/e2e/b179-pure.js). Validée STATIQUEMENT seulement (analyse syntaxique sur base
+  jetable, 58 contrôles) ; JAMAIS exécutée en production : la 179 y a été installée directement le 25 oct. 2026
+  avant la répétition. Désormais non exécutable en l'état (son contrôle préalable détecte la 179 déjà présente) :
+  conservée comme référence historique uniquement.
+- 179 — ÉTAT AU 25 OCT. 2026 : 179_batch_treatments.sql (SHA-256 2a465063…) est IDENTIQUE au SQL installé en
+  production, mais n'est enregistrée dans aucun historique Supabase (schema_migrations). Elle reste ICI tant que
+  l'historique n'est pas réconcilié : dans supabase/migrations/, un futur « supabase db push » pourrait la
+  considérer comme en attente et la rejouer. Validation en production : tests/e2e/prod-smoke-179-post.js (lecture
+  seule) et tests/e2e/b179-real-test-shop.js (test réel dans une boutique TEST supprimée ensuite, 45/45).
 - 179_batch_treatments_test_stub.sql, 179_batch_treatments_tests.sql, 179_batch_treatments_fk_tests.sql et
   179_batch_treatments_local_validation.sh : tests sur une base PostgreSQL LOCALE jetable uniquement
   (sh supabase/drafts/179_batch_treatments_local_validation.sh, depuis la racine du dépôt).

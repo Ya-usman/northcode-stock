@@ -35,6 +35,7 @@ DECLARE
   r_objects_before bigint; r_counter_before bigint; r_n int; r_n2 int; r_e text; r_j jsonb; r_s jsonb; r_tr uuid; r_tr2 uuid;
   r_pe uuid; r_le uuid; r_lns uuid; r_lf uuid; r_po uuid; r_lo_exp uuid; r_lo_fresh uuid; r_sale uuid; r_ps uuid; r_ls uuid; r_obj uuid;
   r_rev timestamptz; r_mv int;
+  r_pn uuid; r_ln uuid; r_pd uuid; r_ld_exp uuid; r_ld_fresh uuid; r_ld_late uuid; r_tr_old uuid; r_hist_before text; r_hist_after text;
 BEGIN
   -- ── Contrôles préalables (rien n'est encore modifié) ──
   IF current_setting('statement_timeout') <> '1min' AND current_setting('statement_timeout') <> '60s' THEN
@@ -76,6 +77,15 @@ BEGIN
                 (SELECT count(*) FROM shops), (SELECT count(*) FROM sales), (SELECT count(*) FROM sale_items), (SELECT count(*) FROM sale_item_batches),
                 (SELECT count(*) FROM product_batches), (SELECT count(*) FROM products), (SELECT count(*) FROM stock_movements)) INTO r_glob_before;
   r_objects_before := (SELECT count(*) FROM storage.objects);
+  -- Ventes historiques Alpha sur lots périmés (BOU-0408, BOU-0483, BOU-0489, BOU-0504) : LECTURE SEULE, empreinte
+  SELECT md5(coalesce(string_agg(s.id::text || ':' || coalesce(s.review_reason, '') || ':' || coalesce(s.reviewed_at::text, '') || ':' || s.sale_status
+           || ':' || (SELECT coalesce(string_agg(si.id::text || ':' || si.quantity || ':' || si.batch_unallocated || ':' || si.stock_shortfall
+                || ':' || (SELECT coalesce(string_agg(sib.id::text || ':' || coalesce(sib.batch_id::text, '') || ':' || sib.quantity, ',' ORDER BY sib.id), '')
+                           FROM sale_item_batches sib WHERE sib.sale_item_id = si.id), ',' ORDER BY si.id), '') FROM sale_items si WHERE si.sale_id = s.id), ';' ORDER BY s.id), ''))
+    INTO r_hist_before FROM sales s WHERE s.shop_id = r_alpha AND s.sale_number IN ('BOU-0408', 'BOU-0483', 'BOU-0489', 'BOU-0504');
+  IF (SELECT count(*) FROM sales WHERE shop_id = r_alpha AND sale_number IN ('BOU-0408', 'BOU-0483', 'BOU-0489', 'BOU-0504')) <> 4 THEN
+    RAISE EXCEPTION 'PRECHECK_FAIL ventes historiques BOU-0408/0483/0489/0504 introuvables';
+  END IF;
   r_n2 := (SELECT count(*) FROM pg_constraint WHERE contype = 'f' AND connamespace = 'public'::regnamespace AND condeferrable);
   r_counter_before := (SELECT counter FROM shop_sale_counters WHERE shop_id = r_alpha);
 
@@ -927,12 +937,29 @@ REVOKE EXECUTE ON FUNCTION public.adjust_batch_quantity(uuid, uuid, integer, tex
   r_j := pg_temp.rh_tb(r_alpha, r_le, 'quantity_adjustment', NULL, 4, NULL, 'damage', NULL, 'adj-1');
   PERFORM pg_temp.rh_ok(pg_temp.rh_lq(r_le) = 4 AND pg_temp.rh_q(r_pe) = 9
     AND (SELECT count(*) FROM stock_movements WHERE product_id = r_pe AND type = 'adjustment' AND quantity = -1 AND batch_id = r_le) = 1, '2 ajustement 5 -> 4 (dommage) : produit 9, mouvement -1');
+  -- Refus négatifs : destruction au-delà du lot ; ajustement qui rendrait le produit négatif
+  PERFORM pg_temp.rh_ok(pg_temp.rh_tbe(r_alpha, r_le, 'dispose', 5, NULL, NULL, NULL, NULL, 'dispose-over') = 'P0043' AND pg_temp.rh_lq(r_le) = 4,
+    '2 destruction au-dela du lot (5 > 4) -> P0043, lot inchange');
+  INSERT INTO products (shop_id, name, quantity, selling_price, buying_price, is_active, unit)
+    VALUES (r_alpha, r_tag || ' negatif', 1, 100, 50, true, 'piece') RETURNING id INTO r_pn;
+  INSERT INTO product_batches (shop_id, product_id, quantity, initial_quantity, expiry_date, source, received_at, created_at)
+    VALUES (r_alpha, r_pn, 3, 3, r_today + 30, 'adjustment', now() - interval '10 days', now() - interval '10 days') RETURNING id INTO r_ln;
+  PERFORM pg_temp.rh_ok(pg_temp.rh_tbe(r_alpha, r_ln, 'quantity_adjustment', NULL, 0, NULL, 'loss', NULL, 'adj-neg') = 'P0043'
+    AND pg_temp.rh_lq(r_ln) = 3 AND pg_temp.rh_q(r_pn) = 1, '2 ajustement qui rendrait le produit negatif (1 - 3) -> P0043, rien modifie');
+  -- Destruction totale : le lot à 0 est CONSERVÉ (historique)
+  r_j := pg_temp.rh_tb(r_alpha, r_le, 'dispose', 4, NULL, NULL, NULL, NULL, 'dispose-all');
+  PERFORM pg_temp.rh_ok(pg_temp.rh_lq(r_le) = 0 AND pg_temp.rh_q(r_pe) = 5 AND EXISTS (SELECT 1 FROM product_batches WHERE id = r_le),
+    '2 destruction totale 4 : lot a 0 CONSERVE, produit 5');
   PERFORM pg_temp.rh_ok(pg_temp.rh_tbe(r_alpha, r_lf, 'date_correction', NULL, NULL, r_today + 60, NULL, NULL, 'date-nonote') = 'P0046'
     AND pg_temp.rh_tbe(r_alpha, r_lf, 'date_correction', NULL, NULL, r_today + 30, NULL, 'meme date', 'date-same') = 'P0043', '2 correction de date sans note -> P0046, meme date -> P0043');
   r_mv := pg_temp.rh_mv(r_pe);
   r_j := pg_temp.rh_tb(r_alpha, r_lf, 'date_correction', NULL, NULL, r_today + 60, NULL, 'etiquette relue', 'date-1');
-  PERFORM pg_temp.rh_ok((SELECT expiry_date FROM product_batches WHERE id = r_lf) = r_today + 60 AND pg_temp.rh_lq(r_lf) = 3 AND pg_temp.rh_q(r_pe) = 9
+  PERFORM pg_temp.rh_ok((SELECT expiry_date FROM product_batches WHERE id = r_lf) = r_today + 60 AND pg_temp.rh_lq(r_lf) = 3 AND pg_temp.rh_q(r_pe) = 5
     AND pg_temp.rh_mv(r_pe) = r_mv, '2 correction de date : quantites inchangees, aucun mouvement');
+  r_j := pg_temp.rh_tb(r_alpha, r_lf, 'date_correction', NULL, NULL, NULL, NULL, 'date effacee', 'date-null');
+  PERFORM pg_temp.rh_ok((SELECT expiry_date FROM product_batches WHERE id = r_lf) IS NULL AND pg_temp.rh_lq(r_lf) = 3 AND pg_temp.rh_mv(r_pe) = r_mv,
+    '2 correction de date -> NULL acceptee, quantites inchangees, aucun mouvement');
+  PERFORM pg_temp.rh_ok(pg_temp.rh_tbe(r_alpha, r_lf, 'date_correction', NULL, NULL, NULL, NULL, 'toujours vide', 'date-null-2') = 'P0043', '2 NULL -> NULL refusee (P0043)');
   PERFORM pg_temp.rh_ok(pg_temp.rh_try(format('UPDATE product_batches SET expiry_date = %L WHERE id = %L', r_today + 90, r_lf)) = 'P0045', '2 date modifiee hors treat_batch -> P0045');
   PERFORM pg_temp.rh_ok(pg_temp.rh_try(format('UPDATE batch_treatments SET note = %L WHERE id = %L', 'x', r_tr)) = '42501'
     AND pg_temp.rh_try(format('DELETE FROM batch_treatments WHERE id = %L', r_tr)) = '42501', '2 historique immuable : modification et suppression refusees (42501)');
@@ -940,37 +967,58 @@ REVOKE EXECUTE ON FUNCTION public.adjust_batch_quantity(uuid, uuid, integer, tex
     AND pg_temp.rh_try(format('DELETE FROM product_batches WHERE id = %L', r_le)) = '23503'
     AND pg_temp.rh_try(format('DELETE FROM products WHERE id = %L', r_pe)) = '23503', '2 lot / produit avec historique : suppression refusee (la route archive)');
 
-  -- ══ 3. Vente hors ligne non attribuée : D2 puis résolution (aucune double déduction) ══
+  -- ══ 3. D2 : lot candidat / lot non candidat (produit dédié ; vente hors ligne il y a 20 minutes) ══
+  INSERT INTO products (shop_id, name, quantity, selling_price, buying_price, is_active, unit)
+    VALUES (r_alpha, r_tag || ' d2', 6, 100, 50, true, 'piece') RETURNING id INTO r_pd;
+  INSERT INTO product_batches (shop_id, product_id, quantity, initial_quantity, expiry_date, source, received_at, created_at)
+    VALUES (r_alpha, r_pd, 5, 5, r_today - 5, 'adjustment', now() - interval '10 days', now() - interval '10 days') RETURNING id INTO r_ld_exp;
+  INSERT INTO product_batches (shop_id, product_id, quantity, initial_quantity, expiry_date, source, received_at, created_at)
+    VALUES (r_alpha, r_pd, 1, 1, r_today + 30, 'adjustment', now() - interval '9 days', now() - interval '9 days') RETURNING id INTO r_ld_fresh;
+  r_s := pg_temp.rh_sell(r_alpha, r_pd, 3, now() - interval '20 minutes', 'off-d2');
+  PERFORM pg_temp.rh_ok(r_s->>'code' = 'ok' AND pg_temp.rh_q(r_pd) = 3 AND pg_temp.rh_lq(r_ld_fresh) = 0 AND pg_temp.rh_lq(r_ld_exp) = 5
+    AND (SELECT sum(batch_unallocated) FROM sale_items WHERE sale_id = (r_s->>'sale_id')::uuid) = 2,
+    '3 vente hors ligne 3 : produit 3, frais 0, perime 5, non attribue 2 ' || coalesce(r_s->>'code', ''));
+  PERFORM pg_temp.rh_ok(pg_temp.rh_tbe(r_alpha, r_ld_exp, 'dispose', 1, NULL, NULL, NULL, NULL, 'd2-dispose') = 'P0040'
+    AND pg_temp.rh_tbe(r_alpha, r_ld_exp, 'quantity_adjustment', NULL, 4, NULL, 'loss', NULL, 'd2-adjm') = 'P0040', '3 D2 lot candidat : destruction et ajustement negatif -> P0040');
+  r_j := pg_temp.rh_tb(r_alpha, r_ld_exp, 'quantity_adjustment', NULL, 6, NULL, 'counting_error', NULL, 'd2-adjp');
+  PERFORM pg_temp.rh_ok(pg_temp.rh_lq(r_ld_exp) = 6 AND pg_temp.rh_q(r_pd) = 4, '3 D2 lot candidat : ajustement positif autorise (lot 6, produit 4)');
+  r_j := pg_temp.rh_tb(r_alpha, r_ld_exp, 'date_correction', NULL, NULL, r_today - 4, NULL, 'etiquette relue', 'd2-date');
+  PERFORM pg_temp.rh_ok((SELECT expiry_date FROM product_batches WHERE id = r_ld_exp) = r_today - 4 AND pg_temp.rh_lq(r_ld_exp) = 6,
+    '3 D2 lot candidat : correction de date autorisee');
+  INSERT INTO product_batches (shop_id, product_id, quantity, initial_quantity, expiry_date, source, received_at, created_at)
+    VALUES (r_alpha, r_pd, 2, 2, r_today - 1, 'adjustment', now() - interval '10 minutes', now() - interval '10 minutes') RETURNING id INTO r_ld_late;
+  r_j := pg_temp.rh_tb(r_alpha, r_ld_late, 'dispose', 1, NULL, NULL, NULL, NULL, 'd2-late');
+  PERFORM pg_temp.rh_ok(pg_temp.rh_lq(r_ld_late) = 1 AND pg_temp.rh_q(r_pd) = 3, '3 D2 lot NON candidat (cree apres la vente) : destruction acceptee');
+
+  -- ══ 3 bis. Résolution : exemple de référence produit 8 / lot 10 / non attribué 2 → 8 / 8 / 0 ══
   INSERT INTO products (shop_id, name, quantity, selling_price, buying_price, is_active, unit)
     VALUES (r_alpha, r_tag || ' hors ligne', 13, 100, 50, true, 'piece') RETURNING id INTO r_po;
   INSERT INTO product_batches (shop_id, product_id, quantity, initial_quantity, expiry_date, source, received_at, created_at)
     VALUES (r_alpha, r_po, 10, 10, r_today - 5, 'adjustment', now() - interval '10 days', now() - interval '10 days') RETURNING id INTO r_lo_exp;
   INSERT INTO product_batches (shop_id, product_id, quantity, initial_quantity, expiry_date, source, received_at, created_at)
     VALUES (r_alpha, r_po, 3, 3, r_today + 30, 'adjustment', now() - interval '9 days', now() - interval '9 days') RETURNING id INTO r_lo_fresh;
-  r_s := pg_temp.rh_sell(r_alpha, r_po, 5, now(), 'off-1');
+  r_s := pg_temp.rh_sell(r_alpha, r_po, 5, now() - interval '20 minutes', 'off-1');
   r_sale := (r_s->>'sale_id')::uuid;
   PERFORM pg_temp.rh_ok(r_s->>'code' = 'ok' AND pg_temp.rh_q(r_po) = 8 AND pg_temp.rh_lq(r_lo_fresh) = 0 AND pg_temp.rh_lq(r_lo_exp) = 10
     AND (SELECT sum(batch_unallocated) FROM sale_items WHERE sale_id = r_sale) = 2
-    AND (SELECT review_reason FROM sales WHERE id = r_sale) LIKE '%expired_stock_unresolved%', '3 vente hors ligne 5 : produit 8, lot frais 0, perime 10, non attribue 2 ' || coalesce(r_s->>'code', ''));
+    AND (SELECT review_reason FROM sales WHERE id = r_sale) LIKE '%expired_stock_unresolved%', '3 vente hors ligne 5 : produit 8, lot perime 10, non attribue 2 ' || coalesce(r_s->>'code', ''));
+  -- Vente TEST : un motif tiers et une date de vérification, pour prouver que seuls expired_stock_unresolved part
+  UPDATE sales SET review_reason = 'other,expired_stock_unresolved', reviewed_at = '2026-10-01 10:00:00+00' WHERE id = r_sale;
   r_rev := (SELECT reviewed_at FROM sales WHERE id = r_sale);
-  PERFORM pg_temp.rh_ok(pg_temp.rh_tbe(r_alpha, r_lo_exp, 'dispose', 1, NULL, NULL, NULL, NULL, 'd2-dispose') = 'P0040'
-    AND pg_temp.rh_tbe(r_alpha, r_lo_exp, 'quantity_adjustment', NULL, 9, NULL, 'loss', NULL, 'd2-adjm') = 'P0040', '3 D2 lot candidat : destruction et ajustement negatif -> P0040');
-  r_j := pg_temp.rh_tb(r_alpha, r_lo_exp, 'quantity_adjustment', NULL, 11, NULL, 'counting_error', NULL, 'd2-adjp');
-  PERFORM pg_temp.rh_ok(pg_temp.rh_lq(r_lo_exp) = 11 AND pg_temp.rh_q(r_po) = 9, '3 D2 ajustement positif autorise : lot 11, produit 9');
   r_mv := pg_temp.rh_mv(r_po);
   r_j := resolve_unallocated(r_alpha, r_sale, r_po, r_lo_exp, 2, 'TEST 179 RH resolution', 'TEST-179-RH-resolve-1', r_cashier);
-  PERFORM pg_temp.rh_ok(pg_temp.rh_lq(r_lo_exp) = 9 AND pg_temp.rh_q(r_po) = 9 AND pg_temp.rh_mv(r_po) = r_mv
-    AND (SELECT sum(batch_unallocated) FROM sale_items WHERE sale_id = r_sale) = 0
+  PERFORM pg_temp.rh_ok(pg_temp.rh_q(r_po) = 8 AND pg_temp.rh_lq(r_lo_exp) = 8 AND (SELECT sum(batch_unallocated) FROM sale_items WHERE sale_id = r_sale) = 0
+    AND pg_temp.rh_mv(r_po) = r_mv
     AND (SELECT sum(sib.quantity) FROM sale_item_batches sib JOIN sale_items si ON si.id = sib.sale_item_id WHERE si.sale_id = r_sale AND sib.batch_id = r_lo_exp) = 2,
-    '3 resolution 2 : lot -2, PRODUIT INCHANGE, aucun mouvement, allocation +2, non attribue 0');
-  PERFORM pg_temp.rh_ok(coalesce((SELECT review_reason FROM sales WHERE id = r_sale), '') NOT LIKE '%expired_stock_unresolved%'
-    AND (SELECT reviewed_at FROM sales WHERE id = r_sale) IS NOT DISTINCT FROM r_rev, '3 D1 motif expired_stock_unresolved retire, reviewed_at inchange');
+    '3 resolution 8 / 10 / 2 -> 8 / 8 / 0 : produit INCHANGE, aucun mouvement, allocation +2');
+  PERFORM pg_temp.rh_ok((SELECT review_reason FROM sales WHERE id = r_sale) = 'other' AND (SELECT reviewed_at FROM sales WHERE id = r_sale) = r_rev,
+    '3 D1 seul expired_stock_unresolved retire (« other » garde), reviewed_at inchange');
   r_j := resolve_unallocated(r_alpha, r_sale, r_po, r_lo_exp, 2, 'TEST 179 RH resolution', 'TEST-179-RH-resolve-1', r_cashier);
-  PERFORM pg_temp.rh_ok((r_j->>'already')::boolean AND pg_temp.rh_lq(r_lo_exp) = 9, '3 resolution rejouee : rien deux fois');
+  PERFORM pg_temp.rh_ok((r_j->>'already')::boolean AND pg_temp.rh_lq(r_lo_exp) = 8 AND pg_temp.rh_q(r_po) = 8, '3 resolution rejouee (meme demande) : rien deux fois');
   PERFORM pg_temp.rh_ok(pg_temp.rh_try(format('SELECT resolve_unallocated(%L, %L, %L, %L, 1, %L, %L, %L)', r_alpha, r_sale, r_po, r_lo_exp, 'x', 'TEST-179-RH-resolve-2', r_cashier)) = 'P0048',
-    '3 plus rien a attribuer -> P0048');
+    '3 seconde resolution des memes unites (concurrente, rejouee en sequence) -> P0048');
   r_j := pg_temp.rh_tb(r_alpha, r_lo_exp, 'dispose', 1, NULL, NULL, NULL, NULL, 'd2-after');
-  PERFORM pg_temp.rh_ok(pg_temp.rh_lq(r_lo_exp) = 8 AND pg_temp.rh_q(r_po) = 8, '3 apres resolution : destruction de nouveau possible');
+  PERFORM pg_temp.rh_ok(pg_temp.rh_lq(r_lo_exp) = 7 AND pg_temp.rh_q(r_po) = 7, '3 apres resolution : lot plus candidat, destruction de nouveau possible');
 
   -- ══ 4. Clé allocation → lot : contrôle immédiat, report sans effet sur un lot vendu ══
   PERFORM pg_temp.rh_ok(pg_temp.rh_try(format('DELETE FROM product_batches WHERE id = %L', r_lo_fresh)) = '23503', '4 lot vendu supprime directement -> 23503 immediat');
@@ -991,6 +1039,20 @@ REVOKE EXECUTE ON FUNCTION public.adjust_batch_quantity(uuid, uuid, integer, tex
       r_alpha || '/' || r_le || '/' || r_tr || '/p2.jpg', 'image/jpeg', gen_random_uuid())) = 'P0047'
     AND pg_temp.rh_try(format('SELECT register_batch_treatment_photo(%L, %L, %L, %L, 1000, %L)', r_alpha, r_tr,
       r_alpha || '/autre/' || r_tr || '/p3.jpg', 'image/jpeg', r_cashier)) = 'P0047', '5 autre auteur / chemin hors du lot -> P0047');
+  PERFORM pg_temp.rh_ok(pg_temp.rh_try(format('SELECT register_batch_treatment_photo(%L, %L, %L, %L, 1000, %L)', r_alpha, r_tr,
+      r_alpha || '/' || r_le || '/' || r_tr || '/p2.jpg', 'image/jpeg', r_cashier)) = 'ok'
+    AND pg_temp.rh_try(format('SELECT register_batch_treatment_photo(%L, %L, %L, %L, 1000, %L)', r_alpha, r_tr,
+      r_alpha || '/' || r_le || '/' || r_tr || '/p3.jpg', 'image/jpeg', r_cashier)) = 'ok'
+    AND (SELECT count(*) FROM batch_treatment_photos WHERE treatment_id = r_tr) = 3, '5 trois photos enregistrees');
+  PERFORM pg_temp.rh_ok(pg_temp.rh_try(format('SELECT register_batch_treatment_photo(%L, %L, %L, %L, 1000, %L)', r_alpha, r_tr,
+      r_alpha || '/' || r_le || '/' || r_tr || '/p4.jpg', 'image/jpeg', r_cashier)) = 'P0049', '5 quatrieme photo -> P0049 (limite 3)');
+  -- Délai : événement inséré directement avec une date de 31 minutes (ligne TEST, annulée avec tout le reste)
+  INSERT INTO batch_treatments (shop_id, batch_id, product_id, action, quantity, lot_qty_before, lot_qty_after, product_qty_before, product_qty_after,
+                                reason_code, request_id, performed_by, created_at)
+    VALUES (r_alpha, r_lf, r_pe, 'quantity_adjustment', 1, 3, 4, 5, 6, 'counting_error', 'TEST-179-RH-old-31min', r_cashier, now() - interval '31 minutes')
+    RETURNING id INTO r_tr_old;
+  PERFORM pg_temp.rh_ok(pg_temp.rh_try(format('SELECT register_batch_treatment_photo(%L, %L, %L, %L, 1000, %L)', r_alpha, r_tr_old,
+      r_alpha || '/' || r_lf || '/' || r_tr_old || '/o.jpg', 'image/jpeg', r_cashier)) = 'P0049', '5 photo plus de 30 minutes apres le traitement -> P0049 (delai)');
   PERFORM pg_temp.rh_ok(pg_temp.rh_try('UPDATE batch_treatment_photos SET size_bytes = 1 WHERE treatment_id = ''' || r_tr || '''') = '42501', '5 photo immuable');
 
   -- ══ 6. Suppression complète d'une boutique TEST par delete_shops ══
@@ -1049,9 +1111,15 @@ REVOKE EXECUTE ON FUNCTION public.adjust_batch_quantity(uuid, uuid, integer, tex
                    WHERE coalesce(s.client_request_id, '') NOT LIKE 'TEST-179-RH-%'),
                 (SELECT count(*) FROM product_batches b JOIN products p ON p.id = b.product_id WHERE p.name NOT LIKE r_tag || '%'),
                 (SELECT count(*) FROM products WHERE name NOT LIKE r_tag || '%'),
-                (SELECT count(*) FROM stock_movements m WHERE m.product_id IS NULL OR m.product_id NOT IN (r_pe, r_po))) INTO r_glob_after;
+                (SELECT count(*) FROM stock_movements m WHERE m.product_id IS NULL OR m.product_id NOT IN (r_pe, r_po, r_pd, r_pn))) INTO r_glob_after;
   PERFORM pg_temp.rh_ok(r_glob_after = r_glob_before, '7 volumes hors objets TEST identiques : ' || r_glob_after);
   PERFORM pg_temp.rh_ok((SELECT count(*) FROM storage.objects) = r_objects_before, '7 storage.objects : aucune ligne ajoutee');
+  SELECT md5(coalesce(string_agg(s.id::text || ':' || coalesce(s.review_reason, '') || ':' || coalesce(s.reviewed_at::text, '') || ':' || s.sale_status
+           || ':' || (SELECT coalesce(string_agg(si.id::text || ':' || si.quantity || ':' || si.batch_unallocated || ':' || si.stock_shortfall
+                || ':' || (SELECT coalesce(string_agg(sib.id::text || ':' || coalesce(sib.batch_id::text, '') || ':' || sib.quantity, ',' ORDER BY sib.id), '')
+                           FROM sale_item_batches sib WHERE sib.sale_item_id = si.id), ',' ORDER BY si.id), '') FROM sale_items si WHERE si.sale_id = s.id), ';' ORDER BY s.id), ''))
+    INTO r_hist_after FROM sales s WHERE s.shop_id = r_alpha AND s.sale_number IN ('BOU-0408', 'BOU-0483', 'BOU-0489', 'BOU-0504');
+  PERFORM pg_temp.rh_ok(r_hist_after = r_hist_before, '7 ventes historiques BOU-0408 / 0483 / 0489 / 0504 : identiques (lecture seule)');
 
   r_t_end := clock_timestamp();
   RAISE EXCEPTION 'EXPECTED_ROLLBACK: 179 rehearsal PASS | controles % | durees : attente verrous % ms, migration % ms, tests % ms, total % ms | lock_timeout final % | avant : % | empreintes : %',
