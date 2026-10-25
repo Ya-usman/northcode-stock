@@ -71,3 +71,6 @@ Migration 184 — lectures selon le droit du rôle (dépenses ; mouvements / tra
   node supabase/drafts/184_configs_from_prod.js <fichier>   relève en LECTURE SEULE les réglages réels (hors dépôt)
   REAL=<fichier> bash supabase/drafts/184_local_validation.sh   base LOCALE jetable : db push réel, lectures par rôle,
                                           règle SQL ↔ application cas par cas, retour arrière exact, garde-fou
+  node tests/e2e/prod-rls-184.js          EN LIGNE, lecture seule : ce que la base renvoie à 8 comptes réels (dépenses selon
+                                          le droit, mouvements / transferts / affectations : rien, anonyme : rien)
+  Appliquée le 25 oct. 2026 (db push, simulation = 184 seule) ; rpc-probe 2/2 ; prod-rls-184 29/29.
