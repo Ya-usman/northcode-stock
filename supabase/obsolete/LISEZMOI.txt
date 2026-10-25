@@ -1,0 +1,7 @@
+Migrations RETIRÉES du mécanisme actif (supabase/migrations/) — conservées pour l'historique, à NE JAMAIS exécuter.
+
+- 002_saas.sql (ajoutée le 4 avril 2026, retirée le 25 oct. 2026) : JAMAIS appliquée en production (aucun de ses objets
+  n'existe ; la table subscriptions suit le schéma de 003_saas_subscriptions). Dangereuse à rejouer : recréerait
+  plan_limits et des colonnes de shops retirées par la 106, et modifierait le forfait de Boutique Alpha. Doublon
+  fonctionnel de la 003. Ne jamais la marquer « applied » dans l'historique Supabase.
+  Détail : supabase/drafts/migrations_audit_2026-10-25.txt.

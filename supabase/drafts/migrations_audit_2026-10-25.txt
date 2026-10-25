@@ -112,3 +112,15 @@ AUDIT DE L'HISTORIQUE DES MIGRATIONS — 25 oct. 2026 (lecture seule, aucune ré
    Les 147, 178, 179 et 180 sont réellement appliquées mais absentes de l'historique Supabase : c'est ce que la
    réconciliation devra résoudre, après décision sur les doublons 002 / 056 / 057 / 058 et sur 002_saas.
    Toujours aucune commande « supabase db push », « migration up » ni « migration repair ».
+
+8. Normalisation des fichiers (25 oct. 2026, décisions D3 et D4 — aucun SQL modifié, renommages à l'identique)
+   - 002_saas.sql → supabase/obsolete/002_saas.sql (git mv) : hors du mécanisme actif ; la version 002 ne désigne
+     plus que 002_fix_sale_number.sql. Ne jamais la marquer « applied ».
+   - Doublons : le fichier le PLUS RÉCENT de chaque paire change de version (git mv, contenu identique) :
+       056_can_delete_products.sql      → 0561_can_delete_products.sql
+       057_notify_push_new_expense.sql  → 0571_notify_push_new_expense.sql
+       058_fix_owner_sales_rls.sql      → 0581_fix_owner_sales_rls.sql
+     056_payment_is_repayment, 057_quantity_guard_for_update et 058_validate_payment_real_balance gardent 056 / 057 / 058.
+     La CLI compare les versions comme du TEXTE : 0561 se range entre 056 et 057, et une future 181 reste poussable.
+   - Résultat : 181 fichiers actifs, 181 versions uniques, aucune collision. Les références aux anciens noms dans les
+     sections 1 à 7 décrivent l'état AVANT cette normalisation.
