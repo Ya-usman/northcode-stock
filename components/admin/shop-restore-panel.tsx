@@ -5,10 +5,7 @@ import { RotateCcw, Package, Users, ChevronDown, ChevronUp, AlertTriangle } from
 import { Button } from '@/components/ui/button'
 import { useToast } from '@/components/ui/use-toast'
 import { formatCurrency } from '@/lib/utils/currency'
-import { createClient } from '@/lib/supabase/client'
 import { withTimeout } from '@/lib/utils/with-timeout'
-
-const supabase = createClient() as any
 
 interface Props {
   shopId: string
@@ -32,31 +29,12 @@ export function ShopRestorePanel({ shopId, shopName, currency }: Props) {
   const loadData = async () => {
     setLoading(true)
     try {
-      const [{ data: delLog }, { data: archived }, { data: softCustomers }] = await withTimeout<any>(Promise.all([
-        // Produits supprimés définitivement (dans le journal)
-        supabase
-          .from('deleted_records_log')
-          .select('id, deleted_at, deleted_by, record_data')
-          .eq('shop_id', shopId)
-          .eq('table_name', 'products')
-          .order('deleted_at', { ascending: false }),
-
-        // Produits archivés (is_active = false)
-        supabase
-          .from('products')
-          .select('id, name, selling_price, quantity, unit, updated_at')
-          .eq('shop_id', shopId)
-          .eq('is_active', false)
-          .order('updated_at', { ascending: false }),
-
-        // Clients soft-deleted (deleted_at non null)
-        supabase
-          .from('customers')
-          .select('id, name, phone, total_debt, deleted_at')
-          .eq('shop_id', shopId)
-          .not('deleted_at', 'is', null)
-          .order('deleted_at', { ascending: false }),
-      ]))
+      // Lues par le serveur (super admin) : la base ne montre ces fiches qu'aux membres de la boutique, et les clients
+      // supprimés à personne — lues ici, deux listes restaient toujours vides (corrigé le 26 oct. 2026)
+      const res = await withTimeout(fetch(`/api/admin/restore?shop_id=${encodeURIComponent(shopId)}`))
+      const json = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(json.error || 'Erreur de chargement')
+      const { deleted_products: delLog, archived_products: archived, deleted_customers: softCustomers } = json
       setDeletedProducts(delLog || [])
       setArchivedProducts(archived || [])
       setDeletedCustomers(softCustomers || [])

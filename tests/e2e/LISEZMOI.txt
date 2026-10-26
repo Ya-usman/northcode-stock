@@ -84,3 +84,6 @@ boutique, Catégories « vendus en 30 j », journal produit « ventes en promo �
   node tests/e2e/b1-figures.js --compare <avant.json> <apres.json>
   Différences attendues : Catégories « vendus en 30 j » (magasinier / caissier avec Catégories : toutes les ventes de la
   boutique au lieu des siennes) ; l'ordre des boutiques du compte n'est pas fixé (lu sans tri) — comparer les lignes triées.
+
+Panneau de restauration du super admin (GET /api/admin/restore, restaurations limitées à la boutique indiquée) :
+  node tests/e2e/admin-restore-pure.mjs  test PUR : listes lues par le serveur (super admin seulement), boutique respectée
