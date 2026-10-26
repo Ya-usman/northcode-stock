@@ -69,14 +69,18 @@ const tab = (page, name) => page.getByRole('button', { name, exact: false }).fir
   const akwaCat = cats.find(c => c.shop_id === AKWA)
   const custs = (await db.from('customers').select('id, name, shop_id').in('shop_id', [AKWA, BONA, BASTOS]).is('deleted_at', null)).data
   const bastosCustomer = custs.find(c => c.shop_id === BASTOS)
-  console.log(`Repères : fournisseurs ${sup.length} (Bonapriso : ${bonaSup.join(', ')}), bons BC-2026-0001…0004 à Akwa, client de Bastos « ${bastosCustomer?.name} »`)
+  // Bons de commande attendus, lus en base (lecture seule ; hors reprises de dette, comme l'écran) : le compte vitrine
+  // évolue (BC-2026-0005 créé le 24 oct. 2026), la liste n'est plus figée dans le test
+  const pos = (await db.from('purchase_orders').select('reference, shop_id').in('shop_id', [AKWA, BONA, BASTOS]).eq('is_opening_balance', false)).data
+  const POS_ALL = pos.map(p => p.reference).sort(), POS_AKWA = pos.filter(p => p.shop_id === AKWA).length, POS_BASTOS = pos.filter(p => p.shop_id === BASTOS).length
+  console.log(`Repères : fournisseurs ${sup.length} (Bonapriso : ${bonaSup.join(', ')}), bons ${POS_ALL.join(', ')} (Akwa ${POS_AKWA}, Bastos ${POS_BASTOS}), client de Bastos « ${bastosCustomer?.name} »`)
 
   console.log('\n1. Fournisseurs en « Toutes » (boutique active cachée : Bastos)')
   let s = await open('suppliers'); let page = s.page
   ok(await page.getByTestId('shop-scope-badge').isVisible(), 'badge « Toutes les boutiques »')
   await tab(page, 'Bons de commande').click(); await page.waitForTimeout(2500)
   let refs = await poRefs(page)
-  ok(refs.join() === 'BC-2026-0001,BC-2026-0002,BC-2026-0003,BC-2026-0004', `bons des boutiques du contexte : ${refs.join(', ')} (avant : ceux de la boutique cachée Bastos — aucun)`)
+  ok(POS_ALL.length > 0 && refs.join() === POS_ALL.join(), `bons des boutiques du contexte : ${refs.join(', ')} (attendus : ${POS_ALL.join(', ')} ; avant : ceux de la boutique cachée Bastos — aucun)`)
   ok((await page.locator('[data-po-card="BC-2026-0004"] [data-po-shop]').innerText().catch(() => '')).includes('Marché Soleil Akwa'), 'chaque bon rappelle sa boutique en « Toutes » (« Marché Soleil Akwa »)')
   // Action sur un bon existant : boutique DU bon
   const card4 = page.locator('[data-po-card="BC-2026-0004"]')
@@ -135,7 +139,7 @@ const tab = (page, name) => page.getByRole('button', { name, exact: false }).fir
   const r3 = (await poRefs(page)).length
   await page.getByRole('button', { name: /Nouveau bon de commande/ }).first().click(); await page.waitForTimeout(1200)
   ok(await page.getByTestId('shop-picker').count() === 0 && low(await page.getByTestId('po-drawer').innerText().catch(() => '')).includes('boutique : marché soleil bastos'), '→ Bastos : nouveau bon dans Bastos, sans question')
-  ok(r1 === 4 && r2 === 4 && r3 === 0, `bons : Akwa ${r1} → Toutes ${r2} → Bastos ${r3}`)
+  ok(r1 === POS_AKWA && r2 === POS_ALL.length && r3 === POS_BASTOS, `bons : Akwa ${r1} → Toutes ${r2} → Bastos ${r3} (attendus ${POS_AKWA} / ${POS_ALL.length} / ${POS_BASTOS})`)
   ok(s.errors.length === 0, `aucune erreur JavaScript${s.errors.length ? ' : ' + s.errors.join(' | ') : ''}`)
   await s.browser.close()
 

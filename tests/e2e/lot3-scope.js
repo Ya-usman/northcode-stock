@@ -118,6 +118,8 @@ const readStore = (page, store) => page.evaluate(store => new Promise(res => { c
 
   console.log('\n3. Une boutique précise : une seule section de budgets')
   s = await open('expenses', { shop: AKWA }); page = s.page
+  // Attendre que les budgets d'Akwa soient affichés (échec intermittent du 26 oct. : vérification avant le chargement)
+  await page.locator('[data-budget-shop]').first().waitFor({ timeout: 15000 }).catch(() => {}); await page.waitForTimeout(1500)
   const g2 = await page.locator('[data-budget-shop]').evaluateAll(els => els.map(e => e.getAttribute('data-budget-shop')))
   ok(g2.length === 1 && g2[0] === AKWA && !/Marché Soleil Akwa/.test(await page.getByTestId('expenses-budgets').innerText()) && await page.locator('[data-expense-shop]').count() === 0,
     'Akwa : budgets d’Akwa seulement, sans titre de boutique ni nom sur les lignes')

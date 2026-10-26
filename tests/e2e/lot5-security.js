@@ -148,7 +148,9 @@ const weekTotal = j => (j.weekPayments || []).reduce((n, d) => n + Number(d.amou
   const accessFor = (role, stored = null) => ({ shopId: 'x', role, view: f => resolvePermission(stored, role, f).view, cost: canViewCost(stored, role) })
   const viewer = reportSections(accessFor('viewer'))
   ok(!!viewer && viewer.encaisse && viewer.transactions && viewer.margin === false, 'Observateur (Rapports, pas de coût) : CA / ventes / paiements, AUCUNE marge')
-  ok(reportSections(accessFor('stock_manager')) === null && accessFor('stock_manager').cost === true, 'Gestionnaire de stock (coûts, pas de Rapports) : aucune section')
+  // Depuis le 25 oct. 2026, le coût n'est plus accordé par défaut au Gestionnaire de stock : réglage explicite ici
+  const smCost = { stock_manager: { view_purchase_cost: true } }
+  ok(reportSections(accessFor('stock_manager', smCost)) === null && accessFor('stock_manager', smCost).cost === true, 'Gestionnaire de stock (coûts, pas de Rapports) : aucune section')
   const mgrS = reportSections(accessFor('manager'))
   ok(!!mgrS && mgrS.margin === true, 'Gérant (Rapports + coûts) : marge autorisée')
   const cashierOn = reportSections(accessFor('cashier', { cashier: { reports: true } }))

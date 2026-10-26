@@ -51,7 +51,7 @@ async function open({ width = 1280, height = 900, locale = 'fr', shop = null, em
     return route.fulfill({ response: res, body }).catch(() => {})
   })
   // Écritures : relues, jamais transmises
-  await s.page.route(/\/api\/product-batches/, async route => {
+  await s.page.route(/\/api\/(product-batches|stock\/batch-treatments)/, async route => {
     const r = route.request()
     if (r.method() === 'GET') return route.fallback()
     let body = {}; try { body = JSON.parse(r.postData() || '{}') } catch {}
@@ -230,11 +230,13 @@ const has = (page, testId) => page.locator(`[data-testid=${testId}]`).count().th
   await page.locator('#batch-adjust-qty').fill('7')
   await page.getByRole('button', { name: 'Enregistrer' }).click(); await page.waitForTimeout(1200)
   let c = s.calls.at(-1)
-  ok(c && c.method === 'PATCH' && c.path === '/api/product-batches/adjust' && c.body.id === sim.healthy.id && c.body.shop_id === sim.other && c.body.new_quantity === 7 && c.body.reason_code === 'correction', `corriger la quantité → ${c?.method} ${c?.path} · boutique du lot (${c?.body.shop_id === sim.other ? 'autre boutique que l’Alpha' : c?.body.shop_id}) · 7 · motif correction`)
+  ok(c && c.method === 'PATCH' && c.path === '/api/product-batches/adjust' && c.body.id === sim.healthy.id && c.body.shop_id === sim.other && c.body.new_quantity === 7 && c.body.reason_code === 'counting_error', `corriger la quantité → ${c?.method} ${c?.path} · boutique du lot (${c?.body.shop_id === sim.other ? 'autre boutique que l’Alpha' : c?.body.shop_id}) · 7 · motif « erreur de comptage » (défaut depuis la 179)`)
   if (!(await has(page, 'lot-detail'))) await openLot(page, sim.healthy)
   await page.locator('[data-testid=lot-detail-more]').click()
   await page.getByRole('menuitem', { name: 'Modifier la date de péremption' }).click()
   await page.locator('#batch-expiry-date').fill(day(30))
+  // Depuis la 179 (appliquée), toute date modifiée garde sa raison : champ obligatoire quand il est affiché
+  if (await page.locator('#batch-expiry-note').count()) await page.locator('#batch-expiry-note').fill('Test lots-ux — date corrigée (interceptée)')
   await page.getByRole('button', { name: 'Enregistrer' }).click(); await page.waitForTimeout(1200)
   c = s.calls.at(-1)
   ok(c && c.path === '/api/product-batches/expiry' && c.body.shop_id === sim.other && c.body.expiry_date === day(30), `modifier la date → ${c?.path} · boutique du lot · ${c?.body.expiry_date}`)
@@ -256,18 +258,20 @@ const has = (page, testId) => page.locator(`[data-testid=${testId}]`).count().th
   ok(sheet, '« Voir le produit » → fiche produit (panneau existant)')
   await s.browser.close()
 
-  // Retirer du stock : lot déjà entamé → quantité ramenée à zéro
-  s = await open({ conflictOnDelete: true }); page = s.page
+  // Lot PÉRIMÉ : depuis la 179 (appliquée), il se « traite » (destruction, retour fournisseur…) — l'ancien parcours
+  // « Retirer du stock » (suppression, ou quantité ramenée à zéro) ne s'applique plus à lui. Envoi intercepté.
+  s = await open({}); page = s.page
   await openLot(page, sim.expired)
   await page.locator('[data-testid=lot-detail] [data-hint=expired] button').click()
-  await page.locator('#batch-remove-reason').waitFor({ timeout: 10000 })
-  const reason = await page.locator('#batch-remove-reason').inputValue()
-  const confirmText = (await page.getByRole('dialog').last().innerText()).replace(/\s+/g, ' ')
-  await page.getByRole('button', { name: 'Retirer du stock' }).last().click(); await page.waitForTimeout(1500)
-  const two = s.calls.slice(-2)
-  ok(/Retirer ce lot du stock \?/.test(confirmText) && reason === 'expiry', 'retirer un lot périmé : confirmation, motif « Expiration » proposé')
-  ok(two.length === 2 && two[0].method === 'DELETE' && two[0].path === '/api/product-batches' && two[1].method === 'PATCH' && two[1].path === '/api/product-batches/adjust' && two[1].body.new_quantity === 0 && two[1].body.reason_code === 'expiry' && two[1].body.shop_id === sim.expired.shop_id,
-    `lot déjà vendu en partie (refus 409) : ${two.map(x => x.method + ' ' + x.path).join(' → ')} · quantité 0 · motif expiry`)
+  const tr = page.getByTestId('batch-treatment-drawer'); await tr.waitFor({ timeout: 10000 })
+  const firstAction = await tr.locator('input[name=batch-treatment-action]:checked').getAttribute('value').catch(() => null)
+  const qtyShown = await tr.locator('#batch-treatment-qty').inputValue().catch(() => '')
+  await tr.getByTestId('drawer-submit').click(); await page.waitForTimeout(1500)
+  const tc = s.calls.filter(x => x.path === '/api/stock/batch-treatments').at(-1)
+  ok(firstAction === 'dispose' && Number(qtyShown) === sim.expired.quantity,
+    `lot périmé : « Traiter » ouvre le traitement, destruction proposée d'abord (${firstAction}), toute la quantité (${qtyShown})`)
+  ok(tc && tc.method === 'POST' && tc.body.batch_id === sim.expired.id && tc.body.action === 'dispose' && tc.body.quantity === sim.expired.quantity && !!tc.body.request_id,
+    `envoi : ${tc?.method} ${tc?.path} · lot ${tc?.body.batch_id === sim.expired.id ? 'du détail' : tc?.body.batch_id} · dispose · ${tc?.body.quantity} (intercepté)`)
   await s.browser.close()
 
   // ── 2. Téléphone ─────────────────────────────────────────────────────────────────────────────
