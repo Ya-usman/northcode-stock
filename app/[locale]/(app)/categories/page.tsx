@@ -213,7 +213,9 @@ export default function CategoriesPage() {
       s.sold += soldQty?.[p.id] || 0
     }
     return map
-  }, [products, soldQty, shopById, catShop]) // eslint-disable-line react-hooks/exhaustive-deps
+    // `costs` en dépendance : sans lui, des coûts arrivés APRÈS les produits et les ventes 30 j laissaient
+    // « Valeur : 0 » (constaté le 26 oct. 2026 en ligne, 1 chargement sur 4)
+  }, [products, soldQty, shopById, catShop, costs]) // eslint-disable-line react-hooks/exhaustive-deps
   const totals = useMemo(() => {
     const all = Object.values(statsByCat)
     return { count: all.reduce((a, s) => a + s.count, 0), value: all.reduce((a, s) => a + s.value, 0) }
