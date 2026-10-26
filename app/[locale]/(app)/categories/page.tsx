@@ -37,7 +37,7 @@ import { useRefetchOnVisible } from '@/lib/hooks/use-refetch-on-visible'
 import { useShopLoadTimeout } from '@/lib/hooks/use-shop-load-timeout'
 import { LoadErrorFallback } from '@/components/ui/load-error-fallback'
 import { withTimeout } from '@/lib/utils/with-timeout'
-import { fetchSoldQty30d, lowStockThresholdOf } from '@/lib/stock/signals'
+import { fetchSoldQty30dForShops, lowStockThresholdOf } from '@/lib/stock/signals'
 import { presetPersistedFilters } from '@/lib/hooks/use-persisted-filters'
 import { useFilterScope } from '@/lib/filters/use-filter-scope'
 import { startNavigationProgress } from '@/components/layout/navigation-progress'
@@ -144,7 +144,8 @@ export default function CategoriesPage() {
       setLoading(false)
     }
     // Ventes des 30 derniers jours par produit (repère secondaire, sans bloquer la liste)
-    fetchSoldQty30d(supabase, effectiveShopIds).then(setSoldQty).catch(() => {})
+    // Par le serveur (toutes les ventes de la boutique) : lue ici, la base ne laissait au magasinier que SES ventes → 0
+    fetchSoldQty30dForShops(effectiveShopIds).then(setSoldQty).catch(() => {})
   }
 
   useEffect(() => { fetchData() }, [effectiveShopIds.join(',')]) // eslint-disable-line react-hooks/exhaustive-deps

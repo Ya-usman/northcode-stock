@@ -134,6 +134,8 @@ export default function CaissePage() {
       supabase
         .from('payments')
         .select('sale_id, amount, sales!inner(shop_id, sale_status)')
+        // Boutiques du contexte dès la requête (avant : toutes les boutiques lisibles, triées ensuite ici)
+        .in('sales.shop_id', effectiveShopIds)
         .eq('is_repayment', false)
         .eq('is_cancelled', false)
         .eq('is_write_off', false)
@@ -143,6 +145,7 @@ export default function CaissePage() {
       supabase
         .from('payments')
         .select('id, amount, received_by, paid_at, method, sales!inner(shop_id, sale_number, sale_status)')
+        .in('sales.shop_id', effectiveShopIds)
         .eq('is_repayment', true)
         .eq('is_cancelled', false)
         .eq('is_write_off', false)

@@ -103,7 +103,8 @@ export default function ShopsPage({ params: { locale } }: { params: { locale: st
 
   const alertCell = (id: string) => {
     const st = stats[id]
-    if (!st) return <span className="text-muted-foreground">—</span>
+    // Sans le droit « Stock » dans cette boutique : repère non transmis par le serveur
+    if (!st || st.out === null || st.low === null) return <span className="text-muted-foreground">—</span>
     if (!st.out && !st.low) return <span className="text-xs text-muted-foreground">{t('shop_detail.no_alert')}</span>
     return (
       <span className="inline-flex flex-wrap gap-x-2 text-xs">
@@ -208,7 +209,7 @@ export default function ShopsPage({ params: { locale } }: { params: { locale: st
                     <td className="px-3 py-3 text-muted-foreground">{s.city || '—'}</td>
                     <td className="max-w-[180px] truncate px-3 py-3">{leadsText(s.id)}</td>
                     <td className="px-3 py-3 text-right tabular-nums">{teamOf(s.id).members}</td>
-                    <td className="px-3 py-3 text-right font-semibold tabular-nums">{stats[s.id] ? formatCurrency(stats[s.id].cashToday, codeOf(s)) : '—'}</td>
+                    <td className="px-3 py-3 text-right font-semibold tabular-nums">{stats[s.id]?.cashToday != null ? formatCurrency(stats[s.id].cashToday!, codeOf(s)) : '—'}</td>
                     <td className="px-3 py-3">{alertCell(s.id)}</td>
                     <td className="px-3 py-3">{statusCell(s)}</td>
                     <td className="pr-3"><ChevronRight className="h-4 w-4 text-muted-foreground" /></td>
@@ -234,7 +235,7 @@ export default function ShopsPage({ params: { locale } }: { params: { locale: st
                 <div className="grid grid-cols-2 gap-2 text-xs">
                   <div className="rounded-lg border bg-background px-2.5 py-2">
                     <p className="text-[10px] text-muted-foreground">{t('shops.kpi_cash_today')}</p>
-                    <p className="truncate text-sm font-bold tabular-nums">{stats[s.id] ? formatCurrency(stats[s.id].cashToday, codeOf(s)) : '—'}</p>
+                    <p className="truncate text-sm font-bold tabular-nums">{stats[s.id]?.cashToday != null ? formatCurrency(stats[s.id].cashToday!, codeOf(s)) : '—'}</p>
                   </div>
                   <div className="rounded-lg border bg-background px-2.5 py-2">
                     <p className="text-[10px] text-muted-foreground">{t('shops.members_label')}</p>

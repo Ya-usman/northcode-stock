@@ -10,6 +10,37 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 // Direction (propriétaire, Manager, Responsable, support) avec « Clients » en
 // modification — jamais le caissier ni l'Observateur
 
+// GET /api/customers/merge?shop_id=<id>&ids=a,b,c — nombre de ventes de chaque fiche, pour le récapitulatif avant
+// fusion (lu jusqu'ici directement par le navigateur ; lot 2B du 26 oct. 2026). Même droit que la fusion.
+export async function GET(request: Request) {
+  const t = getApiTranslator(request)
+  try {
+    const { user, supabase } = await getAuthedUser()
+    if (!user) return NextResponse.json({ error: t('not_authenticated') }, { status: 401 })
+    const sp = new URL(request.url).searchParams
+    const shop_id = sp.get('shop_id') || ''
+    const ids = Array.from(new Set((sp.get('ids') || '').split(',').map(x => x.trim()).filter(Boolean)))
+    if (!UUID.test(shop_id) || !ids.length || ids.length > 50 || ids.some(id => !UUID.test(id))) {
+      return NextResponse.json({ error: t('invalid_data') }, { status: 400 })
+    }
+    const role = await checkShopRole(supabase, user.id, shop_id)
+    if (!role || !isManagerial(role) || !(await canWriteFeature(supabase, role, shop_id, 'customers'))) {
+      return NextResponse.json({ error: t('merge_forbidden') }, { status: 403 })
+    }
+    const admin = await createAdminClient() as any
+    const counts: Record<string, number> = Object.fromEntries(ids.map(id => [id, 0]))
+    await Promise.all(ids.map(async id => {
+      const { count, error } = await admin.from('sales').select('id', { count: 'exact', head: true })
+        .eq('shop_id', shop_id).eq('customer_id', id)
+      if (error) throw new Error(error.message)
+      counts[id] = count || 0
+    }))
+    return NextResponse.json({ counts })
+  } catch (err: any) {
+    return NextResponse.json({ error: err.message }, { status: 500 })
+  }
+}
+
 // POST /api/customers/merge — fusionne un doublon (merge_id) dans la fiche
 // gardée (keep_id) : merge_customers (migration 151), en une transaction,
 // puis journal d'audit. Décision humaine uniquement : rien n'est fusionné

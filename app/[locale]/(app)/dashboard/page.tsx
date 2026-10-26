@@ -126,11 +126,12 @@ export default function DashboardPage() {
     setMonthGlobalRevenue(mGlobalRevenue)
   }, [])
 
-  const loadDashboard = useCallback(async (quiet = false) => {
+  // `silent` : rechargement discret déclenché par le temps réel (ni cache relu, ni roue qui tourne)
+  const loadDashboard = useCallback(async (quiet = false, silent = false) => {
     if (shopIds.length === 0) return
 
     // On manual refresh: immediately clear skeleton so rapid presses can't re-show it
-    if (quiet) setFirstLoad(false)
+    if (quiet || silent) setFirstLoad(false)
 
     const shopKey = `${profile?.id}:${shopIds.join(',')}`
     const cacheKey = `dashboard_${shopKey}`
@@ -139,7 +140,7 @@ export default function DashboardPage() {
     // On initial load: any existing cache (up to the standard 7-day cutoff)
     // clears the skeleton instantly while fresh data loads in the background.
     // On manual refresh (quiet=true): skip cache — user wants fresh data now.
-    if (!quiet) {
+    if (!quiet && !silent) {
       const cached = getPageCache<DashCache>(cacheKey)
       if (cached) {
         applyDashData(cached.todaySalesCount, cached.todayRevenue, cached.outstandingDebt,
@@ -164,7 +165,7 @@ export default function DashboardPage() {
     const isCashier = (roleInActiveShop ?? profile?.role) === 'cashier'
     const cashierId = profile?.id
 
-    if (quiet) setRefreshing(true)
+    if (quiet && !silent) setRefreshing(true)
 
     try {
       const today = new Date()
@@ -190,6 +191,17 @@ export default function DashboardPage() {
         return j
       })
 
+      // Ventes du jour, ventes de la semaine avec leurs lignes, dette clients : décidées et lues par le SERVEUR
+      // (/api/dashboard/live, lot 2B du 26 oct. 2026) — avant : lues directement ici. Mêmes chiffres : vendeur et
+      // magasinier limités à leurs ventes comme le faisait la base ; un bloc dont aucun widget n'est autorisé n'est
+      // pas envoyé (null). Même forme de résultat qu'avant pour la suite du calcul.
+      const liveParams = new URLSearchParams({ shop_ids: shopIds.join(','), day_start: todayStart, day_end: todayEnd, week_start: weekStartISO })
+      const livePromise = fetch(`/api/dashboard/live?${liveParams}`).then(async r => {
+        const j = await r.json().catch(() => ({}))
+        if (!r.ok) throw new Error(j.error || 'live')
+        return j
+      })
+
       // ── All parallel queries ────────────────────────────────────
       const [
         todaySalesRes,
@@ -201,38 +213,10 @@ export default function DashboardPage() {
         monthSalesRes,
         monthGlobalRes,
       ] = await withTimeout(Promise.all([
-        // Today's sales — cashier sees only their own; owner/viewer sees all
-        (() => {
-          let q = supabase
-            .from('sales')
-            .select('id, sale_number, total, amount_paid, balance, payment_method, payment_status, sale_status, created_at, customers(name), cashier_id, shop_id')
-            .in('shop_id', shopIds)
-            .eq('sale_status', 'active')
-            .gte('created_at', todayStart)
-            .lte('created_at', todayEnd)
-            .order('created_at', { ascending: false })
-          if (isCashier && cashierId) q = q.eq('cashier_id', cashierId)
-          return q
-        })(),
-
-        // Outstanding debt
-        supabase
-          .from('customers')
-          .select('total_debt')
-          .in('shop_id', shopIds),
-
-        // Last 7 days sales (for top products + chart) — cashier sees own only
-        (() => {
-          let q = supabase
-            .from('sales')
-            .select('id, shop_id, total, amount_paid, created_at, sale_items(product_id, product_name, quantity, subtotal)')
-            .in('shop_id', shopIds)
-            .eq('sale_status', 'active')
-            .gte('created_at', weekStartISO)
-            .lte('created_at', todayEnd)
-          if (isCashier && cashierId) q = q.eq('cashier_id', cashierId)
-          return q
-        })(),
+        // Ventes du jour, dette clients, ventes des 7 derniers jours (graphique, meilleurs produits) : serveur
+        livePromise.then((j: any) => ({ data: j.today_sales || [], error: null })),
+        livePromise.then((j: any) => ({ data: j.outstanding_debt === null ? [] : [{ total_debt: j.outstanding_debt }], error: null })),
+        livePromise.then((j: any) => ({ data: j.week_sales || [], error: null })),
 
         // Stock alerts
         supabase
@@ -529,6 +513,13 @@ export default function DashboardPage() {
 
     runIdlePrefetch(tasks, isOnline)
   }, [effectiveShopIds.join(','), isOnline])
+  // Rechargement discret après un événement temps réel : un seul pour une rafale (1,5 s)
+  const silentTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const scheduleSilentRefresh = () => {
+    if (silentTimer.current) clearTimeout(silentTimer.current)
+    silentTimer.current = setTimeout(() => { silentTimer.current = null; loadDashboard(false, true) }, 1500)
+  }
+  useEffect(() => () => { if (silentTimer.current) clearTimeout(silentTimer.current) }, [])
   useDashboardRealtime(shop?.id || null, {
     onNewSale: (sale) => {
       if (shopIds.includes(sale.shop_id || '')) {
@@ -551,41 +542,13 @@ export default function DashboardPage() {
       setTodayRevenue(prev => Math.max(0, (prev ?? 0) - Number((sale as any).amount_paid ?? 0)))
       try { localStorage.removeItem('dashboard_cache_v1') } catch {}
     },
-    onPaymentUpdate: async (payment: any) => {
-      try {
-        // Skip payments that were already captured by the last API fetch
-        // (race condition: realtime can deliver old events after a fetch completes)
-        const paymentMs = new Date(payment.paid_at || 0).getTime()
-        if (paymentMs < lastFetchStartRef.current) return
-
-        const { data: sale } = await supabase
-          .from('sales')
-          .select('shop_id, created_at, total, balance, sale_status, customers(name)')
-          .eq('id', payment.sale_id)
-          .single()
-        if (!sale || !shopIds.includes(sale.shop_id)) return
-        if ((sale as any).sale_status === 'cancelled') return
-        const item: RepaymentFeedItem = {
-          type: 'repayment',
-          id: payment.id,
-          sale_id: payment.sale_id,
-          amount: Number(payment.amount),
-          paid_at: payment.paid_at || new Date().toISOString(),
-          method: payment.method,
-          customerName: (sale as any).customers?.name || '—',
-          totalDebt: Number((sale as any).total),
-          remainingBalance: Number((sale as any).balance),
-        }
-        setRepaymentFeed(prev => [item, ...prev])
-        // All cash received today = revenue, including old-debt repayments
-        setTodayRevenue(prev => (prev ?? 0) + Number(payment.amount))
-        // Update the matching sale in recentSales so its balance/gauge reflects the payment
-        setRecentSales(prev => prev.map((s: any) =>
-          s.id === payment.sale_id
-            ? { ...s, amount_paid: Number(s.amount_paid) + Number(payment.amount), balance: Math.max(0, Number(s.balance) - Number(payment.amount)), payment_status: Math.max(0, Number(s.balance) - Number(payment.amount)) === 0 ? 'paid' : 'partial' }
-            : s
-        ))
-      } catch { /* ignore */ }
+    onPaymentUpdate: (payment: any) => {
+      // Paiements déjà pris en compte par la dernière lecture : ignorés (le temps réel peut livrer un événement ancien)
+      const paymentMs = new Date(payment.paid_at || 0).getTime()
+      if (paymentMs < lastFetchStartRef.current) return
+      // Avant : la vente du paiement était relue ici, directement dans la base. Désormais le serveur refait le calcul
+      // (rechargement discret, regroupé si plusieurs paiements arrivent ensemble) — mêmes règles que l'ouverture.
+      scheduleSilentRefresh()
     },
     onProductUpdate: (product) => {
       const threshold = shop?.low_stock_threshold || 10

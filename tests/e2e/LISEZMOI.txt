@@ -74,3 +74,13 @@ Migration 184 — lectures selon le droit du rôle (dépenses ; mouvements / tra
   node tests/e2e/prod-rls-184.js          EN LIGNE, lecture seule : ce que la base renvoie à 8 comptes réels (dépenses selon
                                           le droit, mouvements / transferts / affectations : rien, anonyme : rien)
   Appliquée le 25 oct. 2026 (db push, simulation = 184 seule) ; rpc-probe 2/2 ; prod-rls-184 29/29.
+
+Lot 2B, étape B1 — lectures du navigateur reprises par le serveur (tableau de bord, Boutiques, onglet Caisse de la fiche
+boutique, Catégories « vendus en 30 j », journal produit « ventes en promo », nombre de ventes avant fusion) :
+  node tests/e2e/b1-routes-pure.mjs      test PUR : blocs envoyés selon widgets / droits, caissier et magasinier limités à
+                                          leurs ventes (comme la base), refus 401 / 403
+  ONLINE=1 OUT=<avant.json> node tests/e2e/b1-figures.js     relève (lecture seule) le texte affiché pour 8 comptes
+  OUT=<apres.json> node tests/e2e/b1-figures.js              même relevé sur le serveur local
+  node tests/e2e/b1-figures.js --compare <avant.json> <apres.json>
+  Différences attendues : Catégories « vendus en 30 j » (magasinier / caissier avec Catégories : toutes les ventes de la
+  boutique au lieu des siennes) ; l'ordre des boutiques du compte n'est pas fixé (lu sans tri) — comparer les lignes triées.

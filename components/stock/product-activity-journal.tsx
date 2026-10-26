@@ -3,7 +3,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useLocale, useTranslations } from 'next-intl'
 import { Archive, CalendarClock, ChevronDown, Edit2, ExternalLink, History, Unlock, Plus, RotateCcw, Search, Tag, Trash2, X } from 'lucide-react'
-import { createClient } from '@/lib/supabase/client'
 import { useCurrency } from '@/lib/hooks/use-currency'
 import { withTimeout } from '@/lib/utils/with-timeout'
 import { Input } from '@/components/ui/input'
@@ -89,7 +88,6 @@ export function ProductActivityJournal({ open, onOpenChange, shopId, shopLabel, 
   const tj = useTranslations('activity_journal')
   const locale = useLocale()
   const { fmt: formatMoney } = useCurrency()
-  const supabase = createClient() as any
 
   const [logs, setLogs] = useState<any[]>([])
   const [total, setTotal] = useState<number | null>(null)
@@ -150,17 +148,13 @@ export function ProductActivityJournal({ open, onOpenChange, shopId, shopLabel, 
   const fetchPromoSales = async (logId: string, productId: string, from: string, until: string) => {
     setPromoSales(prev => ({ ...prev, [logId]: { loading: true, qty: null } }))
     try {
-      const { data } = await withTimeout<any>(
-        supabase
-          .from('sale_items')
-          .select('quantity, sales!inner(created_at, sale_status)')
-          .eq('product_id', productId)
-          .gte('sales.created_at', from)
-          .lte('sales.created_at', until)
-          .eq('sales.sale_status', 'active'),
-        15_000,
-      )
-      const qty = (data || []).reduce((sum: number, row: any) => sum + row.quantity, 0)
+      // Par le serveur (toutes les ventes de la boutique, lot 2B du 26 oct. 2026) : lue ici, la base ne laissait au
+      // magasinier que SES ventes
+      if (!shopId) throw new Error('shop')
+      const q = new URLSearchParams({ shop_id: shopId, product_id: productId, from, until })
+      const res = await withTimeout(fetch(`/api/stock/promo-sales?${q}`), 15_000)
+      if (!res.ok) throw new Error(String(res.status))
+      const { quantity: qty } = await res.json()
       setPromoSales(prev => ({ ...prev, [logId]: { loading: false, qty } }))
     } catch {
       setPromoSales(prev => ({ ...prev, [logId]: { loading: false, qty: null } }))

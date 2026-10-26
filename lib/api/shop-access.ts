@@ -64,6 +64,18 @@ export async function dashboardGuard(
 }
 
 /**
+ * Ventes qu'une personne lisait DIRECTEMENT dans son navigateur jusqu'au lot 2B (26 oct. 2026), d'après la base
+ * (règles RLS sales_cashier_own / sales_stock_manager_own) : caissier et magasinier → seulement les leurs ; les autres
+ * rôles → toute la boutique. Sert aux routes qui reprennent ces lectures (tableau de bord, fiche boutique), pour que les
+ * chiffres affichés restent EXACTEMENT les mêmes. Différent de sellerFilter (caissier avec « chiffre d'affaires » et
+ * magasinier → toute la boutique) : écart connu, à trancher à part.
+ * Renvoie l'identifiant du vendeur à filtrer (null = toute la boutique).
+ */
+export function ownSalesScope(access: ShopAccess, userId: string): string | null {
+  return access.role === 'cashier' || access.role === 'stock_manager' ? userId : null
+}
+
+/**
  * Chiffre d'affaires d'une boutique : « ses propres ventes » ou « toute la boutique » ?
  * Un caissier ne voit que ses ventes, sauf si le propriétaire lui a ouvert le chiffre d'affaires de la boutique
  * (« revenue_chart ») ; les autres rôles voient toute la boutique. Un filtre vendeur demandé par le navigateur peut

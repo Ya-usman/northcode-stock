@@ -6,8 +6,8 @@
 //  - Stock : seuils et péremption de lib/stock/signals (Vue d'ensemble Stock),
 //    transferts et bons de commande par leurs routes serveur ;
 //  - Caisse : encaissé du jour = paiements du jour (même définition que
-//    useShopStats et le Contrôle de caisse), crédits = /api/payments/debts
-//    (page Crédits), ventes hors ligne « à vérifier » (lot 3) ;
+//    useShopStats et le Contrôle de caisse) et ventes hors ligne « à vérifier »
+//    (lot 3) par /api/shops/cash, crédits = /api/payments/debts (page Crédits) ;
 //  - Historique : journal d'audit de la boutique (lecture propriétaire, RLS).
 // Chaque bloc se charge et échoue séparément : un bloc en erreur affiche
 // « indisponible », jamais un faux zéro.
@@ -160,54 +160,15 @@ export function useShopCashDetail(shop: Shop | null, show: { credit: boolean; re
   const refresh = useCallback(async () => {
     if (!shop) return
     const start = new Date(); start.setHours(0, 0, 0, 0)
-    const since = start.toISOString()
-    const [payRes, salesRes, debtsRes, reviewRes] = await Promise.all([
-      settle(withTimeout<any>(supabase.from('payments')
-        .select('amount, method, is_repayment, received_by, sales!inner(shop_id, sale_status, cashier_id)')
-        .eq('sales.shop_id', shop.id).eq('is_cancelled', false).eq('is_write_off', false).gte('paid_at', since), 20_000)
-        .then((r: any) => { if (r.error) throw r.error; return r.data as any[] })),
-      settle(withTimeout<any>(supabase.from('sales').select('id', { count: 'exact', head: true })
-        .eq('shop_id', shop.id).eq('sale_status', 'active').gte('created_at', since), 20_000)
-        .then((r: any) => { if (r.error) throw r.error; return r.count as number })),
+    // Encaissé du jour, ventes du jour, ventes à vérifier : calculés par le SERVEUR (/api/shops/cash, lot 2B du
+    // 26 oct. 2026) avec les mêmes définitions qu'ici auparavant ; crédits : /api/payments/debts (page Crédits).
+    const cashParams = new URLSearchParams({ shop_id: shop.id, day_start: start.toISOString(), ...(show.review ? { review: '1' } : {}) })
+    const [cashRes, debtsRes] = await Promise.all([
+      settle(getJson(`/api/shops/cash?${cashParams}`)),
       show.credit ? settle(getJson(`/api/payments/debts?shop_ids=${shop.id}`)) : Promise.resolve(ok<any>({ debtors: [] })),
-      show.review ? settle(withTimeout<any>(supabase.from('sales').select('id, sale_number, created_at, review_reason', { count: 'exact' })
-        .eq('shop_id', shop.id).not('review_reason', 'is', null).is('reviewed_at', null)
-        .order('created_at', { ascending: false }).limit(5), 20_000)
-        .then((r: any) => { if (r.error) throw r.error; return { rows: r.data as any[], count: r.count as number } })) : Promise.resolve(ok<any>({ rows: [], count: 0 })),
     ])
 
-    let today: ShopCashDetail['today'] = failed()
-    if (!payRes.error && !salesRes.error) {
-      const byMethod: Record<string, number> = {}
-      const byPerson: Record<string, { amount: number; count: number }> = {}
-      let total = 0, repayments = 0
-      for (const p of payRes.data || []) {
-        if (p.sales?.sale_status === 'cancelled') continue
-        const amount = Number(p.amount) || 0
-        total += amount
-        if (p.is_repayment) repayments += amount
-        byMethod[p.method || 'cash'] = (byMethod[p.method || 'cash'] || 0) + amount
-        // Comme le Contrôle de caisse : la vente au vendeur, le remboursement à qui l'a reçu
-        const who = (p.is_repayment ? p.received_by : p.sales?.cashier_id) || 'unknown'
-        byPerson[who] = byPerson[who] || { amount: 0, count: 0 }
-        byPerson[who].amount += amount
-        byPerson[who].count++
-      }
-      const ids = Object.keys(byPerson).filter(id => id !== 'unknown')
-      const names: Record<string, string> = {}
-      if (ids.length) {
-        try {
-          const { data } = await withTimeout<any>(supabase.from('profiles').select('id, full_name').in('id', ids), 20_000)
-          for (const pr of data || []) names[pr.id] = pr.full_name
-        } catch { /* noms absents : identifiant inconnu affiché */ }
-      }
-      today = ok({
-        total, repayments, salesCount: salesRes.data || 0,
-        byMethod: Object.entries(byMethod).map(([method, amount]) => ({ method, amount })).sort((a, b) => b.amount - a.amount),
-        byPerson: Object.entries(byPerson).map(([id, v]) => ({ id, name: names[id] ?? null, ...v })).sort((a, b) => b.amount - a.amount),
-      })
-    }
-
+    const today: ShopCashDetail['today'] = cashRes.error || !cashRes.data?.today ? failed() : ok(cashRes.data.today)
     const todayIso = new Date().toISOString().slice(0, 10)
     const credit: ShopCashDetail['credit'] = debtsRes.error ? failed() : (() => {
       const debtors = (debtsRes.data?.debtors || []) as any[]
@@ -219,13 +180,8 @@ export function useShopCashDetail(shop: Shop | null, show: { credit: boolean; re
       })
     })()
 
-    const review: ShopCashDetail['review'] = reviewRes.error ? failed() : ok({
-      count: reviewRes.data?.count || 0,
-      list: (reviewRes.data?.rows || []).map((s: any) => ({
-        id: s.id, sale_number: s.sale_number, created_at: s.created_at,
-        reasons: String(s.review_reason || '').split(',').filter(Boolean),
-      })),
-    })
+    const review: ShopCashDetail['review'] = cashRes.error ? failed()
+      : ok(cashRes.data?.review ?? { count: 0, list: [] })
 
     setDetail({ today, credit, review })
   }, [shopId, show.credit, show.review]) // eslint-disable-line react-hooks/exhaustive-deps

@@ -8,34 +8,32 @@
 //  - Ventes du jour (nombre et montant) et des 30 derniers jours (ventes actives) ;
 //  - Produits actifs, ruptures, stock bas (seuil produit, sinon boutique),
 //    valeur du stock au coût d'achat (affichée au propriétaire seulement).
+// Calculés par le SERVEUR (/api/shops/stats, lot 2B du 26 oct. 2026) selon les droits de la personne dans CHAQUE
+// boutique : ventes avec « Historique » ou « Contrôle de caisse », stock avec « Stock », valeur avec le droit aux
+// coûts. Un repère non autorisé vaut null (affiché « — »).
 
 import { useCallback, useEffect, useState } from 'react'
-import { fetchCosts } from '@/lib/costs/client'
 import { useTranslations, useLocale } from 'next-intl'
-import { createClient } from '@/lib/supabase/client'
 import { withTimeout } from '@/lib/utils/with-timeout'
-import { lowStockThresholdOf } from '@/lib/stock/signals'
 import { isShopOpenNow, getMsUntilClosing } from '@/lib/saas/shop-hours'
 import type { Shop } from '@/lib/types/database'
 
-const supabase = createClient() as any
 const DAY = 86_400_000
 
+/** null = repère non autorisé pour la personne dans cette boutique (affiché « — ») */
 export interface ShopStats {
-  cashToday: number
-  salesTodayCount: number
-  salesToday: number
-  sales30: number
-  products: number
-  out: number
-  low: number
-  stockValue: number
+  cashToday: number | null
+  salesTodayCount: number | null
+  salesToday: number | null
+  sales30: number | null
+  products: number | null
+  out: number | null
+  low: number | null
+  stockValue: number | null
 }
 
-const empty = (): ShopStats => ({ cashToday: 0, salesTodayCount: 0, salesToday: 0, sales30: 0, products: 0, out: 0, low: 0, stockValue: 0 })
-
-/** `withCost` : la page affichera la valeur du stock (propriétaire) — les coûts sont alors demandés au serveur ; sinon ils ne sont pas lus du tout. */
-export function useShopStats(shops: Shop[], withCost = false) {
+/** Le serveur décide (droit aux coûts) : `_withCost` n'est plus utilisé, gardé pour les appels existants. */
+export function useShopStats(shops: Shop[], _withCost = false) {
   const key = shops.map(s => s.id).join(',')
   const [stats, setStats] = useState<Record<string, ShopStats>>({})
   const [loaded, setLoaded] = useState(false)
@@ -44,38 +42,12 @@ export function useShopStats(shops: Shop[], withCost = false) {
     const ids = shops.map(s => s.id)
     if (!ids.length) { setStats({}); setLoaded(true); return }
     const startToday = new Date(); startToday.setHours(0, 0, 0, 0)
-    const since30 = new Date(Date.now() - 30 * DAY).toISOString()
     try {
-      const [salesRes, payRes, prodRes, costs] = await withTimeout(Promise.all([
-        supabase.from('sales').select('shop_id, total, created_at').in('shop_id', ids).eq('sale_status', 'active').gte('created_at', since30),
-        supabase.from('payments').select('amount, sales!inner(shop_id, sale_status)')
-          .in('sales.shop_id', ids).eq('is_cancelled', false).eq('is_write_off', false)
-          .gte('paid_at', startToday.toISOString()),
-        supabase.from('products').select('id, shop_id, quantity, low_stock_threshold').in('shop_id', ids).eq('is_active', true),
-        withCost ? fetchCosts(ids).then(c => c?.products ?? {}).catch(() => ({} as Record<string, number>)) : Promise.resolve({} as Record<string, number>),
-      ]), 20_000)
-      if (salesRes.error || payRes.error || prodRes.error) throw salesRes.error || payRes.error || prodRes.error
-      const next: Record<string, ShopStats> = Object.fromEntries(ids.map(id => [id, empty()]))
-      for (const s of salesRes.data || []) {
-        const st = next[s.shop_id]; if (!st) continue
-        const total = Number(s.total) || 0
-        st.sales30 += total
-        if (new Date(s.created_at) >= startToday) { st.salesToday += total; st.salesTodayCount++ }
-      }
-      for (const p of payRes.data || []) {
-        const st = next[p.sales?.shop_id]; if (!st || p.sales?.sale_status === 'cancelled') continue
-        st.cashToday += Number(p.amount) || 0
-      }
-      const threshold = Object.fromEntries(shops.map(s => [s.id, s.low_stock_threshold]))
-      for (const p of prodRes.data || []) {
-        const st = next[p.shop_id]; if (!st) continue
-        const qty = Number(p.quantity) || 0
-        st.products++
-        if (qty <= 0) st.out++
-        else if (qty <= lowStockThresholdOf(p, threshold[p.shop_id])) st.low++
-        st.stockValue += Math.max(qty, 0) * (Number(costs[p.id]) || 0)
-      }
-      setStats(next)
+      const params = new URLSearchParams({ shop_ids: ids.join(','), day_start: startToday.toISOString() })
+      const res = await withTimeout(fetch(`/api/shops/stats?${params}`), 20_000)
+      if (!res.ok) throw new Error(`stats ${res.status}`)
+      const { stats: next } = await res.json() as { stats: Record<string, ShopStats> }
+      setStats(next || {})
     } catch {
       // repères absents : les pages restent utilisables
     } finally {

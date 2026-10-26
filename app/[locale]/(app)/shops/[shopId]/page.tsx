@@ -128,6 +128,7 @@ export default function ShopDetailPage({ params: { shopId } }: { params: { shopI
   const code = resolveCurrencyCode(shop.currency, shop.country)
   const fmt = (n: number) => formatCurrency(n, code)
   const st = stats[shopId]
+  const orDash = (v: number | null, f?: (n: number) => React.ReactNode): React.ReactNode => v === null ? '—' : f ? f(v) : v
   const status = statusOf(shop)
   const hours = hoursOf(shop)
   const sub = subscriptionOf(shop)
@@ -305,14 +306,15 @@ export default function ShopDetailPage({ params: { shopId } }: { params: { shopI
       {tab === 'overview' && (
         <div className="space-y-4" data-testid="shop-overview">
           <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-            {kpi(Wallet, t('shops.kpi_cash_today'), loaded && st ? fmt(st.cashToday) : '…')}
-            {kpi(ShoppingCart, t('shops.kpi_sales_today'), loaded && st ? st.salesTodayCount : '…', loaded && st ? fmt(st.salesToday) : undefined)}
-            {kpi(TrendingUp, t('shops.kpi_30d'), loaded && st ? fmt(st.sales30) : '…')}
+            {/* null = repère non autorisé pour la personne (droits vérifiés par le serveur) → « — » */}
+            {kpi(Wallet, t('shops.kpi_cash_today'), loaded && st ? orDash(st.cashToday, fmt) : '…')}
+            {kpi(ShoppingCart, t('shops.kpi_sales_today'), loaded && st ? orDash(st.salesTodayCount) : '…', loaded && st && st.salesToday !== null ? fmt(st.salesToday) : undefined)}
+            {kpi(TrendingUp, t('shops.kpi_30d'), loaded && st ? orDash(st.sales30, fmt) : '…')}
             {kpi(Users, t('shops.members_label'), nonOwnerCount, leads[0] ? leads.map(p => p.full_name).slice(0, 2).join(', ') : undefined)}
-            {kpi(Package, t('shops.kpi_products'), loaded && st ? st.products : '…')}
-            {kpi(PackageX, t('shops.kpi_out'), loaded && st ? st.out : '…', undefined, st?.out ? 'text-red-600 dark:text-red-400' : undefined)}
-            {kpi(AlertTriangle, t('shops.kpi_low'), loaded && st ? st.low : '…', undefined, st?.low ? 'text-amber-600 dark:text-amber-400' : undefined)}
-            {isOwner && kpi(Coins, t('shops.kpi_stock_value'), loaded && st ? fmt(st.stockValue) : '…')}
+            {kpi(Package, t('shops.kpi_products'), loaded && st ? orDash(st.products) : '…')}
+            {kpi(PackageX, t('shops.kpi_out'), loaded && st ? orDash(st.out) : '…', undefined, st?.out ? 'text-red-600 dark:text-red-400' : undefined)}
+            {kpi(AlertTriangle, t('shops.kpi_low'), loaded && st ? orDash(st.low) : '…', undefined, st?.low ? 'text-amber-600 dark:text-amber-400' : undefined)}
+            {isOwner && kpi(Coins, t('shops.kpi_stock_value'), loaded && st ? orDash(st.stockValue, fmt) : '…')}
           </div>
 
           {/* Raccourcis : les onglets Stock et Caisse de cette fiche, puis les Rapports */}

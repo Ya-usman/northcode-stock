@@ -243,10 +243,11 @@ export default function CustomersPage() {
     const preferred = group.find(c => c.phone) || group[0]
     setKeepId(preferred.id); setMergeGroup(group); setSalesCounts({})
     try {
-      const { data } = await withTimeout<any>(supabase.from('sales').select('customer_id').in('customer_id', group.map(c => c.id)))
-      const counts: Record<string, number> = {}
-      for (const r of (data || []) as { customer_id: string }[]) counts[r.customer_id] = (counts[r.customer_id] || 0) + 1
-      group.forEach(c => { counts[c.id] = counts[c.id] || 0 })
+      // Nombre de ventes par fiche : lu par le serveur (même droit que la fusion ; lot 2B du 26 oct. 2026)
+      const q = new URLSearchParams({ shop_id: group[0].shop_id, ids: group.map(c => c.id).join(',') })
+      const res = await withTimeout(fetch(`/api/customers/merge?${q}`))
+      if (!res.ok) throw new Error(String(res.status))
+      const { counts } = await res.json() as { counts: Record<string, number> }
       setSalesCounts(counts)
     } catch { /* récapitulatif sans le nombre de ventes */ }
   }
