@@ -431,7 +431,7 @@ export function AppLayout({ children, locale }: { children: React.ReactNode; loc
         <UpgradeWall locale={locale} shopName={shop?.name} />
       )}
       {accessAllowed && !shopOpen && !isExemptFromHours && (
-        <ShopClosedWall locale={locale} shopName={shop?.name} openingTime={shop!.opening_time!} closingTime={shop!.closing_time!} timeZone={shop?.timezone} />
+        <ShopClosedWall locale={locale} shopName={shop?.name} openingTime={shop?.opening_time ?? null} closingTime={shop?.closing_time ?? null} timeZone={shop?.timezone} manuallyClosed={shop?.hours_manual_override === 'closed'} />
       )}
 
       <Sidebar locale={locale} role={roleInActiveShop ?? profile.role} profile={profile} onSignOut={handleSignOut} signingOut={signingOut} userEmail={user.email ?? ''} newNavPaths={whatsNew.newNavPaths} />

@@ -42,8 +42,9 @@ export async function shopClosedResponse(
 ): Promise<NextResponse | null> {
   const closed = await closedFor(shopId, role)
   if (!closed) return null
-  return NextResponse.json(
-    { error: t('shop_closed', { opening: closed.opening ?? '—', closing: closed.closing ?? '—' }), code: 'shop_closed' },
-    { status: 403 },
-  )
+  // Fermée manuellement sans horaires configurés : message sans horaires
+  const error = closed.opening && closed.closing
+    ? t('shop_closed', { opening: closed.opening, closing: closed.closing })
+    : t('shop_closed_no_hours')
+  return NextResponse.json({ error, code: 'shop_closed' }, { status: 403 })
 }
