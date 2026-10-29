@@ -44,9 +44,10 @@ export function Header({ title, locale, whatsNew }: HeaderProps) {
       {/* Mobile: StockShop logo */}
       <img src="/logo-icon-t.png" alt="StockShop" className="h-10 w-10 sm:hidden flex-shrink-0 dark:brightness-0 dark:invert" />
 
-      <div className="flex min-w-max flex-1 items-center gap-2 sm:min-w-0">
-        {/* Nom de la page : ordinateur seulement ; sur téléphone, la place va à l'état de la boutique (gardé pour les lecteurs d'écran) */}
-        <h1 className="sr-only sm:not-sr-only sm:min-w-0 sm:truncate sm:font-semibold sm:text-base sm:text-foreground">{title}</h1>
+      {/* Téléphone : nom de la page en haut, état de la boutique en petit dessous (largeur minimale pour ne jamais
+          chevaucher le sélecteur de boutique ; c'est lui qui se raccourcit). Ordinateur : titre puis pastille sur une ligne. */}
+      <div className="flex min-w-[5rem] flex-1 flex-col justify-center sm:min-w-0 sm:flex-row sm:items-center sm:justify-start sm:gap-2">
+        <h1 className="min-w-0 truncate text-sm font-semibold leading-tight text-foreground sm:text-base">{title}</h1>
         {/* État de la boutique (propriétaire) : ouverte jusqu'à quand, ou fermée jusqu'à quand */}
         <ShopStatusPill locale={locale} />
       </div>

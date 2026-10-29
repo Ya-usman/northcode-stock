@@ -2,8 +2,8 @@
 
 // État de la boutique dans l'en-tête (29 oct. 2026) pour le propriétaire et le super admin, qui ne sont jamais bloqués
 // par les horaires : « Ouverte · ferme à 20:00 » ou « Fermée · rouvre à 08:00 », à l'heure de la boutique. Discret
-// (pas d'alerte rouge), toujours visible, un clic mène à l'onglet Horaires. Sur téléphone, le mot seul (le nom de la
-// page y est retiré de l'en-tête pour lui laisser la place). Masqué en
+// (pas d'alerte rouge), toujours visible, un clic mène à l'onglet Horaires. Sur téléphone, le mot seul, sur une
+// petite ligne SOUS le nom de la page (qui garde ainsi toute la largeur). Masqué en
 // contexte « Toutes les boutiques » (les horaires concernent une boutique) et quand les horaires sont désactivés.
 import Link from 'next/link'
 import { useEffect, useState } from 'react'
@@ -42,11 +42,13 @@ export function ShopStatusPill({ locale }: { locale: string }) {
       href={`/${locale}/shops/${shop.id}?tab=hours`}
       aria-label={t('status_aria', { status: full })}
       title={full}
-      className={cn('inline-flex h-7 shrink-0 items-center gap-1.5 rounded-full border bg-background px-2.5 text-xs font-medium text-foreground transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring')}
+      // Téléphone : petite ligne sous le titre de la page (« ● Fermée ») ; ordinateur : pastille à côté du titre
+      className={cn('inline-flex w-fit shrink-0 items-center gap-1.5 rounded text-[11px] font-medium leading-tight text-muted-foreground transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+        'sm:h-7 sm:rounded-full sm:border sm:bg-background sm:px-2.5 sm:text-xs sm:text-foreground sm:hover:bg-muted')}
       data-testid="shop-status-pill"
       data-open={open ? 'true' : 'false'}
     >
-      <span className={cn('h-2 w-2 shrink-0 rounded-full', open ? 'bg-emerald-600 dark:bg-emerald-400' : 'bg-slate-400 dark:bg-slate-500')} aria-hidden="true" />
+      <span className={cn('h-1.5 w-1.5 shrink-0 rounded-full sm:h-2 sm:w-2', open ? 'bg-emerald-600 dark:bg-emerald-400' : 'bg-slate-400 dark:bg-slate-500')} aria-hidden="true" />
       <span className="sm:hidden">{short}</span>
       <span className="hidden whitespace-nowrap tabular-nums sm:inline">{full}</span>
     </Link>
