@@ -27,6 +27,7 @@ const SHOP_TABLES = [
   'agent_commissions', 'currency_migration_log',
 ]
 const LINKED = new Set(['purchase_order_items', 'stock_transfers'])
+const COUNTERS = new Set(['shop_sale_counters', 'opening_balance_counters'])
 const NEVER = /\/api\/sales\/(checkout|sync)|\/api\/offline/
 
 function refuse(msg) { console.error('MODE ÉCRITURE REFUSÉ : ' + msg); process.exit(2) }
@@ -156,7 +157,10 @@ async function snapshot(db) {
       if (error) throw new Error(`photo ${table} : ${error.message}`)
       rows.push(...data); if (data.length < 1000) break
     }
-    snap[table] = new Map(rows.map(r => [r.id ?? JSON.stringify(r), { hash: hash(r), row: r }]))
+    // Lignes sans identifiant : un compteur par boutique (shop_sale_counters, opening_balance_counters) est identifié
+    // par sa boutique — sinon son incrément apparaissait comme « ligne supprimée + ligne nouvelle » (29 oct. 2026)
+    const keyOf = r => r.id ?? (COUNTERS.has(table) ? `${table}:${r.shop_id}` : JSON.stringify(r))
+    snap[table] = new Map(rows.map(r => [keyOf(r), { hash: hash(r), row: r }]))
   }
   for (const t of SHOP_TABLES) await take(t, q => q.eq('shop_id', ALPHA))
   const poIds = [...snap.purchase_orders.keys()]
