@@ -89,3 +89,8 @@ Panneau de restauration du super admin (GET /api/admin/restore, restaurations li
   node tests/e2e/admin-restore-pure.mjs  test PUR : listes lues par le serveur (super admin seulement), boutique respectée
   CAPTURE_BASE=http://localhost:3000 node tests/e2e/categories-cost-late.js   Catégories : valeur affichée même si les
                                           coûts arrivent en dernier (coûts retardés de 5 s, lecture seule)
+
+Migration 185 — ventes, paiements, lignes de vente, clients, réservations lus selon le droit du rôle :
+  bash supabase/drafts/185_local_validation.sh   base LOCALE jetable : db push réel, lectures avant / après pour 8 profils
+                                          et 5 tables, AUCUN gain de lecture, retour arrière exact, garde-fou
+  node supabase/drafts/185_impact_from_prod.js   mesure en LECTURE SEULE de l'effet par adhésion réelle (avant application)
