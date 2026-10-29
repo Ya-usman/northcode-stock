@@ -4,6 +4,7 @@ import { createClient as createServerClient } from '@/lib/supabase/server'
 import { validateBody, uuid, email as emailSchema, shortText } from '@/lib/api/validate'
 import { writeAuditLog, getClientIp } from '@/lib/api/audit'
 import { getApiTranslator } from '@/lib/api/i18n'
+import { shopClosedResponse } from '@/lib/api/shop-hours'
 import { checkShopRole } from '@/lib/api/shop-auth'
 import { canManageRole, ASSIGNABLE_ROLES } from '@/lib/team/roles'
 import { resolveAccount, checkTeamSeat } from '@/lib/saas/team-quota'
@@ -46,6 +47,9 @@ export async function POST(request: Request) {
     // Hiérarchie unique (lib/team/roles.ts) : Propriétaire → tous les rôles ;
     // Manager → Responsable et équipe opérationnelle ; Responsable → équipe opérationnelle.
     const callerRole = await checkShopRole(supabase, caller.id, shop_id)
+    // Boutique fermée : un manager ne modifie pas l'équipe (horaires, 29 oct. 2026)
+    const closedResp = await shopClosedResponse(t, shop_id, callerRole)
+    if (closedResp) return closedResp
     if (!canManageRole(callerRole, role)) {
       return NextResponse.json({ error: t('permission_denied') }, { status: 403 })
     }

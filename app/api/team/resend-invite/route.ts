@@ -3,6 +3,7 @@ import { createClient } from '@supabase/supabase-js'
 import { createClient as createServerClient } from '@/lib/supabase/server'
 import { validateBody, uuid, email as emailSchema } from '@/lib/api/validate'
 import { getApiTranslator } from '@/lib/api/i18n'
+import { shopClosedResponse } from '@/lib/api/shop-hours'
 import { z } from 'zod'
 
 const schema = z.object({
@@ -39,6 +40,9 @@ export async function POST(request: Request) {
       .eq('is_active', true)
       .single()
 
+    // Boutique fermée : un manager ne renvoie pas d'invitation (horaires, 29 oct. 2026)
+    const closedResp = await shopClosedResponse(t, shop_id, callerMember?.role)
+    if (closedResp) return closedResp
     if (!callerMember || !['owner', 'manager', 'shop_manager', 'super_admin'].includes(callerMember.role)) {
       return NextResponse.json({ error: t('permission_denied') }, { status: 403 })
     }

@@ -101,3 +101,11 @@ Migration 185 — ventes, paiements, lignes de vente, clients, réservations lus
                                           une vente Alpha puis son annulation ; temps réel reçu par manager et caissière,
                                           RIEN par l'observateur. 29 oct. 2026 : 9/9 utiles (BOU-0528 annulée, stock
                                           identique) ; traces conservées : vente annulée, 2 mouvements, 1 journal, compteur 528.
+
+Horaires de boutique côté serveur (lot A, 29 oct. 2026 — lib/api/shop-hours, lib/saas/shop-hours au fuseau de la boutique) :
+  node tests/e2e/shop-hours-pure.mjs          test PUR : ouverture à l'heure de la boutique (Douala, Abidjan, Paris été /
+                                              hiver), dérogation, prolongation, « en cas de doute : ouvert », compte à rebours
+  node tests/e2e/shop-hours-routes-pure.mjs   test PUR : contrôle commun (employé refusé fermé, propriétaire exempté,
+                                              prolongation permise), encaissement / remboursement / invitation → 403
+                                              shop_closed sans écriture, dépenses récurrentes { created: 0 }, vente hors
+                                              ligne jamais refusée mais marquée outside_hours

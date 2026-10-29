@@ -3,6 +3,7 @@ import { createAdminClient, createClient } from '@/lib/supabase/server'
 import { validateBody, uuid } from '@/lib/api/validate'
 import { writeAuditLog, getClientIp } from '@/lib/api/audit'
 import { getApiTranslator } from '@/lib/api/i18n'
+import { shopClosedResponse } from '@/lib/api/shop-hours'
 import { checkShopRole } from '@/lib/api/shop-auth'
 import { canManageRole, ASSIGNABLE_ROLES } from '@/lib/team/roles'
 import { z } from 'zod'
@@ -29,6 +30,12 @@ export async function POST(request: Request) {
     if (!user) return NextResponse.json({ error: t('not_authenticated') }, { status: 401 })
 
     const callerRole = await checkShopRole(supabase, user.id, shop_id)
+
+    // Boutique fermée : un manager ne modifie pas l'équipe (horaires, 29 oct. 2026)
+
+    const closedResp = await shopClosedResponse(t, shop_id, callerRole)
+
+    if (closedResp) return closedResp
     if (!callerRole) return NextResponse.json({ error: t('permission_denied') }, { status: 403 })
 
     const admin = await createAdminClient()

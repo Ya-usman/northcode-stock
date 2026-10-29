@@ -410,7 +410,8 @@ export function AppLayout({ children, locale }: { children: React.ReactNode; loc
   // configurée par le owner. roleInActiveShop (pas profile.role seul) est
   // requis : un owner de la Boutique A qui n'est que simple membre de la
   // Boutique B ne doit pas être exempté du mur de la Boutique B.
-  const shopOpen        = !shop || isShopOpenNow(shop.hours_enabled, shop.opening_time, shop.closing_time, shop.hours_manual_override, shop.hours_extension_until)
+  // À l'heure de la BOUTIQUE (son fuseau) — même calcul que le serveur (lib/api/shop-hours), décision du 29 oct. 2026
+  const shopOpen        = !shop || isShopOpenNow(shop.hours_enabled, shop.opening_time, shop.closing_time, shop.hours_manual_override, shop.hours_extension_until, undefined, shop.timezone)
   const effectiveRole   = roleInActiveShop ?? profile.role
   const isExemptFromHours = effectiveRole === 'owner' || effectiveRole === 'super_admin'
   // Compte interne (superadmin de test) — jamais de rappel de facturation,
@@ -430,7 +431,7 @@ export function AppLayout({ children, locale }: { children: React.ReactNode; loc
         <UpgradeWall locale={locale} shopName={shop?.name} />
       )}
       {accessAllowed && !shopOpen && !isExemptFromHours && (
-        <ShopClosedWall locale={locale} shopName={shop?.name} openingTime={shop!.opening_time!} closingTime={shop!.closing_time!} />
+        <ShopClosedWall locale={locale} shopName={shop?.name} openingTime={shop!.opening_time!} closingTime={shop!.closing_time!} timeZone={shop?.timezone} />
       )}
 
       <Sidebar locale={locale} role={roleInActiveShop ?? profile.role} profile={profile} onSignOut={handleSignOut} signingOut={signingOut} userEmail={user.email ?? ''} newNavPaths={whatsNew.newNavPaths} />
@@ -450,6 +451,7 @@ export function AppLayout({ children, locale }: { children: React.ReactNode; loc
             extensionUntil={shop.hours_extension_until}
             extensionCount={extensionsUsedToday(shop)}
             country={shop.country}
+            timeZone={shop.timezone}
             canExtend={canAccess('extend_hours')}
           />
         )}

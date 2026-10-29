@@ -2,6 +2,7 @@
 import { createAdminClient, createClient } from '@/lib/supabase/server'
 import { checkRateLimit } from '@/lib/rate-limit'
 import { canWriteFeature } from '@/lib/api/role-permissions'
+import { shopClosedResponse } from '@/lib/api/shop-hours'
 import { getApiTranslator } from '@/lib/api/i18n'
 import { isRequestId } from '@/lib/api/request-id'
 
@@ -38,6 +39,9 @@ export async function POST(request: Request) {
     // Plus membre de la boutique du paiement (accès retiré, boutique fermée…) : message explicite — une
     // synchronisation hors connexion garde l'opération en file avec cette erreur, sans la supprimer
     if (!callerRole) return NextResponse.json({ error: t('payment_shop_not_accessible') }, { status: 403 })
+    // Boutique fermée : un employé n'encaisse pas de remboursement (file hors ligne : réessayé à la réouverture)
+    const closed = await shopClosedResponse(t, shop_id, callerRole)
+    if (closed) return closed
     if (!(await canWriteFeature(supabase, callerRole, shop_id, 'payments'))) {
       return NextResponse.json({ error: t('permission_denied') }, { status: 403 })
     }

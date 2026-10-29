@@ -6,6 +6,7 @@ import { validateSale } from '@/lib/api/sale-validation'
 import { withServerCost, withoutCost } from '@/lib/api/sale-cost'
 import { checkRateLimit } from '@/lib/rate-limit'
 import { getApiTranslator } from '@/lib/api/i18n'
+import { shopClosedResponse } from '@/lib/api/shop-hours'
 import { saleStockErrorResponse } from '@/lib/api/stock-errors'
 
 // POST /api/sales/checkout — checkout atomique en ligne. Résout/crée le
@@ -37,6 +38,9 @@ export async function POST(request: Request) {
     }
 
     const role = await checkShopRole(supabase, user.id, shop_id)
+    // Boutique fermée (horaires, heure de la boutique) : un employé n'encaisse pas — refus explicite, rien n'est écrit
+    const closed = await shopClosedResponse(t, shop_id, role)
+    if (closed) return closed
     if (!role || !(await canWriteFeature(supabase, role, shop_id, 'new_sale'))) {
       return NextResponse.json({ error: t('permission_denied') }, { status: 403 })
     }

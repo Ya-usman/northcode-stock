@@ -88,9 +88,9 @@ export function useShopStatus() {
   // Ouverte / fermée maintenant (seulement si les horaires sont activés)
   const hoursOf = (s: Shop): { text: string; open: boolean } | null => {
     if (!s.hours_enabled) return null
-    const open = isShopOpenNow(s.hours_enabled, s.opening_time, s.closing_time, s.hours_manual_override, s.hours_extension_until)
+    const open = isShopOpenNow(s.hours_enabled, s.opening_time, s.closing_time, s.hours_manual_override, s.hours_extension_until, undefined, s.timezone)
     if (!open) return { text: t('shops.closed_now'), open: false }
-    const ms = getMsUntilClosing(s.hours_enabled, s.opening_time, s.closing_time, s.hours_manual_override, s.hours_extension_until)
+    const ms = getMsUntilClosing(s.hours_enabled, s.opening_time, s.closing_time, s.hours_manual_override, s.hours_extension_until, undefined, s.timezone)
     if (ms == null) return { text: t('shops.open_now'), open: true }
     const closeAt = new Date(Date.now() + ms)
     return { text: t('shops.open_until', { time: closeAt.toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' }) }), open: true }

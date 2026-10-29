@@ -21,6 +21,8 @@ interface ShopHoursCountdownBannerProps {
   canExtend: boolean
   /** Pays de la boutique : date du compteur de prolongations (même jour que la base) */
   country?: string | null
+  /** Fuseau de la boutique (shops.timezone) : le compte à rebours suit l'heure de la boutique */
+  timeZone?: string | null
 }
 
 const PRESET_MINUTES = [15, 30, 45, 60] as const
@@ -40,22 +42,22 @@ function formatDuration(ms: number): string {
 // qui n'est pas non plus dismissible.
 export function ShopHoursCountdownBanner({
   shopId, hoursEnabled, openingTime, closingTime, manualOverride,
-  extensionUntil, extensionCount, canExtend, country,
+  extensionUntil, extensionCount, canExtend, country, timeZone,
 }: ShopHoursCountdownBannerProps) {
   const t = useTranslations('shop_hours')
   const tRoot = useTranslations()
   const { patchShop } = useAuthContext()
   const { toast } = useToast()
   const [msLeft, setMsLeft] = useState(() =>
-    getMsUntilClosing(hoursEnabled, openingTime, closingTime, manualOverride, extensionUntil))
+    getMsUntilClosing(hoursEnabled, openingTime, closingTime, manualOverride, extensionUntil, undefined, timeZone))
   const [extending, setExtending] = useState(false)
 
   useEffect(() => {
-    const update = () => setMsLeft(getMsUntilClosing(hoursEnabled, openingTime, closingTime, manualOverride, extensionUntil))
+    const update = () => setMsLeft(getMsUntilClosing(hoursEnabled, openingTime, closingTime, manualOverride, extensionUntil, undefined, timeZone))
     update()
     const interval = setInterval(update, 30_000)
     return () => clearInterval(interval)
-  }, [hoursEnabled, openingTime, closingTime, manualOverride, extensionUntil])
+  }, [hoursEnabled, openingTime, closingTime, manualOverride, extensionUntil, timeZone])
 
   if (msLeft === null) return null
 

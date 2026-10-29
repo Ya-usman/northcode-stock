@@ -6,6 +6,7 @@ import { validateSale } from '@/lib/api/sale-validation'
 import { withServerCost, withoutCost } from '@/lib/api/sale-cost'
 import { writeAuditLog, getClientIp } from '@/lib/api/audit'
 import { getApiTranslator } from '@/lib/api/i18n'
+import { HOURS_EXEMPT_ROLES, shopHoursState } from '@/lib/api/shop-hours'
 
 // POST /api/sales/sync — enregistre une vente faite HORS LIGNE (file de
 // l'appareil), lot 3 permissions (migration 159). Mêmes contrôles que la
@@ -80,13 +81,19 @@ export async function POST(request: Request) {
     // Contrôles de la caisse en ligne, jugés à l'heure de la vente et avec les droits du vendeur
     const amounts = { subtotal: Number(s.subtotal), discount: Number(s.discount) || 0, tax: Number(s.tax) || 0, total: Number(s.total) }
     const check = await validateSale(admin, shopId, items, amounts, {
-      discountAllowed: await canWriteFeature(admin, cashierRole, shopId, 'discount'),
+      // Vente faite hors ligne : jamais refusée pour les horaires (décision du 29 oct. 2026)
+      discountAllowed: await canWriteFeature(admin, cashierRole, shopId, 'discount', { ignoreHours: true }),
       at: createdAt.toISOString(),
     })
     let reviewReason: string | null = null
     if (!check.ok) {
       if (!REVIEWABLE.has(check.error)) return NextResponse.json({ error: t(check.error as any, check.params as any), code: check.error }, { status: 400 })
       reviewReason = check.error
+    }
+    // Vente faite quand la boutique était FERMÉE (heure de la vente, fuseau de la boutique ; vendeur employé) : jamais
+    // refusée, marquée « à vérifier » (décision du 29 oct. 2026). Dérogation manuelle : son état actuel fait foi.
+    if (!HOURS_EXEMPT_ROLES.includes(cashierRole) && !(await shopHoursState(shopId, createdAt)).open) {
+      reviewReason = [reviewReason, 'outside_hours'].filter(Boolean).join(',')
     }
 
     const { data, error } = await admin.rpc('complete_sale', {

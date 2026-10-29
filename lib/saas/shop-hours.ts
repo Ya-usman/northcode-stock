@@ -1,15 +1,13 @@
 // Horaires d'ouverture — fenêtre unique par boutique (pas de shifts par
-// employé). Comparaison sur l'heure locale de l'appareil : le personnel est
-// physiquement dans la boutique sur son propre appareil, donc l'heure
-// locale de l'appareil correspond déjà à l'heure locale de la boutique dans
-// l'immense majorité des cas — pas de fuseau horaire stocké côté serveur.
+// employé). Comparaison à l'heure LOCALE DE LA BOUTIQUE : son fuseau
+// (shops.timezone, migration 178) quand il est passé en dernier paramètre —
+// décision du 29 oct. 2026, même calcul pour l'écran (mur « boutique fermée »)
+// et pour le serveur (lib/api/shop-hours : écritures des employés refusées
+// boutique fermée). Sans fuseau : heure de l'appareil (ancien comportement).
 //
-// Ce sont des fonctions pures (now en paramètre optionnel) — c'est un
-// contrôle UX, pas une barrière de sécurité serveur, exactement comme
-// isAccessAllowed() dans ./plans.ts pour le mur de facturation. La
-// prolongation déléguée (hours_extension_until), elle, EST calculée
-// côté serveur (fonction Postgres grant_hours_extension, migration 108) —
-// nécessaire dès qu'il y a un quota à faire respecter de façon atomique.
+// Fonctions pures (now en paramètre optionnel). La prolongation déléguée
+// (hours_extension_until) est calculée côté serveur (fonction Postgres
+// grant_hours_extension, migration 108) — un instant absolu.
 
 /** Parse "HH:MM" ou "HH:MM:SS" (format renvoyé par Postgres pour une colonne time) en minutes depuis minuit. null si invalide. */
 function parseTimeToMinutes(time: string | null | undefined): number | null {
@@ -22,11 +20,22 @@ function parseTimeToMinutes(time: string | null | undefined): number | null {
   return hours * 60 + minutes
 }
 
-/** Construit l'instant correspondant à `minutesSinceMidnight` le jour de `now`. */
-function todaysInstant(now: Date, minutesSinceMidnight: number): Date {
-  const d = new Date(now)
-  d.setHours(Math.floor(minutesSinceMidnight / 60), minutesSinceMidnight % 60, 0, 0)
-  return d
+/** Minutes écoulées depuis minuit à l'heure locale de la boutique (fuseau IANA), sinon de l'appareil. */
+function localMinutes(now: Date, timeZone?: string | null): number {
+  if (timeZone) {
+    try {
+      const parts = new Intl.DateTimeFormat('en-GB', { timeZone, hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).formatToParts(now)
+      const h = Number(parts.find(p => p.type === 'hour')?.value), m = Number(parts.find(p => p.type === 'minute')?.value)
+      if (Number.isFinite(h) && Number.isFinite(m)) return h * 60 + m
+    } catch { /* fuseau invalide : heure de l'appareil */ }
+  }
+  return now.getHours() * 60 + now.getMinutes()
+}
+
+/** Instant (ms) correspondant à `minutesSinceMidnight` le jour local de `now` (même jour, même fuseau). */
+function todaysInstant(now: Date, minutesSinceMidnight: number, timeZone?: string | null): number {
+  const startOfMinute = now.getTime() - now.getSeconds() * 1000 - now.getMilliseconds()
+  return startOfMinute + (minutesSinceMidnight - localMinutes(now, timeZone)) * 60_000
 }
 
 /**
@@ -35,11 +44,11 @@ function todaysInstant(now: Date, minutesSinceMidnight: number): Date {
  * d'un jour précédent, ou simplement dépassée — est ignorée automatiquement,
  * sans qu'aucun code n'ait besoin de la nettoyer).
  */
-function resolveCloseInstant(now: Date, closeMinutes: number, extensionUntil: string | null | undefined): Date {
-  let closeInstant = todaysInstant(now, closeMinutes)
+function resolveCloseInstant(now: Date, closeMinutes: number, extensionUntil: string | null | undefined, timeZone?: string | null): number {
+  let closeInstant = todaysInstant(now, closeMinutes, timeZone)
   if (extensionUntil) {
-    const ext = new Date(extensionUntil)
-    if (!isNaN(ext.getTime()) && ext > closeInstant) closeInstant = ext
+    const ext = new Date(extensionUntil).getTime()
+    if (!isNaN(ext) && ext > closeInstant) closeInstant = ext
   }
   return closeInstant
 }
@@ -56,6 +65,7 @@ export function isShopOpenNow(
   manualOverride: 'open' | 'closed' | null | undefined,
   extensionUntil: string | null | undefined,
   now: Date = new Date(),
+  timeZone?: string | null,
 ): boolean {
   if (!hoursEnabled) return true
   if (manualOverride === 'open') return true
@@ -66,9 +76,9 @@ export function isShopOpenNow(
   if (openMinutes === null || closeMinutes === null) return true
   if (closeMinutes <= openMinutes) return true // horaires traversant minuit non gérés en v1 — fail-open plutôt que mal interpréter
 
-  const openInstant = todaysInstant(now, openMinutes)
-  const closeInstant = resolveCloseInstant(now, closeMinutes, extensionUntil)
-  return now >= openInstant && now < closeInstant
+  const openInstant = todaysInstant(now, openMinutes, timeZone)
+  const closeInstant = resolveCloseInstant(now, closeMinutes, extensionUntil, timeZone)
+  return now.getTime() >= openInstant && now.getTime() < closeInstant
 }
 
 /**
@@ -84,6 +94,7 @@ export function getMsUntilClosing(
   manualOverride: 'open' | 'closed' | null | undefined,
   extensionUntil: string | null | undefined,
   now: Date = new Date(),
+  timeZone?: string | null,
 ): number | null {
   if (!hoursEnabled || manualOverride) return null
 
@@ -91,8 +102,8 @@ export function getMsUntilClosing(
   const closeMinutes = parseTimeToMinutes(closingTime)
   if (openMinutes === null || closeMinutes === null || closeMinutes <= openMinutes) return null
 
-  const closeInstant = resolveCloseInstant(now, closeMinutes, extensionUntil)
-  const diff = closeInstant.getTime() - now.getTime()
+  const closeInstant = resolveCloseInstant(now, closeMinutes, extensionUntil, timeZone)
+  const diff = closeInstant - now.getTime()
   return diff > 0 ? diff : null
 }
 

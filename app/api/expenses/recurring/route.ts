@@ -6,6 +6,7 @@ import { writeAuditLog, getClientIp } from '@/lib/api/audit'
 import { getApiTranslator } from '@/lib/api/i18n'
 import { generateDueRecurringExpenses } from '@/lib/expenses/recurring'
 import { sendShopPush } from '@/lib/api/push-server'
+import { closedFor } from '@/lib/api/shop-hours'
 
 // POST /api/expenses/recurring — { shop_id } : génère les occurrences dues
 // des modèles récurrents de la boutique (appelé à l'ouverture de la page ;
@@ -22,6 +23,9 @@ export async function POST(request: Request) {
     if (!role || !(await canViewFeature(supabase, role, shop_id, 'expenses'))) {
       return NextResponse.json({ error: t('permission_denied') }, { status: 403 })
     }
+    // Boutique fermée pour un employé : rien n'est généré, sans erreur (la page appelle cette route à l'ouverture ;
+    // le cron du matin génère de toute façon les occurrences dues)
+    if (await closedFor(shop_id, role)) return NextResponse.json({ created: 0 })
     const admin = await createAdminClient() as any
     const result = await generateDueRecurringExpenses(admin, [shop_id])
     if (result.created > 0) {

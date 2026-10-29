@@ -41,7 +41,7 @@ export function ShopHoursTab({ shop, isOwner, canExtend }: { shop: Shop; isOwner
 
   const dirty = JSON.stringify(value) !== JSON.stringify(saved)
   const status = hoursOf(shop)
-  const msLeft = getMsUntilClosing(shop.hours_enabled, shop.opening_time, shop.closing_time, shop.hours_manual_override, shop.hours_extension_until)
+  const msLeft = getMsUntilClosing(shop.hours_enabled, shop.opening_time, shop.closing_time, shop.hours_manual_override, shop.hours_extension_until, undefined, shop.timezone)
   const used = extensionsUsedToday(shop) // un compteur d'hier ne compte plus
   const remaining = Math.max(0, 2 - used)
   const extensionActive = !!shop.hours_extension_until && new Date(shop.hours_extension_until).getTime() > now

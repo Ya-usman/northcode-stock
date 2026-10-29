@@ -6,6 +6,7 @@
 // canViewFeature. Un Observateur n'obtient jamais « write ».
 
 import { resolvePermission, isManagerial, canViewCost as canViewCostRule, type PermFeature, type StoredPermissions } from '@/lib/permissions'
+import { closedFor } from '@/lib/api/shop-hours'
 
 export type { PermFeature }
 export { isManagerial }
@@ -21,10 +22,17 @@ export async function canViewFeature(supabase: any, role: string | null | undefi
   return resolvePermission(await loadStored(supabase, shop_id), role, feature).view
 }
 
-export async function canWriteFeature(supabase: any, role: string | null | undefined, shop_id: string, feature: PermFeature): Promise<boolean> {
+/**
+ * Droit de MODIFIER une fonction. Horaires (29 oct. 2026) : boutique fermée → un employé ne modifie rien (le propriétaire
+ * et le super admin, exemptés, sont traités plus haut). Toujours permis fermé : demander une prolongation (extend_hours) ;
+ * `ignoreHours` réservé à la synchronisation des ventes faites hors ligne (jamais refusée pour les horaires).
+ */
+export async function canWriteFeature(supabase: any, role: string | null | undefined, shop_id: string, feature: PermFeature, opts: { ignoreHours?: boolean } = {}): Promise<boolean> {
   if (!role) return false
   if (role === 'owner' || role === 'super_admin') return true
-  return resolvePermission(await loadStored(supabase, shop_id), role, feature).write
+  if (!resolvePermission(await loadStored(supabase, shop_id), role, feature).write) return false
+  if (feature === 'extend_hours' || opts.ignoreHours) return true
+  return !(await closedFor(shop_id, role))
 }
 
 /**

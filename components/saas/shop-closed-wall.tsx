@@ -10,6 +10,14 @@ interface ShopClosedWallProps {
   shopName?: string
   openingTime: string
   closingTime: string
+  /** Fuseau de la boutique (shops.timezone) : l'heure affichée est celle de la boutique, comme la règle d'ouverture */
+  timeZone?: string | null
+}
+
+/** Heure locale de la boutique (fuseau invalide : heure de l'appareil) */
+function shopTime(now: Date, locale: string, timeZone: string): string {
+  try { return now.toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit', timeZone }) }
+  catch { return now.toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' }) }
 }
 
 function formatTime(t: string): string {
@@ -17,7 +25,7 @@ function formatTime(t: string): string {
   return `${h}:${m}`
 }
 
-export function ShopClosedWall({ locale, shopName, openingTime, closingTime }: ShopClosedWallProps) {
+export function ShopClosedWall({ locale, shopName, openingTime, closingTime, timeZone }: ShopClosedWallProps) {
   const t = useTranslations('shop_hours')
   // Recalculée régulièrement pour qu'une horloge d'appareil mal réglée soit
   // visible immédiatement — c'est le seul diagnostic disponible pour un
@@ -52,7 +60,9 @@ export function ShopClosedWall({ locale, shopName, openingTime, closingTime }: S
             {t('closed_hours', { opening: formatTime(openingTime), closing: formatTime(closingTime) })}
           </p>
           <p className="text-xs text-muted-foreground">
-            {t('closed_device_time', { time: deviceTime.toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' }) })}
+            {timeZone
+              ? t('closed_shop_time', { time: shopTime(deviceTime, locale, timeZone) })
+              : t('closed_device_time', { time: deviceTime.toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' }) })}
           </p>
         </div>
       </motion.div>

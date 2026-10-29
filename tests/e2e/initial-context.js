@@ -87,9 +87,14 @@ const go = async (page, path = '/fr/stock/products') => { await page.goto(BASE +
   await loginAs(ctx, adm.email); await go(page)
   ok(await header(page) === 'Toutes', 'compte suivant (2 boutiques, aucune mémoire) → « Toutes », le choix « Akwa » du compte précédent n’est pas repris')
   ok(await ls(page, `shop_ctx_filter:${ms.id}`) === AKWA && await ls(page, `shop_ctx_filter:${adm.id}`) === 'all', 'mémoires séparées : Marché Soleil garde « Akwa », le compte de test a la sienne')
-  const count = Number(((await page.getByTestId('products-count').innerText().catch(() => '')).match(/\d+/) || [0])[0])
   const admShops = (await db.from('shop_members').select('shop_id').eq('user_id', adm.id).eq('is_active', true)).data.map(x => x.shop_id)
   const admTotal = (await db.from('products').select('id', { count: 'exact', head: true }).in('shop_id', admShops).eq('is_active', true)).count
+  // Le compteur se remplit après le chargement des produits du nouveau compte (échec intermittent du 29 oct. : lu à 0)
+  let count = 0
+  for (let i = 0; i < 20 && count !== admTotal; i++) {
+    count = Number(((await page.getByTestId('products-count').innerText().catch(() => '')).match(/\d+/) || [0])[0])
+    if (count !== admTotal) await page.waitForTimeout(500)
+  }
   ok(count === admTotal, `données du compte suivant uniquement : ${count} produits (ses 2 boutiques : ${admTotal})`)
   await loginAs(ctx, ms.email); await go(page)
   ok(await header(page) === 'Akwa', 'retour au premier compte → sa propre sélection « Akwa » restaurée')
