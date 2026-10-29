@@ -109,3 +109,11 @@ Horaires de boutique côté serveur (lot A, 29 oct. 2026 — lib/api/shop-hours,
                                               prolongation permise), encaissement / remboursement / invitation → 403
                                               shop_closed sans écriture, dépenses récurrentes { created: 0 }, vente hors
                                               ligne jamais refusée mais marquée outside_hours
+
+Demande de prolongation (29 oct. 2026 — migration 186, routes /api/shops/extension-requests et /decide) :
+  bash supabase/drafts/186_local_validation.sh   base LOCALE jetable : prolongation à partir de maintenant (fuseau),
+                                          arrêt à 23:59, limite 2 / jour, demandes (une en attente, acceptation, expiration),
+                                          retour arrière identique à la 108
+  node tests/e2e/extension-requests-pure.mjs   test PUR : qui demande et quand, qui accepte (propriétaire, droit
+                                          « Prolonger »), notifications ciblées dans la langue de chacun, erreurs traduites,
+                                          repli propre si la 186 n'est pas appliquée

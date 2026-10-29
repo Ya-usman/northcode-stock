@@ -33,3 +33,23 @@ export async function sendShopPush(admin: any, shopId: string, payload: { title:
     return 0
   }
 }
+
+/**
+ * Notification aux appareils de CERTAINES personnes d'une boutique (ex. ceux qui peuvent accepter une demande de
+ * prolongation), et non à tous les abonnés. Jamais bloquant ; renvoie le nombre d'envois réussis.
+ */
+export async function sendUsersPush(admin: any, shopId: string, userIds: string[], payload: { title: string; body?: string; tag?: string; url?: string }): Promise<number> {
+  try {
+    if (!userIds.length || !configureWebPush()) return 0
+    const { data: subs } = await admin.from('push_subscriptions').select('endpoint, p256dh, auth').eq('shop_id', shopId).in('user_id', userIds)
+    if (!subs?.length) return 0
+    const body = JSON.stringify({ body: '', ...payload })
+    const results = await Promise.allSettled(subs.map((sub: any) =>
+      webpush.sendNotification({ endpoint: sub.endpoint, keys: { p256dh: sub.p256dh, auth: sub.auth } }, body)))
+    const expired = subs.filter((_: any, i: number) => results[i].status === 'rejected' && ((results[i] as PromiseRejectedResult).reason as any)?.statusCode === 410).map((s: any) => s.endpoint)
+    if (expired.length) await admin.from('push_subscriptions').delete().in('endpoint', expired)
+    return results.filter(r => r.status === 'fulfilled').length
+  } catch {
+    return 0
+  }
+}

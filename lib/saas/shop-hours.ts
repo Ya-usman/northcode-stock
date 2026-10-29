@@ -126,17 +126,48 @@ export function shopUtcOffsetMinutes(country: string | null | undefined): number
   return 60 // repli de la base (EU/US/CA)
 }
 
-/** Date AAAA-MM-JJ du « jour de la boutique » au sens de la base */
-export function shopLocalDate(country: string | null | undefined, now = new Date()): string {
+/**
+ * Date AAAA-MM-JJ du « jour de la boutique » au sens de la base : depuis la 186, au FUSEAU de la boutique
+ * (shops.timezone) quand il est connu ; sinon décalage fixe par pays (migration 108).
+ */
+export function shopLocalDate(country: string | null | undefined, now = new Date(), timeZone?: string | null): string {
+  if (timeZone) {
+    try {
+      const p = new Intl.DateTimeFormat('en-CA', { timeZone, year: 'numeric', month: '2-digit', day: '2-digit' }).formatToParts(now)
+      const v = (t: string) => p.find(x => x.type === t)?.value
+      if (v('year') && v('month') && v('day')) return `${v('year')}-${v('month')}-${v('day')}`
+    } catch { /* fuseau invalide : décalage par pays */ }
+  }
   return new Date(now.getTime() + shopUtcOffsetMinutes(country) * 60_000).toISOString().slice(0, 10)
 }
 
 /** Prolongations réellement utilisées AUJOURD'HUI (0 si le compteur date d'un autre jour) */
 export function extensionsUsedToday(
-  shop: { hours_extension_count?: number | null; hours_extension_count_date?: string | null; country?: string | null },
+  shop: { hours_extension_count?: number | null; hours_extension_count_date?: string | null; country?: string | null; timezone?: string | null },
   now = new Date(),
 ): number {
   const count = shop.hours_extension_count ?? 0
   if (!count || !shop.hours_extension_count_date) return 0
-  return shop.hours_extension_count_date === shopLocalDate(shop.country, now) ? count : 0
+  return shop.hours_extension_count_date === shopLocalDate(shop.country, now, shop.timezone) ? count : 0
+}
+
+// ── Boutique fermée : à quel moment ? (demande de prolongation, 29 oct. 2026) ─────────────────────────────────
+// 'open' : ouverte ; 'manual' : fermée par le propriétaire (dérogation) ; 'before_open' : avant l'ouverture du jour
+// (une prolongation n'y change rien) ; 'after_close' : après la fermeture du jour (une prolongation la rouvre).
+export type ClosedPhase = 'open' | 'manual' | 'before_open' | 'after_close'
+
+export function shopClosedPhase(
+  hoursEnabled: boolean | null | undefined,
+  openingTime: string | null | undefined,
+  closingTime: string | null | undefined,
+  manualOverride: 'open' | 'closed' | null | undefined,
+  extensionUntil: string | null | undefined,
+  now: Date = new Date(),
+  timeZone?: string | null,
+): ClosedPhase {
+  if (isShopOpenNow(hoursEnabled, openingTime, closingTime, manualOverride, extensionUntil, now, timeZone)) return 'open'
+  if (manualOverride === 'closed') return 'manual'
+  const openMinutes = parseTimeToMinutes(openingTime)
+  if (openMinutes !== null && localMinutes(now, timeZone) < openMinutes) return 'before_open'
+  return 'after_close'
 }

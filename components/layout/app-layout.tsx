@@ -27,6 +27,7 @@ import { ShopPickerProvider } from '@/components/shops/shop-picker'
 import { useAnnouncements, appPath } from '@/lib/announcements/use-announcements'
 import { ShopClosedWall } from '@/components/saas/shop-closed-wall'
 import { ShopHoursCountdownBanner } from '@/components/saas/shop-hours-countdown-banner'
+import { ExtensionRequestsBanner } from '@/components/saas/extension-requests-banner'
 import { extensionsUsedToday } from '@/lib/saas/shop-hours'
 import { getTrialDaysLeft, hasActiveSubscription, isAccessAllowed, getGraceDaysLeft, isBetaPeriod } from '@/lib/saas/plans'
 import { isShopOpenNow } from '@/lib/saas/shop-hours'
@@ -431,7 +432,10 @@ export function AppLayout({ children, locale }: { children: React.ReactNode; loc
         <UpgradeWall locale={locale} shopName={shop?.name} />
       )}
       {accessAllowed && !shopOpen && !isExemptFromHours && (
-        <ShopClosedWall locale={locale} shopName={shop?.name} openingTime={shop?.opening_time ?? null} closingTime={shop?.closing_time ?? null} timeZone={shop?.timezone} manuallyClosed={shop?.hours_manual_override === 'closed'} />
+        <ShopClosedWall locale={locale} shopId={shop?.id} shopName={shop?.name} openingTime={shop?.opening_time ?? null} closingTime={shop?.closing_time ?? null}
+          timeZone={shop?.timezone} manuallyClosed={shop?.hours_manual_override === 'closed'} hoursEnabled={shop?.hours_enabled}
+          extensionUntil={shop?.hours_extension_until ?? null} canExtend={canAccess('extend_hours')}
+          onSignOut={handleSignOut} onExtended={() => { refreshShop().catch(() => window.location.reload()) }} />
       )}
 
       <Sidebar locale={locale} role={roleInActiveShop ?? profile.role} profile={profile} onSignOut={handleSignOut} signingOut={signingOut} userEmail={user.email ?? ''} newNavPaths={whatsNew.newNavPaths} />
@@ -441,6 +445,10 @@ export function AppLayout({ children, locale }: { children: React.ReactNode; loc
         <SlowLoadBanner />
         {showTrialBanner && <TrialBanner daysLeft={trialDaysLeft} locale={locale} />}
         {showGraceBanner && !isBillingPage && <GracePeriodBanner daysLeft={graceDaysLeft} locale={locale} />}
+        {/* Demandes de prolongation : pour le propriétaire et les personnes qui ont le droit « Prolonger » */}
+        {shop?.hours_enabled && (effectiveRole === 'owner' || canAccess('extend_hours')) && (
+          <ExtensionRequestsBanner shopId={shop.id} shopName={shop.name} />
+        )}
         {shop?.hours_enabled && shopOpen && (
           <ShopHoursCountdownBanner
             shopId={shop.id}

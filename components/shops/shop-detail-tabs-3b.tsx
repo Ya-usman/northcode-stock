@@ -73,7 +73,7 @@ export function ShopHoursTab({ shop, isOwner, canExtend }: { shop: Shop; isOwner
       }))
       const json = await res.json().catch(() => ({}))
       if (!res.ok) throw new Error(json.error || t('toast.error'))
-      patchShop(shop.id, { hours_extension_until: json.hours_extension_until, hours_extension_count: json.hours_extension_count, hours_extension_count_date: shopLocalDate(shop.country) } as any)
+      patchShop(shop.id, { hours_extension_until: json.hours_extension_until, hours_extension_count: json.hours_extension_count, hours_extension_count_date: shopLocalDate(shop.country, undefined, shop.timezone) } as any)
       toast({ title: t('shop_hours.extend_success', { minutes }), variant: 'success' })
     } catch (e: any) {
       toast({ title: e.message || t('toast.network_error'), variant: 'destructive' })

@@ -274,7 +274,7 @@ export function ShopCashTab({ shop, can, fmt, openPage }: {
 /** Actions qui ont un libellé ; les autres s'affichent « Autre action » */
 const LABELLED = new Set([
   'member.invite', 'member.delete', 'member.role_change', 'member.toggle_active', 'member.assign', 'permissions.update',
-  'shop.update_hours', 'shop.update_info', 'shop.update_timezone', 'shop.extend_hours', 'shop.update_logo', 'entity.update',
+  'shop.update_hours', 'shop.update_info', 'shop.update_timezone', 'shop.extend_hours', 'shop.extension_requested', 'shop.extension_request_approved', 'shop.extension_request_refused', 'shop.update_logo', 'entity.update',
   'billing.subscribe', 'billing.verify', 'billing.limit_enforced', 'billing.grant_expiry_reminder', 'account.register',
   'sale.cancel', 'sale.validate_payment', 'sale.edit', 'sale.offline_synced', 'sale.reviewed', 'sale.delete', 'sale.postpone_due_date',
   'payment.cancel', 'payment.edit', 'payment.write_off',

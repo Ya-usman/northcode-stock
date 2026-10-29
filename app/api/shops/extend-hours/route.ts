@@ -4,8 +4,10 @@ import { getAuthedUser, checkShopRole } from '@/lib/api/shop-auth'
 import { canWriteFeature } from '@/lib/api/role-permissions'
 import { writeAuditLog, getClientIp } from '@/lib/api/audit'
 import { getApiTranslator } from '@/lib/api/i18n'
+import { EXTEND_MINUTES, extensionErrorKey } from '@/lib/api/hours-extension'
 
-const ALLOWED_MINUTES = [15, 30, 45, 60] as const
+// 120 min : depuis la migration 186 (avant elle, la base refuse cette durée)
+const ALLOWED_MINUTES = EXTEND_MINUTES
 
 // POST /api/shops/extend-hours — prolonge la fermeture du jour même, par
 // incréments fixes, plafonné à 2 fois/jour. Le calcul (fuseau de la
@@ -19,7 +21,7 @@ export async function POST(request: Request) {
 
     const { shop_id, minutes } = await request.json()
     if (!shop_id) return NextResponse.json({ error: t('shop_id_required') }, { status: 400 })
-    if (!ALLOWED_MINUTES.includes(minutes)) {
+    if (!ALLOWED_MINUTES.includes(Number(minutes))) {
       return NextResponse.json({ error: t('invalid_extension_duration') }, { status: 400 })
     }
 
@@ -30,7 +32,11 @@ export async function POST(request: Request) {
 
     const admin = await createAdminClient() as any
     const { data, error } = await admin.rpc('grant_hours_extension', { p_shop_id: shop_id, p_minutes: minutes })
-    if (error) return NextResponse.json({ error: error.message }, { status: 400 })
+    if (error) {
+      // Erreurs codées de la base (migration 186) : message traduit ; sinon le message d'origine
+      const key = extensionErrorKey(error)
+      return NextResponse.json({ error: key ? t(key as any) : error.message, code: key ?? undefined }, { status: 400 })
+    }
 
     await writeAuditLog({
       action: 'shop.extend_hours',

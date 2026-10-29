@@ -88,7 +88,7 @@ export function ShopHoursCountdownBanner({
       patchShop(shopId, {
         hours_extension_until: json.hours_extension_until,
         hours_extension_count: json.hours_extension_count,
-        hours_extension_count_date: shopLocalDate(country),
+        hours_extension_count_date: shopLocalDate(country, undefined, timeZone),
       } as any)
       toast({ title: t('extend_success', { minutes }), variant: 'success' })
     } catch (err: any) {
