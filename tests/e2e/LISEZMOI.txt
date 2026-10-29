@@ -94,3 +94,6 @@ Migration 185 — ventes, paiements, lignes de vente, clients, réservations lus
   bash supabase/drafts/185_local_validation.sh   base LOCALE jetable : db push réel, lectures avant / après pour 8 profils
                                           et 5 tables, AUCUN gain de lecture, retour arrière exact, garde-fou
   node supabase/drafts/185_impact_from_prod.js   mesure en LECTURE SEULE de l'effet par adhésion réelle (avant application)
+  node tests/e2e/prod-rls-185.js          EN LIGNE, lecture seule : ce que la base renvoie à 8 comptes réels, boutique par
+                                          boutique (ventes / paiements / lignes / clients / réservations) vs règles validées
+  Appliquée le 29 oct. 2026 (db push, simulation = 185 seule) ; rpc-probe 2/2 ; prod-rls-185 11/11.
