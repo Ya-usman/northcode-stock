@@ -1,5 +1,5 @@
 #!/bin/bash
-# Validation LOCALE de 188 (transferts lot par lot) — base PostgreSQL jetable UNIQUEMENT, jamais la production.
+# Validation LOCALE de 188 (transferts V1 : brouillon, envoi lot par lot, QR, réception définitive avec écarts) — base PostgreSQL jetable UNIQUEMENT, jamais la production.
 # Rejoue les VRAIES migrations 102 et 104 (transferts actuels) et les VRAIES fonctions de la 178 (date métier, stock
 # vendable), crée 3 transferts « ancien modèle », applique le fichier EXACT 188 avec la CLI Supabase (db push), puis
 # vérifie chaque règle et le retour arrière.
@@ -42,7 +42,9 @@ DO \$\$ BEGIN
   IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'authenticated') THEN CREATE ROLE authenticated NOLOGIN; END IF;
   IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'service_role') THEN CREATE ROLE service_role NOLOGIN BYPASSRLS; END IF;
 END \$\$;
-CREATE SCHEMA auth; CREATE TABLE auth.users (id uuid PRIMARY KEY);
+CREATE SCHEMA auth; CREATE TABLE auth.users (id uuid PRIMARY KEY, email text);
+CREATE TABLE public.audit_logs (id uuid PRIMARY KEY DEFAULT gen_random_uuid(), shop_id uuid, entity_id uuid, actor_id uuid, actor_email text,
+  action text, target_id text, target_type text, metadata jsonb, ip text, created_at timestamptz DEFAULT now());
 CREATE FUNCTION auth.uid() RETURNS uuid LANGUAGE sql STABLE AS \$f\$ SELECT NULL::uuid \$f\$;
 GRANT USAGE ON SCHEMA public, auth TO anon, authenticated, service_role;
 ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON TABLES TO anon, authenticated, service_role;
@@ -117,15 +119,15 @@ setup r188
 
 echo "── 3. Anciens transferts : lisibles, et l'en-route reste réceptionnable"
 ok "$(Q "select string_agg(status, ',' order by notes) from stock_transfers")" "cancelled,sent,received" "statuts inchangés"
-ok "$(Q "select string_agg(coverage || ':' || quantity_sent || '/' || quantity_received || '/' || quantity_returned || '/' || quantity_lost || '/' || quantity_in_transit, ',' order by quantity_sent) from stock_transfer_allocations")" "legacy:2/0/2/0/0,legacy:3/0/0/0/3,legacy:4/4/0/0/0" "allocations « ancien modèle » : annulé rendu, en route en transit, reçu complet"
-ok "$(Q "select (select count(*) from stock_transfer_receipts) || '/' || (select count(*) from stock_transfer_settlements)")" "1/1" "une réception (le reçu), un règlement (l'annulé)"
+ok "$(Q "select string_agg(coverage || ':' || quantity_sent || '/' || quantity_received || '/' || quantity_missing || '/' || quantity_returned || '/' || quantity_in_transit, ',' order by quantity_sent) from stock_transfer_allocations")" "legacy:2/0/0/2/0,legacy:3/0/0/0/3,legacy:4/4/0/0/0" "allocations « ancien modèle » : annulé rendu, en route en transit, reçu complet"
+ok "$(Q "select count(*) from stock_transfer_tokens where revoked_at is null and transfer_id = '$(Q "select id from stock_transfers where notes = 'ancien en route'")'")" "1" "le transfert encore en route reçoit un jeton de QR"
 ok "$(Q "select count(*) from stock_movements where transfer_id is not null")" "5" "anciens mouvements rattachés à leur transfert (3 envois, 1 réception, 1 annulation)"
 I_OLD_S="$(Q "select id from stock_transfer_items where stock_transfer_id = '$T_OLD_S'")"
-R="$(Q "select receive_stock_transfer_lines('$T_OLD_S', '$B', '$U', gen_random_uuid(), '[{\"item_id\":\"$I_OLD_S\",\"quantity_received\":3,\"destination_product_id\":\"$PB\"}]') ->> 'status'")"
-ok "$R" "received" "ancien transfert en route : réceptionné avec le nouveau modèle"
+ok "$(Q "select receive_stock_transfer_final('$T_OLD_S', '$B', '$U', gen_random_uuid(), '[{\"item_id\":\"$I_OLD_S\",\"quantity_received\":3,\"destination_product_id\":\"$PB\"}]') ->> 'status'")" "received" "ancien transfert en route : réceptionné avec le nouveau modèle"
 ok "$(Q "select quantity || ':' || coalesce(expiry_date::text, 'sans date') || ':' || origin_untracked || ':' || coalesce(buying_price::text, 'inconnu') from product_batches where origin_transfer_id = '$T_OLD_S'")" "3:sans date:true:2000" "lot « origine non tracée » à l'arrivée (date jamais inventée, coût connu car même devise)"
+ok "$(Q "select revoked_at is not null from stock_transfer_tokens where transfer_id = '$T_OLD_S'")" "t" "jeton révoqué après la réception"
 
-echo "── 4. Envoi : seulement le stock VENDABLE (règle de la caisse), lots périmés exclus"
+echo "── 4. Envoi : seulement le stock VENDABLE (règle de la caisse), lots périmés exclus, FEFO"
 # Lait : physique 10 = lot frais 5 (péremption dans 10 j) + lot périmé 3 (hier, date de la boutique) + 2 sans lot → vendable 7
 P -d $DB -c "insert into product_batches (id, shop_id, product_id, quantity, initial_quantity, buying_price, expiry_date, source, received_at) values
   ('$L1', '$A', '$PL', 5, 5, 450, shop_business_date('$A') + 10, 'restock', now() - interval '3 days'),
@@ -135,83 +137,99 @@ ok "$(CODE "select create_stock_transfer('$A', '$B', '$U', null, '[{\"product_id
 ok "$(DETAIL "select create_stock_transfer('$A', '$B', '$U', null, '[{\"product_id\":\"$PL\",\"quantity\":8}]', true)" | node -e "const j=JSON.parse(require('fs').readFileSync(0,'utf8'));console.log(j.transferable+'/'+j.expired+'/'+j.requested)")" "7/3/8" "détail du refus : transférable 7, périmé 3, demandé 8"
 ok "$(Q "select count(*) from stock_transfers where status = 'draft'")" "0" "refus : rien n'est resté (pas de brouillon orphelin)"
 T1="$(Q "select create_stock_transfer('$A', '$B', '$U', 'lait', '[{\"product_id\":\"$PL\",\"quantity\":7}]', true) ->> 'id'")"
-ok "$(Q "select status || ':' || reference from stock_transfers where id = '$T1'")" "sent:TR-$(date +%Y)-0004" "envoi de 7 : en transit, référence suivante de la boutique"
+ok "$(Q "select status || ':' || reference || ':' || (sent_at is not null) from stock_transfers where id = '$T1'")" "sent:TR-$(date +%Y)-0004:true" "envoi de 7 : en transit, référence suivante de la boutique, date d'envoi"
 ok "$(Q "select quantity from products where id = '$PL'")" "3" "stock du lait à la source : 10 → 3"
 ok "$(Q "select string_agg(quantity::text, ',' order by expiry_date) from product_batches where product_id = '$PL'")" "3,0" "lots source : le périmé (3) intact, le frais (5) entièrement parti"
 ok "$(Q "select string_agg(coverage || ':' || quantity_sent || ':' || coalesce(unit_cost::text, 'inconnu'), ',' order by coverage) from stock_transfer_allocations where transfer_id = '$T1'")" "batch:5:450,uncovered:2:500" "allocations : lot frais 5 (coût du lot), 2 sans lot (coût moyen du produit)"
+ok "$(Q "select token ~ '^[0-9a-f]{64}\$' and revoked_at is null from stock_transfer_tokens where transfer_id = '$T1'")" "t" "jeton de QR créé à l'envoi (64 caractères aléatoires)"
 ok "$(Q "select send_stock_transfer_draft('$T1', '$A', '$U') ->> 'already_sent'")" "true" "renvoyer le même transfert : sans effet (jamais deux fois)"
 ok "$(Q "select quantity from products where id = '$PL'")" "3" "stock source inchangé après le renvoi"
+ok "$(Q "select count(*) from audit_logs where target_id = '$T1' and action = 'stock_transfer.send'")" "1" "journal « envoyé » écrit une seule fois, dans la transaction"
+# FEFO sur plusieurs lots : A 5 (péremption +10) puis B 10 (+40) ; transfert de 8 → 5 de A, 3 de B
+PF=11111111-0000-0000-0000-0000000000f1; LA=22222222-0000-0000-0000-0000000000a1; LB=22222222-0000-0000-0000-0000000000b1
+P -d $DB -c "insert into products (id, shop_id, name, buying_price, selling_price, quantity) values ('$PF', '$A', 'Yaourt', 300, 500, 15);
+  insert into product_batches (id, shop_id, product_id, quantity, initial_quantity, buying_price, expiry_date, source, received_at) values
+  ('$LB', '$A', '$PF', 10, 10, 310, shop_business_date('$A') + 40, 'restock', now() - interval '1 day'),
+  ('$LA', '$A', '$PF', 5, 5, 290, shop_business_date('$A') + 10, 'restock', now() - interval '9 days')" >/dev/null
+TF="$(Q "select create_stock_transfer('$A', '$B', '$U', 'fefo', '[{\"product_id\":\"$PF\",\"quantity\":8}]', true) ->> 'id'")"
+ok "$(Q "select string_agg(quantity_sent::text || '@' || (source_batch_id = '$LA')::text, ',' order by source_expiry_date) from stock_transfer_allocations where transfer_id = '$TF'")" "5@true,3@false" "FEFO : 5 du lot qui périme le plus tôt, puis 3 du suivant"
 
-echo "── 5. Réception en plusieurs fois, puis surplus (décision 3)"
+echo "── 5. Réception définitive : exacte, puis avec écart"
 I1="$(Q "select id from stock_transfer_items where stock_transfer_id = '$T1'")"
 K1="$(Q "select gen_random_uuid()")"
-ok "$(Q "select receive_stock_transfer_lines('$T1', '$B', '$U', '$K1', '[{\"item_id\":\"$I1\",\"quantity_received\":3}]') ->> 'status'")" "partially_received" "1re réception : 3 sur 7 → réception partielle"
+R1="$(Q "select receive_stock_transfer_final('$T1', '$B', '$U', '$K1', '[{\"item_id\":\"$I1\",\"quantity_received\":7}]')")"
+ok "$(echo "$R1" | node -e "const j=JSON.parse(require('fs').readFileSync(0,'utf8'));console.log(j.status+'/'+j.received+'/'+j.missing)")" "received/7/0" "réception exacte : reçu 7, aucun écart"
 DEST_PL="$(Q "select destination_product_id from stock_transfer_items where id = '$I1'")"
-ok "$(Q "select is_active || ':' || selling_price || ':' || quantity from products where id = '$DEST_PL'")" "true:800:3" "produit créé à l'arrivée (même devise) : actif, prix de la source, 3 en stock"
-ok "$(Q "select quantity || ':' || expiry_date || ':' || buying_price || ':' || (origin_batch_id = '$L1') from product_batches where product_id = '$DEST_PL'")" "3:$(Q "select shop_business_date('$A') + 10"):450:true" "lot d'arrivée : même péremption et coût que le lot source, lien d'origine"
-ok "$(Q "select receive_stock_transfer_lines('$T1', '$B', '$U', '$K1', '[{\"item_id\":\"$I1\",\"quantity_received\":3}]') ->> 'replayed'")" "true" "même réception renvoyée : sans effet (rejouée)"
-ok "$(Q "select quantity from products where id = '$DEST_PL'")" "3" "stock d'arrivée inchangé après le renvoi"
-ok "$(CODE "select receive_stock_transfer_lines('$T_OLD_S', '$B', '$U', '$K1', '[]')")" "P0069" "clé de réception d'un AUTRE transfert : refusée (P0069)"
-ok "$(Q "select receive_stock_transfer_lines('$T1', '$B', '$U', gen_random_uuid(), '[{\"item_id\":\"$I1\",\"quantity_received\":6}]') ->> 'status'")" "received" "2e réception : 6 alors qu'il en restait 4 → reçu"
-ok "$(Q "select quantity from products where id = '$DEST_PL'")" "9" "surplus ENTRÉ en stock à l'arrivée : 3 + 4 + 2 = 9"
-ok "$(Q "select quantity || ':' || coalesce(expiry_date::text, 'sans date') || ':' || coalesce(buying_price::text, 'inconnu') || ':' || origin_untracked from product_batches where product_id = '$DEST_PL' and origin_untracked and quantity = 2")" "2:sans date:inconnu:true" "surplus : lot « origine non tracée », sans date, coût inconnu"
-ok "$(Q "select has_discrepancy || ':' || (select quantity_surplus from stock_transfer_items where id = '$I1') || ':' || (select quantity_received from stock_transfer_items where id = '$I1') from stock_transfers where id = '$T1'")" "true:2:7" "écart signalé : surplus 2, reçu au titre de l'envoi 7"
-ok "$(Q "select sum(quantity) from stock_movements where transfer_id = '$T1' and shop_id = '$B'")" "9" "mouvements d'entrée à l'arrivée : 9 au total"
-
-echo "── 6. Manque : la DESTINATION déclare le reçu, la SOURCE règle (décision 4)"
+ok "$(Q "select is_active || ':' || selling_price || ':' || quantity from products where id = '$DEST_PL'")" "true:800:7" "produit créé à l'arrivée (même devise) : actif, prix de la source, 7 en stock"
+ok "$(Q "select string_agg(quantity || ':' || coalesce(expiry_date::text, 'sans date') || ':' || coalesce(buying_price::text, 'inconnu') || ':' || coalesce((origin_batch_id = '$L1')::text, '-'), ',' order by quantity desc) from product_batches where product_id = '$DEST_PL'")" "5:$(Q "select shop_business_date('$A') + 10"):450:true,2:sans date:500:-" "lots d'arrivée : même péremption et coût que le lot source ; le stock sans lot arrive sans date (jamais inventée)"
+ok "$(Q "select has_discrepancy || ':' || (receipt_key = '$K1') || ':' || (select revoked_at is not null from stock_transfer_tokens where transfer_id = '$T1') from stock_transfers where id = '$T1'")" "false:true:true" "sans écart ; clé de réception gardée ; jeton révoqué"
+ok "$(Q "select receive_stock_transfer_final('$T1', '$B', '$U', '$K1', '[{\"item_id\":\"$I1\",\"quantity_received\":7}]') ->> 'replayed'")" "true" "même réception renvoyée par le même appareil : sans effet"
+ok "$(CODE "select receive_stock_transfer_final('$T1', '$B', '$U', gen_random_uuid(), '[{\"item_id\":\"$I1\",\"quantity_received\":7}]')")" "P0078" "seconde réception (autre appareil) : « déjà réceptionné » (P0078)"
+ok "$(DETAIL "select receive_stock_transfer_final('$T1', '$B', '$U', gen_random_uuid(), '[{\"item_id\":\"$I1\",\"quantity_received\":7}]')" | node -e "const j=JSON.parse(require('fs').readFileSync(0,'utf8'));console.log(!!j.received_at && j.received_by)")" "$U" "détail : date et personne de la première réception"
+ok "$(Q "select quantity from products where id = '$DEST_PL'")" "7" "stock d'arrivée augmenté UNE seule fois"
+ok "$(Q "select count(*) from audit_logs where target_id = '$T1' and action = 'stock_transfer.receive'")" "1" "journal « reçu » écrit une fois, dans la transaction"
+# Écart : riz 10 envoyé, 8 reçus, casse déclarée
 P -d $DB -c "insert into product_batches (id, shop_id, product_id, quantity, initial_quantity, buying_price, expiry_date, source, received_at) values ('$L3', '$A', '$PA', 20, 20, 1900, shop_business_date('$A') + 30, 'restock', now())" >/dev/null
-PA_BEFORE="$(Q "select quantity from products where id = '$PA'")"
 T2="$(Q "select create_stock_transfer('$A', '$B', '$U', 'riz', '[{\"product_id\":\"$PA\",\"quantity\":10}]', true) ->> 'id'")"; I2="$(Q "select id from stock_transfer_items where stock_transfer_id = '$T2'")"
-Q "select receive_stock_transfer_lines('$T2', '$B', '$U', gen_random_uuid(), '[{\"item_id\":\"$I2\",\"quantity_received\":6,\"destination_product_id\":\"$PB\"}]')" >/dev/null
-ok "$(Q "select status || ':' || (select sum(quantity_in_transit) from stock_transfer_allocations where transfer_id = '$T2') from stock_transfers where id = '$T2'")" "partially_received:4" "reçu 6 sur 10 : le reste (4) RESTE en transit"
-ok "$(CODE "select settle_stock_transfer_item('$T2', '$B', '$U', '$I2', 'not_sent', null, gen_random_uuid())")" "P0063" "la destination ne peut PAS régler le manque (P0063)"
-ok "$(Q "select settle_stock_transfer_item('$T2', '$A', '$U', '$I2', 'not_sent', null, gen_random_uuid()) ->> 'status'")" "received" "la source règle « jamais parti » : terminé"
-ok "$(Q "select quantity from products where id = '$PA'")" "$((PA_BEFORE - 6))" "stock source : seulement les 6 reçus sont partis"
-ok "$(Q "select quantity from product_batches where id = '$L3'")" "14" "les 4 jamais partis reviennent dans le lot source EXACT (20 − 10 + 4)"
-ok "$(Q "select reason from stock_movements where transfer_id = '$T2' and type = 'in' and shop_id = '$A'")" "Annulation transfert TR-$(date +%Y)-0005 (quantité non envoyée)" "mouvement de retour à la source, sans tiret long"
-ok "$(Q "select has_discrepancy from stock_transfers where id = '$T2'")" "t" "écart signalé"
-# Perte : la source règle « casse » ; aucun stock ne bouge, mouvement explicite à la source
-T3="$(Q "select create_stock_transfer('$A', '$B', '$U', 'casse', '[{\"product_id\":\"$PA\",\"quantity\":2}]', true) ->> 'id'")"; I3="$(Q "select id from stock_transfer_items where stock_transfer_id = '$T3'")"
-PA_MID="$(Q "select quantity from products where id = '$PA'")"
-ok "$(CODE "select settle_stock_transfer_item('$T3', '$A', '$U', '$I3', 'other', '  ', gen_random_uuid())")" "P0072" "« autre » sans explication : refusé (P0072)"
-ok "$(Q "select settle_stock_transfer_item('$T3', '$A', '$U', '$I3', 'breakage', 'carton ecrase', gen_random_uuid()) ->> 'status'")" "received" "la source déclare la casse : terminé avec écart"
-ok "$(Q "select quantity from products where id = '$PA'")" "$PA_MID" "casse : aucun stock modifié"
-ok "$(Q "select type || ':' || quantity || ':' || reason || ':' || (batch_id = '$L3') from stock_movements where transfer_id = '$T3' and type = 'transit_loss'")" "transit_loss:2:Transfert TR-$(date +%Y)-0006 : casse pendant le transport:true" "mouvement de perte à la source, lot d'origine cité"
+PA_AFTER_SEND="$(Q "select quantity from products where id = '$PA'")"; PB_BEFORE="$(Q "select quantity from products where id = '$PB'")"
+ok "$(CODE "select receive_stock_transfer_final('$T2', '$B', '$U', gen_random_uuid(), '[]')")" "P0080" "réception sans toutes les lignes : refusée (P0080)"
+ok "$(CODE "select receive_stock_transfer_final('$T2', '$B', '$U', gen_random_uuid(), '[{\"item_id\":\"$I2\",\"quantity_received\":11,\"destination_product_id\":\"$PB\"}]')")" "P0076" "recevoir plus que l'envoyé : refusé (P0076)"
+R2="$(Q "select receive_stock_transfer_final('$T2', '$B', '$U', gen_random_uuid(), '[{\"item_id\":\"$I2\",\"quantity_received\":8,\"destination_product_id\":\"$PB\",\"discrepancy_category\":\"breakage\",\"discrepancy_detail\":\"carton ecrase\"}]')")"
+ok "$(echo "$R2" | node -e "const j=JSON.parse(require('fs').readFileSync(0,'utf8'));console.log(j.status+'/'+j.received+'/'+j.missing)")" "received/8/2" "réception avec écart : reçu 8, 2 manquants, transfert TERMINÉ (pas de réception partielle)"
+ok "$(Q "select (select quantity from products where id = '$PB') - $PB_BEFORE || ':' || (select quantity from products where id = '$PA') - $PA_AFTER_SEND")" "8:0" "stock d'arrivée +8 seulement ; stock source inchangé à la réception"
+ok "$(Q "select has_discrepancy || ':' || quantity_received || ':' || discrepancy_category || ':' || discrepancy_detail from stock_transfers t join stock_transfer_items i on i.stock_transfer_id = t.id where t.id = '$T2'")" "true:8:breakage:carton ecrase" "écart enregistré sur la ligne : cause et précision"
+ok "$(Q "select type || ':' || quantity || ':' || shop_id || ':' || reason || ':' || coalesce(previous_qty::text, '-') from stock_movements where transfer_id = '$T2' and type = 'transit_loss'")" "transit_loss:2:$A:Transfert TR-$(date +%Y)-0006 : manquant à la réception:-" "mouvement « manquant » à la source, sans variation de stock"
+ok "$(Q "select quantity_received || '/' || quantity_missing from stock_transfer_allocations where transfer_id = '$T2'")" "8/2" "allocation : 8 reçus, 2 manquants"
+
+echo "── 6. Concurrence : deux réceptions en même temps"
+P -d $DB -c "insert into product_batches (shop_id, product_id, quantity, initial_quantity, expiry_date, source, received_at) values ('$A', '$PA', 5, 5, shop_business_date('$A') + 30, 'restock', now())" >/dev/null
+TC="$(Q "select create_stock_transfer('$A', '$B', '$U', 'concurrence', '[{\"product_id\":\"$PA\",\"quantity\":4}]', true) ->> 'id'")"; IC="$(Q "select id from stock_transfer_items where stock_transfer_id = '$TC'")"
+PB_C="$(Q "select quantity from products where id = '$PB'")"
+LINES="[{\"item_id\":\"$IC\",\"quantity_received\":4,\"destination_product_id\":\"$PB\"}]"
+( P -d $DB -c "begin; select receive_stock_transfer_final('$TC', '$B', '$U', gen_random_uuid(), '$LINES'); select pg_sleep(3); commit;" > "$WORK/a.log" 2>&1 ) &
+sleep 1
+SECOND="$(CODE "select receive_stock_transfer_final('$TC', '$B', '$U', gen_random_uuid(), '$LINES')")"
+wait
+ok "$SECOND" "P0078" "la seconde réception attend la première puis reçoit « déjà réceptionné » (P0078)"
+ok "$(Q "select quantity from products where id = '$PB'") " "$((PB_C + 4)) " "stock d'arrivée augmenté UNE seule fois (+4)"
 
 echo "── 7. Annulation"
 T4="$(Q "select create_stock_transfer('$A', '$B', '$U', 'annule', '[{\"product_id\":\"$PA\",\"quantity\":5}]', true) ->> 'id'")"
 L3_MID="$(Q "select quantity from product_batches where id = '$L3'")"; PA_MID="$(Q "select quantity from products where id = '$PA'")"
 Q "select cancel_stock_transfer('$T4', '$A', '$U')" >/dev/null
-ok "$(Q "select status from stock_transfers where id = '$T4'")" "cancelled" "envoyé, rien reçu : annulé"
-ok "$(Q "select (select quantity from products where id = '$PA') - $PA_MID || ':' || (select quantity from product_batches where id = '$L3') - $L3_MID")" "5:5" "tout revient : produit +5 et lot source exact +5"
-T5="$(Q "select create_stock_transfer('$A', '$B', '$U', 'partiel', '[{\"product_id\":\"$PA\",\"quantity\":2}]', true) ->> 'id'")"; I5="$(Q "select id from stock_transfer_items where stock_transfer_id = '$T5'")"
-Q "select receive_stock_transfer_lines('$T5', '$B', '$U', gen_random_uuid(), '[{\"item_id\":\"$I5\",\"quantity_received\":1,\"destination_product_id\":\"$PB\"}]')" >/dev/null
-ok "$(CODE "select cancel_stock_transfer('$T5', '$A', '$U')")" "P0074" "après une réception partielle : annulation refusée (P0074)"
+ok "$(Q "select status || ':' || (select revoked_at is not null from stock_transfer_tokens where transfer_id = '$T4') from stock_transfers where id = '$T4'")" "cancelled:true" "en transit, rien reçu : annulé, jeton révoqué"
+ok "$(Q "select (select quantity from products where id = '$PA') - $PA_MID || ':' || (select quantity from product_batches where id = '$L3') - $L3_MID")" "5:5" "tout revient : produit +5 et lot source EXACT +5"
+ok "$(CODE "select cancel_stock_transfer('$T2', '$A', '$U')")" "P0074" "transfert reçu : annulation refusée (P0074)"
+ok "$(CODE "select receive_stock_transfer_final('$T4', '$B', '$U', gen_random_uuid(), '[]')")" "P0068" "transfert annulé : réception refusée (P0068)"
 
-echo "── 8. Devises différentes (décision 2), autre entreprise, même boutique"
+echo "── 8. Devises différentes, autre entreprise, même boutique"
 T6="$(Q "select create_stock_transfer('$A', '$N', '$U', 'vers Kano', '[{\"product_id\":\"$PA\",\"quantity\":2}]', true) ->> 'id'")"; I6="$(Q "select id from stock_transfer_items where stock_transfer_id = '$T6'")"
-R6="$(Q "select receive_stock_transfer_lines('$T6', '$N', '$U', gen_random_uuid(), '[{\"item_id\":\"$I6\",\"quantity_received\":2}]') -> 'created_products' -> 0 ->> 'needs_price'")"
+R6="$(Q "select receive_stock_transfer_final('$T6', '$N', '$U', gen_random_uuid(), '[{\"item_id\":\"$I6\",\"quantity_received\":2}]') -> 'created_products' -> 0 ->> 'needs_price'")"
 ok "$R6" "true" "XAF → NGN, produit créé à l'arrivée : prix à fixer signalé"
 DEST6="$(Q "select destination_product_id from stock_transfer_items where id = '$I6'")"
 ok "$(Q "select is_active || ':' || selling_price || ':' || buying_price from products where id = '$DEST6'")" "false:0:0" "produit créé DÉSACTIVÉ, prix 0 (jamais vendu à 0 par erreur)"
-ok "$(Q "select coalesce(buying_price::text, 'inconnu') from product_batches where product_id = '$DEST6'")" "inconnu" "coût du lot d'arrivée : INCONNU (pas de change inventé)"
+ok "$(Q "select coalesce(buying_price::text, 'inconnu') || ':' || expiry_date from product_batches where product_id = '$DEST6'")" "inconnu:$(Q "select shop_business_date('$A') + 30")" "lot d'arrivée : coût INCONNU (pas de change inventé), péremption conservée"
+ok "$(CODE "select receive_stock_transfer_final('$T6', '$B', '$U', gen_random_uuid(), '[]')")" "P0063" "réception par une AUTRE boutique que la destination : refusée (P0063)"
 ok "$(CODE "select create_stock_transfer('$A', '$X', '$U', null, '[{\"product_id\":\"$PA\",\"quantity\":1}]', true)")" "P0061" "boutique d'une autre entreprise : refusé (P0061)"
 ok "$(CODE "select create_stock_transfer('$A', '$A', '$U', null, '[{\"product_id\":\"$PA\",\"quantity\":1}]', true)")" "P0060" "même boutique : refusé (P0060)"
 ok "$(CODE "select create_stock_transfer('$A', '$B', '$U', null, '[{\"product_id\":\"$PB\",\"quantity\":1}]', true)")" "P0066" "produit d'une autre boutique : refusé (P0066)"
 
 echo "── 9. Brouillon, anciennes fonctions"
+PA_D="$(Q "select quantity from products where id = '$PA'")"
 T7="$(Q "select create_stock_transfer('$A', '$B', '$U', 'brouillon', '[{\"product_id\":\"$PA\",\"quantity\":1}]', false) ->> 'id'")"
-ok "$(Q "select status from stock_transfers where id = '$T7'")" "draft" "brouillon créé, aucun stock touché"
+ok "$(Q "select status || ':' || (select quantity from products where id = '$PA') || ':' || (select count(*) from stock_transfer_tokens where transfer_id = '$T7') from stock_transfers where id = '$T7'")" "draft:$PA_D:0" "brouillon : aucun stock touché, pas de jeton"
 ok "$(CODE "select update_stock_transfer_draft('$T7', '$A', '$B', '$U', null, '[{\"product_id\":\"$PA\",\"quantity\":2}]', '2000-01-01')")" "P0065" "brouillon modifié entre-temps : refusé (P0065)"
+ok "$(CODE "select receive_stock_transfer_final('$T7', '$B', '$U', gen_random_uuid(), '[]')")" "P0068" "brouillon : réception refusée (P0068)"
 Q "select cancel_stock_transfer('$T7', '$A', '$U')" >/dev/null
 ok "$(Q "select status from stock_transfers where id = '$T7'")" "cancelled" "brouillon annulé"
 ok "$(Q "select send_stock_transfer('$A', '$B', '$U', 'ancienne app', '[{\"product_id\":\"$PA\",\"quantity\":1}]') ->> 'status'")" "sent" "ancienne fonction d'envoi (application d'avant) : passe par le nouveau modèle"
 T8="$(Q "select id from stock_transfers where notes = 'ancienne app'")"; I8="$(Q "select id from stock_transfer_items where stock_transfer_id = '$T8'")"
 Q "select receive_stock_transfer('$T8', '$B', '$U', '[{\"transfer_item_id\":\"$I8\",\"quantity_received\":0,\"destination_product_id\":\"$PB\",\"discrepancy_category\":\"theft\"}]')" >/dev/null
-ok "$(Q "select status from stock_transfers where id = '$T8'")" "sent" "ancienne réception avec manque : le reste RESTE en transit (réglé par la source)"
+ok "$(Q "select status || ':' || has_discrepancy || ':' || (select discrepancy_category from stock_transfer_items where id = '$I8') from stock_transfers where id = '$T8'")" "received:true:theft" "ancienne réception avec manque : terminée avec écart (cause reprise)"
 
 echo "── 10. Droits (navigateur)"
-ok "$(Q "select count(*) from pg_proc p cross join (values ('anon'),('authenticated')) r(n) where p.proname in ('create_stock_transfer','send_stock_transfer_draft','receive_stock_transfer_lines','settle_stock_transfer_item','cancel_stock_transfer','send_stock_transfer','receive_stock_transfer','_transfer_settle_item') and has_function_privilege(r.n, p.oid, 'EXECUTE')")" "0" "aucune fonction de transfert exécutable par le navigateur"
+ok "$(Q "select count(*) from pg_proc p cross join (values ('anon'),('authenticated')) r(n) where p.proname in ('create_stock_transfer','update_stock_transfer_draft','send_stock_transfer_draft','receive_stock_transfer_final','cancel_stock_transfer','send_stock_transfer','receive_stock_transfer','_transfer_audit') and has_function_privilege(r.n, p.oid, 'EXECUTE')")" "0" "aucune fonction de transfert exécutable par le navigateur"
+ok "$(Q "set role authenticated; select count(*) from public.stock_transfer_tokens" | grep -c 'permission denied')" "1" "jetons de QR illisibles par le navigateur"
 ok "$(Q "set role authenticated; select count(*) from public.stock_transfer_allocations" | grep -c 'permission denied')" "1" "allocations (coûts) illisibles par le navigateur"
 ok "$(Q "select has_column_privilege('authenticated', 'public.product_batches', 'origin_transfer_id', 'SELECT') and has_column_privilege('authenticated', 'public.product_batches', 'origin_untracked', 'SELECT') and not has_column_privilege('authenticated', 'public.product_batches', 'buying_price', 'SELECT')")" "t" "lots : colonnes d'origine lisibles, coût toujours réservé au serveur"
 
@@ -224,8 +242,8 @@ setup r188f
 ok "$(P -d $DB -f "$REPO/supabase/rollbacks/188_transfers_workflow_rollback.sql" >/dev/null 2>&1; echo $?)" "0" "retour arrière exécuté sans erreur"
 ok "$(FN_MD5)" "$PROD_MD5" "fonctions d'envoi, de réception et d'annulation recréées À L'IDENTIQUE (empreintes de production)"
 ok "$(Q "select count(*) from information_schema.columns where table_name = 'stock_movements' and column_name = 'batch_id'")" "1" "stock_movements.batch_id (179) CONSERVÉE"
-ok "$(Q "select count(*) from information_schema.tables where table_name in ('stock_transfer_allocations', 'stock_transfer_receipts', 'stock_transfer_receipt_lines', 'stock_transfer_settlements')")" "0" "tables de la 188 retirées"
-ok "$(Q "select count(*) from information_schema.columns where (table_name = 'product_batches' and column_name like 'origin_t%') or (table_name = 'product_batches' and column_name = 'origin_untracked') or (table_name = 'stock_movements' and column_name = 'transfer_id') or (table_name = 'stock_transfers' and column_name in ('sent_at','sent_by','has_discrepancy','updated_at')) or (table_name = 'stock_transfer_items' and column_name = 'quantity_surplus')")" "0" "colonnes de la 188 retirées (batch_id exceptée)"
+ok "$(Q "select count(*) from information_schema.tables where table_name in ('stock_transfer_allocations', 'stock_transfer_tokens')")" "0" "tables de la 188 retirées"
+ok "$(Q "select count(*) from information_schema.columns where (table_name = 'product_batches' and column_name like 'origin_t%') or (table_name = 'product_batches' and column_name = 'origin_untracked') or (table_name = 'stock_movements' and column_name = 'transfer_id') or (table_name = 'stock_transfers' and column_name in ('sent_at','sent_by','has_discrepancy','updated_at','receipt_key'))")" "0" "colonnes de la 188 retirées (batch_id exceptée)"
 ok "$(Q "select string_agg(status, ',' order by notes) from stock_transfers")" "cancelled,sent,received" "anciens transferts intacts après le retour arrière"
 ok "$(Q "select pg_get_constraintdef(oid) from pg_constraint where conname = 'stock_transfers_status_check'")" "CHECK ((status = ANY (ARRAY['sent'::text, 'received'::text, 'cancelled'::text])))" "statuts d'avant rétablis"
 
