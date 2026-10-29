@@ -33,7 +33,7 @@ export async function POST(request: Request) {
       await sendShopPush(admin, shop_id, {
         title: result.created > 1 ? `🔄 ${result.created} dépenses récurrentes générées` : '🔄 Dépense récurrente générée',
         tag: `recurring-${shop_id}-${Date.now()}`, url: '/expenses',
-      })
+      }, 'expenses')
     }
     return NextResponse.json({ created: result.created })
   } catch (e: any) {

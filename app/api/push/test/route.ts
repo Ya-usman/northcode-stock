@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import webpush from 'web-push'
 import { createClient, createAdminClient } from '@/lib/supabase/server'
 import { configureWebPush } from '@/lib/api/push-server'
+import { checkShopRole } from '@/lib/api/shop-auth'
 
 export async function POST(req: Request) {
   try {
@@ -18,6 +19,8 @@ export async function POST(req: Request) {
 
     const { shop_id } = await req.json()
     if (!shop_id) return NextResponse.json({ error: 'shop_id requis' }, { status: 400 })
+    // Sécurité (29 oct. 2026) : membre de la boutique seulement (l'envoi ne vise que ses propres appareils)
+    if (!(await checkShopRole(supabase, user.id, shop_id))) return NextResponse.json({ error: 'permission_denied' }, { status: 403 })
 
     const admin = await createAdminClient() as any
     const { data: subs } = await admin

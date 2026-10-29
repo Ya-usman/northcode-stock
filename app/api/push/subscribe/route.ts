@@ -1,16 +1,24 @@
 import { NextResponse } from 'next/server'
 import { createClient, createAdminClient } from '@/lib/supabase/server'
+import { checkShopRole } from '@/lib/api/shop-auth'
+import { getApiTranslator } from '@/lib/api/i18n'
 
-// POST /api/push/subscribe — save a push subscription for the current user
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+
+// POST /api/push/subscribe — enregistre l'abonnement de l'appareil pour une boutique dont la personne est MEMBRE
+// (29 oct. 2026 : auparavant n'importe quelle boutique était acceptée)
 export async function POST(req: Request) {
+  const t = getApiTranslator(req)
   try {
     const supabase = await createClient()
     const { data: { user } } = await supabase.auth.getUser()
-    if (!user) return NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
+    if (!user) return NextResponse.json({ error: t('not_authenticated') }, { status: 401 })
 
     const { subscription, shop_id } = await req.json()
-    if (!subscription?.endpoint || !shop_id)
-      return NextResponse.json({ error: 'subscription et shop_id requis' }, { status: 400 })
+    if (!subscription?.endpoint || !subscription?.keys?.p256dh || !subscription?.keys?.auth || !UUID.test(String(shop_id || '')))
+      return NextResponse.json({ error: t('invalid_data') }, { status: 400 })
+    if (!(await checkShopRole(supabase, user.id, shop_id)))
+      return NextResponse.json({ error: t('permission_denied') }, { status: 403 })
 
     const admin = await createAdminClient() as any
     const { error } = await admin.from('push_subscriptions').upsert({

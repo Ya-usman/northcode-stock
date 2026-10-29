@@ -3,21 +3,31 @@ import webpush from 'web-push'
 import { createClient, createAdminClient } from '@/lib/supabase/server'
 import { configureWebPush } from '@/lib/api/push-server'
 import { formatCurrency } from '@/lib/utils/currency'
-import { getLocaleTranslator } from '@/lib/api/i18n'
+import { getApiTranslator, getLocaleTranslator } from '@/lib/api/i18n'
+import { checkShopRole } from '@/lib/api/shop-auth'
+import { canWriteFeature } from '@/lib/api/role-permissions'
+import { pushRecipients, onlyAllowed } from '@/lib/api/push-server'
 
 // POST /api/push/sale
 // Notify shop owner(s) when a cashier completes a sale
 // Body: { shop_id, total, currency_symbol, cashier_name, payment_label }
+// Sécurité (29 oct. 2026) : seul un membre qui peut vendre dans CETTE boutique déclenche l'envoi (heures ignorées : une
+// vente hors ligne synchronisée après la fermeture prévient quand même) ; destinataires = propriétaire et rôles qui
+// voient TOUTES les ventes, membres actuels seulement.
 export async function POST(req: Request) {
+  const t = getApiTranslator(req)
   try {
     if (!configureWebPush()) return NextResponse.json({ ok: true, skipped: true })
 
     const supabase = await createClient()
     const { data: { user } } = await supabase.auth.getUser()
-    if (!user) return NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
+    if (!user) return NextResponse.json({ error: t('not_authenticated') }, { status: 401 })
 
     const { shop_id, total, currency_symbol, cashier_name, payment_label } = await req.json()
-    if (!shop_id) return NextResponse.json({ error: 'shop_id requis' }, { status: 400 })
+    if (!shop_id) return NextResponse.json({ error: t('invalid_data') }, { status: 400 })
+    const role = await checkShopRole(supabase, user.id, shop_id)
+    if (!role || !(await canWriteFeature(supabase, role, shop_id, 'new_sale', { ignoreHours: true })))
+      return NextResponse.json({ error: t('permission_denied') }, { status: 403 })
 
     const admin = await createAdminClient() as any
 
@@ -30,13 +40,15 @@ export async function POST(req: Request) {
     if (!shop?.notify_push_new_sale) return NextResponse.json({ ok: true, skipped: true })
 
     // Get push subscriptions for this shop, excluding the cashier themselves
-    const { data: subs } = await admin
+    const allowed = await pushRecipients(admin, shop_id, { feature: 'sales_history', allSales: true })
+    const { data: rows } = await admin
       .from('push_subscriptions')
       .select('endpoint, p256dh, auth, user_id')
       .eq('shop_id', shop_id)
       .neq('user_id', user.id)
+    const subs = onlyAllowed(rows, allowed)
 
-    if (!subs?.length) return NextResponse.json({ ok: true, sent: 0 })
+    if (!subs.length) return NextResponse.json({ ok: true, sent: 0 })
 
     // Montant écrit comme partout dans l'application (devise de la boutique) ; ancien format en repli
     const amount = shop.currency

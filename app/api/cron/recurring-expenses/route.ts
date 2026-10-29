@@ -27,7 +27,7 @@ export async function GET(request: Request) {
       await sendShopPush(admin, shopId, {
         title: count > 1 ? `🔄 ${count} dépenses récurrentes générées` : '🔄 Dépense récurrente générée',
         tag: `recurring-${shopId}-${Date.now()}`, url: '/expenses',
-      })
+      }, 'expenses')
     }
     await logCronRun('recurring-expenses', 'success', { shops: shopIds.length, created: result.created })
     return NextResponse.json({ ok: true, shops: shopIds.length, created: result.created })

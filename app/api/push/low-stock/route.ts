@@ -1,20 +1,25 @@
 import { NextResponse } from 'next/server'
 import webpush from 'web-push'
 import { createClient, createAdminClient } from '@/lib/supabase/server'
-import { configureWebPush } from '@/lib/api/push-server'
+import { configureWebPush, pushRecipients, onlyAllowed } from '@/lib/api/push-server'
+import { checkShopRole } from '@/lib/api/shop-auth'
+import { getApiTranslator } from '@/lib/api/i18n'
 
 // POST /api/push/low-stock
 // Check products below threshold and push to subscribed users in the shop
 // Body: { shop_id: string, product_ids?: string[] }
+// Sécurité (29 oct. 2026) : membre de la boutique seulement ; destinataires = membres actuels avec le droit « Stock ».
 export async function POST(req: Request) {
+  const t = getApiTranslator(req)
   try {
     if (!configureWebPush()) return NextResponse.json({ ok: true, skipped: true })
     const supabase = await createClient()
     const { data: { user } } = await supabase.auth.getUser()
-    if (!user) return NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
+    if (!user) return NextResponse.json({ error: t('not_authenticated') }, { status: 401 })
 
     const { shop_id, product_ids } = await req.json()
-    if (!shop_id) return NextResponse.json({ error: 'shop_id requis' }, { status: 400 })
+    if (!shop_id) return NextResponse.json({ error: t('invalid_data') }, { status: 400 })
+    if (!(await checkShopRole(supabase, user.id, shop_id))) return NextResponse.json({ error: t('permission_denied') }, { status: 403 })
 
     const admin = await createAdminClient() as any
 
@@ -46,13 +51,15 @@ export async function POST(req: Request) {
 
     if (!alerts.length) return NextResponse.json({ ok: true, alerts: 0 })
 
-    // Get push subscriptions for this shop
-    const { data: subs } = await admin
+    // Abonnés de la boutique qui ont le droit de voir le stock (membres actuels)
+    const allowed = await pushRecipients(admin, shop_id, { feature: 'stock' })
+    const { data: rows } = await admin
       .from('push_subscriptions')
-      .select('endpoint, p256dh, auth')
+      .select('endpoint, p256dh, auth, user_id')
       .eq('shop_id', shop_id)
+    const subs = onlyAllowed(rows, allowed)
 
-    if (!subs?.length) return NextResponse.json({ ok: true, alerts: alerts.length, sent: 0 })
+    if (!subs.length) return NextResponse.json({ ok: true, alerts: alerts.length, sent: 0 })
 
     const outOfStock = alerts.filter((p: any) => p.quantity === 0)
     const lowStock   = alerts.filter((p: any) => p.quantity > 0)
