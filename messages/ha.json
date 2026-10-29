@@ -3572,6 +3572,15 @@
     "status_closed": "A rufe",
     "status_aria": "Halin shago: {status}. Duba lokutan aiki"
   },
+  "push_card": {
+    "title": "Karɓi sanarwa a wannan na'ura",
+    "body": "A sanar da kai game da tallace-tallace da buƙatun ƙarin lokaci, ko da manhajar a rufe take.",
+    "enable": "Kunna",
+    "later": "Daga baya",
+    "enabled_toast": "An kunna sanarwa a wannan na'ura",
+    "blocked_toast": "Mai binciken yanar gizo ya toshe sanarwa. Kana iya ba da izini a cikin saitunansa.",
+    "failed_toast": "Ba a iya kunna sanarwa yanzu ba. Sake gwadawa daga Saituna."
+  },
   "notification_center": {
     "title": "Sanarwa",
     "aria": "Sanarwa",

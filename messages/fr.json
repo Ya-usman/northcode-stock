@@ -3572,6 +3572,15 @@
     "status_closed": "Fermée",
     "status_aria": "État de la boutique : {status}. Voir les horaires"
   },
+  "push_card": {
+    "title": "Recevoir les notifications sur cet appareil",
+    "body": "Soyez prévenu des ventes et des demandes de prolongation, même quand l'application est fermée.",
+    "enable": "Activer",
+    "later": "Plus tard",
+    "enabled_toast": "Notifications activées sur cet appareil",
+    "blocked_toast": "Notifications bloquées par le navigateur. Vous pouvez les autoriser dans ses réglages.",
+    "failed_toast": "Activation impossible pour le moment. Réessayez depuis Paramètres."
+  },
   "notification_center": {
     "title": "Notifications",
     "aria": "Notifications",

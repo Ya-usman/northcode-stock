@@ -28,6 +28,7 @@ import { useAnnouncements, appPath } from '@/lib/announcements/use-announcements
 import { ShopClosedWall } from '@/components/saas/shop-closed-wall'
 import { ShopHoursCountdownBanner } from '@/components/saas/shop-hours-countdown-banner'
 import { ExtensionRequestsBanner, ExtensionRequestsProvider } from '@/components/saas/extension-requests-banner'
+import { EnableNotificationsCard } from '@/components/saas/enable-notifications-card'
 import { extensionsUsedToday } from '@/lib/saas/shop-hours'
 import { getTrialDaysLeft, hasActiveSubscription, isAccessAllowed, getGraceDaysLeft, isBetaPeriod } from '@/lib/saas/plans'
 import { isShopOpenNow } from '@/lib/saas/shop-hours'
@@ -470,6 +471,12 @@ export function AppLayout({ children, locale }: { children: React.ReactNode; loc
         <Header title={title} locale={locale} onSignOut={handleSignOut} whatsNew={{ hasUnread: whatsNew.hasUnread, onOpen: openWhatsNew }} />
 
         <ExtensionRequestsBanner />
+        {/* Proposer d'activer les notifications à ceux qui ont quelque chose à recevoir (propriétaire, direction, « Prolonger ») */}
+        <EnableNotificationsCard
+          userId={profile.id}
+          shopId={shop?.id ?? null}
+          eligible={accessAllowed && (['owner', 'shop_manager', 'manager'].includes(effectiveRole) || canAccess('extend_hours'))}
+        />
 
         {profile.role === 'owner' && accessAllowed && !isBillingPage && (
           <PlanLimitAlert

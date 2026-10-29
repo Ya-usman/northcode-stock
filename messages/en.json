@@ -3572,6 +3572,15 @@
     "status_closed": "Closed",
     "status_aria": "Shop status: {status}. View opening hours"
   },
+  "push_card": {
+    "title": "Get notifications on this device",
+    "body": "Be notified of sales and extension requests, even when the app is closed.",
+    "enable": "Turn on",
+    "later": "Later",
+    "enabled_toast": "Notifications turned on for this device",
+    "blocked_toast": "Notifications are blocked by the browser. You can allow them in its settings.",
+    "failed_toast": "Could not turn on notifications right now. Try again from Settings."
+  },
   "notification_center": {
     "title": "Notifications",
     "aria": "Notifications",
