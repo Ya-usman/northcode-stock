@@ -63,27 +63,34 @@ export async function dashboardGuard(
   return { shopIds: access.map(a => a.shopId), seller, access }
 }
 
+// ── Ventes visibles : DEUX règles, décision « option 1 » du 26 oct. 2026 ─────────────────────────────────────────
+//   • LISTES détaillées (ventes récentes, remboursements, historique, lectures directes de la base) : caissier et
+//     magasinier → TOUJOURS leurs propres ventes (ownSalesScope, même règle que la base) ;
+//   • CHIFFRES agrégés (graphiques, meilleurs produits, rapports, encaissé) : caissier et magasinier → leurs propres
+//     ventes, SAUF si le propriétaire leur a ouvert « Chiffre d'affaires de la boutique » (revenue_chart) →
+//     toute la boutique (ownFiguresOnly / sellerFilter). Les autres rôles : toute la boutique.
+
 /**
- * Ventes qu'une personne lisait DIRECTEMENT dans son navigateur jusqu'au lot 2B (26 oct. 2026), d'après la base
- * (règles RLS sales_cashier_own / sales_stock_manager_own) : caissier et magasinier → seulement les leurs ; les autres
- * rôles → toute la boutique. Sert aux routes qui reprennent ces lectures (tableau de bord, fiche boutique), pour que les
- * chiffres affichés restent EXACTEMENT les mêmes. Différent de sellerFilter (caissier avec « chiffre d'affaires » et
- * magasinier → toute la boutique) : écart connu, à trancher à part.
- * Renvoie l'identifiant du vendeur à filtrer (null = toute la boutique).
+ * LISTES : caissier et magasinier → seulement leurs ventes ; autres rôles → toute la boutique (règles RLS
+ * sales_cashier_own / sales_stock_manager_own). Renvoie l'identifiant du vendeur à filtrer (null = toute la boutique).
  */
 export function ownSalesScope(access: ShopAccess, userId: string): string | null {
   return access.role === 'cashier' || access.role === 'stock_manager' ? userId : null
 }
 
+/** CHIFFRES agrégés : caissier ou magasinier sans « Chiffre d'affaires de la boutique » → ses propres ventes seulement */
+export function ownFiguresOnly(access: ShopAccess): boolean {
+  return (access.role === 'cashier' || access.role === 'stock_manager') && !access.view('revenue_chart')
+}
+
 /**
- * Chiffre d'affaires d'une boutique : « ses propres ventes » ou « toute la boutique » ?
- * Un caissier ne voit que ses ventes, sauf si le propriétaire lui a ouvert le chiffre d'affaires de la boutique
- * (« revenue_chart ») ; les autres rôles voient toute la boutique. Un filtre vendeur demandé par le navigateur peut
+ * Chiffre d'affaires d'une boutique : « ses propres ventes » ou « toute la boutique » ? (CHIFFRES agrégés)
+ * Caissier et magasinier ne voient que leurs ventes, sauf si le propriétaire leur a ouvert le chiffre d'affaires de
+ * la boutique (« revenue_chart ») ; les autres rôles voient toute la boutique (ownFiguresOnly). Un filtre vendeur demandé par le navigateur peut
  * seulement RESTREINDRE ce périmètre, jamais l'élargir.
  * Renvoie l'identifiant du vendeur à filtrer (null = toute la boutique).
  */
 export function sellerFilter(access: ShopAccess, userId: string, requested?: string | null): string | null {
-  const ownOnly = access.role === 'cashier' && !access.view('revenue_chart')
-  if (ownOnly) return userId
+  if (ownFiguresOnly(access)) return userId
   return requested && UUID.test(requested) ? requested : null
 }

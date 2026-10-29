@@ -210,5 +210,33 @@ const SOLD = 'app/api/stock/sold-30d/route.ts'
   ok(r.res.status === 403, 'ni Stock ni Catégories → 403')
 }
 
+// ── 7. Option 1 du 26 oct. 2026 : listes = toujours ses ventes ; chiffres = ses ventes sauf « Chiffre d'affaires » ──
+{
+  const SA = await imp('lib/api/shop-access.ts')
+  const RS = await imp('lib/api/report-sections.ts')
+  const P = await imp('lib/permissions/index.ts')
+  const acc = (role, stored = null) => ({ shopId: A, role, view: f => P.resolvePermission(stored, role, f).view, cost: P.canViewCost(stored, role) })
+  const withCA = role => ({ [role]: { revenue_chart: true, reports: true } })
+  for (const role of ['cashier', 'stock_manager']) {
+    ok(SA.ownSalesScope(acc(role), U) === U && SA.ownSalesScope(acc(role, withCA(role)), U) === U, `${role} : LISTES toujours limitées à ses ventes, même avec « Chiffre d'affaires »`)
+    ok(SA.sellerFilter(acc(role), U) === U && SA.sellerFilter(acc(role, withCA(role)), U) === null, `${role} : CHIFFRES limités à ses ventes, toute la boutique avec « Chiffre d'affaires »`)
+    ok(RS.reportSections(acc(role, { [role]: { reports: true } }))?.ownSalesOnly === true && RS.reportSections(acc(role, withCA(role)))?.ownSalesOnly === false,
+       `${role} : Rapports — ses ventes, toute la boutique avec « Chiffre d'affaires »`)
+  }
+  for (const role of ['owner', 'manager', 'shop_manager', 'viewer']) ok(SA.ownSalesScope(acc(role), U) === null && SA.sellerFilter(acc(role), U) === null, `${role} : toute la boutique (listes et chiffres)`)
+  ok(SA.sellerFilter(acc('manager'), U, C1) === C1 && SA.sellerFilter(acc('cashier'), U, C1) === U, 'filtre vendeur demandé : peut restreindre, jamais élargir')
+
+  // Fil des remboursements du tableau de bord (/api/dashboard/summary) : LISTE → magasinier limité à ses ventes
+  const SUM = 'app/api/dashboard/summary/route.ts'
+  const sumUrl = `http://l/api/dashboard/summary?shop_ids=${A}&day_start=2026-10-26T00:00:00Z&day_end=2026-10-26T23:59:59Z&month_start=2026-10-01T00:00:00Z&month_end=2026-10-31T23:59:59Z`
+  const sumData = q => q.table === 'payments' && q.filters.some(([o, c]) => o === 'eq' && c === 'is_repayment')
+    ? { data: [{ id: 'r1', amount: 10, sales: { shop_id: A, cashier_id: 'autre', sale_status: 'active' } }, { id: 'r2', amount: 20, sales: { shop_id: A, cashier_id: U, sale_status: 'active' } }] }
+    : { data: [] }
+  let r = await call(SUM, sumUrl, { members: { [A]: 'stock_manager' }, data: sumData })
+  ok(r.res.status === 200 && r.res.body.repayments.map(p => p.id).join() === 'r2', `magasinier : fil des remboursements = ceux de SES ventes seulement (${r.res.body.repayments?.map(p => p.id).join() || 'aucun'} ; avant : toute la boutique)`)
+  r = await call(SUM, sumUrl, { members: { [A]: 'manager' }, data: sumData })
+  ok(r.res.body.repayments.map(p => p.id).join() === 'r1,r2', 'manager : remboursements de toute la boutique')
+}
+
 console.log(`${pass} réussis, ${fail} échec(s)`)
 process.exit(fail ? 1 : 0)

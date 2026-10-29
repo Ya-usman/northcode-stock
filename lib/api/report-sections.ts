@@ -5,7 +5,7 @@
 //   • Rapports accessibles sans canViewCost → chiffre d'affaires, ventes, volumes, paiements… ni coût ni marge ;
 //   • canViewCost seul → aucun accès aux Rapports.
 
-import type { ShopAccess } from '@/lib/api/shop-access'
+import { ownFiguresOnly, type ShopAccess } from '@/lib/api/shop-access'
 
 export interface ReportSections {
   encaisse: boolean
@@ -35,6 +35,7 @@ export function reportSections(a: ShopAccess): ReportSections | null {
     cashierPerf: a.view('widget_rep_cashier_perf'),
     inventory: true,
     margin: a.cost && (a.view('widget_rep_marge_brute') || a.view('widget_rep_benefice_net')),
-    ownSalesOnly: a.role === 'cashier' && !a.view('revenue_chart'),
+    // Règle unique des chiffres agrégés (lib/api/shop-access, option 1 du 26 oct. 2026) : caissier ET magasinier
+    ownSalesOnly: ownFiguresOnly(a),
   }
 }

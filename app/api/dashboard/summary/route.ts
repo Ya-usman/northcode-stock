@@ -1,14 +1,15 @@
 import { NextResponse } from 'next/server'
 import { createAdminClient, createClient } from '@/lib/supabase/server'
 import { getApiTranslator } from '@/lib/api/i18n'
-import { loadShopAccess, parseShopIds, sellerFilter } from '@/lib/api/shop-access'
+import { loadShopAccess, ownSalesScope, parseShopIds } from '@/lib/api/shop-access'
 import { fetchAllRows, fetchShopPayments } from '@/lib/dashboard/fetch-rows'
 
 // GET /api/dashboard/summary?shop_ids=a,b&day_start&day_end&month_start&month_end
 // Chiffres du tableau de bord que le navigateur lisait directement (la base ne contrôle que l'appartenance à la
 // boutique : un caissier recevait l'encaissé de toute la boutique et les dépenses, même non affichés). Le SERVEUR
 // décide, boutique par boutique (lib/api/shop-access) :
-//   • remboursements du jour (fil des ventes) : vendeur limité à SES ventes selon son rôle et les réglages ;
+//   • remboursements du jour (fil des ventes) : c'est une LISTE → caissier et magasinier limités à leurs propres
+//     ventes, toujours (ownSalesScope, option 1 du 26 oct. 2026 ; avant : magasinier → toute la boutique) ;
 //   • mes encaissements du mois : ce que la personne a elle-même encaissé ;
 //   • encaissé global du mois : seulement là où « chiffre d'affaires de la boutique » (revenue_chart) est autorisé ;
 //   • dépenses du mois : seulement là où « Dépenses » est autorisé, jamais pour un rôle caissier (règle de l'écran).
@@ -33,7 +34,7 @@ export async function GET(request: Request) {
 
     const admin = await createAdminClient() as any
     const seller: Record<string, string | null> = {}
-    for (const a of access) seller[a.shopId] = sellerFilter(a, user.id)
+    for (const a of access) seller[a.shopId] = ownSalesScope(a, user.id)
     const globalShops = access.filter(a => a.view('revenue_chart')).map(a => a.shopId)
     const expenseShops = access.filter(a => a.role !== 'cashier' && a.view('expenses')).map(a => a.shopId)
     const feedShops = access.filter(a => a.view('widget_recent_sales')).map(a => a.shopId)
