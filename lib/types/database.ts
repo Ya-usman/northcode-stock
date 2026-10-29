@@ -2,7 +2,7 @@ export type UserRole = 'super_admin' | 'owner' | 'manager' | 'shop_manager' | 'c
 export type PaymentMethod = 'cash' | 'transfer' | 'credit' | 'paystack'
 export type PaymentStatus = 'paid' | 'pending' | 'partial'
 export type SaleStatus = 'active' | 'cancelled'
-export type StockMovementType = 'in' | 'out' | 'adjustment' | 'sale'
+export type StockMovementType = 'in' | 'out' | 'adjustment' | 'sale' | 'transit_loss'
 
 export interface Shop {
   id: string

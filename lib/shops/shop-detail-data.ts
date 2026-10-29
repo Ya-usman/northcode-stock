@@ -112,7 +112,7 @@ export function useShopStockDetail(shop: Shop | null, show: { expiry: boolean; t
 
     const transfers: ShopStockDetail['transfers'] = transfersRes.error ? failed() : ok(
       ((transfersRes.data?.data ?? []) as any[])
-        .filter(tr => tr.status === 'sent')
+        .filter(tr => tr.status === 'sent' || tr.status === 'partially_received')
         .map(tr => {
           const incoming = tr.destination_shop_id === shop.id
           return {

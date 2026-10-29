@@ -170,12 +170,13 @@ const pickShop = async (page, id) => { const p = page.getByTestId('shop-picker')
       ok(low(await td.innerText()).includes(low('Depuis : Marché Soleil Akwa')), 'nouveau transfert : source choisie, rappelée (« Depuis : Marché Soleil Akwa »)')
       await s.page.keyboard.press('Escape'); await s.page.waitForTimeout(600)
       // Annulation : confirmation nommant les deux boutiques (refusée → rien envoyé)
-      const card = s.page.locator('div.rounded-lg.border').filter({ hasText: 'TR-2026-0002' }).first()
-      const cancelBtn = card.getByRole('button', { name: /Annuler/ }).first()
-      if (!(await cancelBtn.count())) { await card.locator('[role=button]').first().click(); await s.page.waitForTimeout(600) }
+      // Transferts V1 : l'annulation est dans le menu « … » de la carte
+      const card = s.page.getByTestId('transfer-card').filter({ hasText: 'TR-2026-0002' }).first()
+      await card.getByTestId('transfer-more').click(); await s.page.waitForTimeout(600)
       const n2 = s.writes.length
-      if (await card.getByRole('button', { name: /Annuler/ }).count()) {
-        await card.getByRole('button', { name: /Annuler/ }).first().click(); await s.page.waitForTimeout(800)
+      const cancelItem = s.page.getByRole('menuitem', { name: /Annuler le transfert/ })
+      if (await cancelItem.count()) {
+        await cancelItem.first().click(); await s.page.waitForTimeout(800)
         ok(s.dialogs.some(d => d.includes('TR-2026-0002') && d.includes('Marché Soleil Akwa → Marché Soleil Bastos')) && s.writes.length === n2, 'annuler : « Annuler le transfert TR-2026-0002 (Marché Soleil Akwa → Marché Soleil Bastos) ? », refusé → rien envoyé')
       } else console.log('  info  bouton Annuler non trouvé')
       const g = [...s.gets].reverse().find(x => x.path === '/api/stock-transfers')

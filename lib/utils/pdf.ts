@@ -1131,6 +1131,10 @@ export interface StockTransferPDFParams {
   dateStr: string
   notes?: string | null
   items: StockTransferPDFItem[]
+  /** QR du transfert en transit (image PNG en data URL) : à scanner par la boutique d'arrivée (migration 188) */
+  qrDataUrl?: string | null
+  /** Légende sous le QR */
+  qrCaption?: string
   labels?: {
     title?: string
     reference?: string
@@ -1268,6 +1272,21 @@ async function buildStockTransferDoc(params: StockTransferPDFParams) {
     doc.setFontSize(9); doc.setFont('helvetica', 'normal')
     doc.setTextColor(60, 60, 60)
     doc.text(sanitizePDF(notes), margin, y)
+    y += 8
+  }
+
+  // QR du transfert : la boutique d'arrivée le scanne pour ouvrir la réception (il ne donne aucun droit à lui seul)
+  if (params.qrDataUrl) {
+    const size = 34
+    if (y + size + 10 > 278) { doc.addPage(); y = 20 }
+    try {
+      doc.addImage(params.qrDataUrl, 'PNG', margin, y, size, size)
+      if (params.qrCaption) {
+        doc.setFontSize(8); doc.setFont('helvetica', 'normal')
+        doc.setTextColor(90, 90, 90)
+        doc.text(doc.splitTextToSize(sanitizePDF(params.qrCaption), pageWidth - margin * 2 - size - 6), margin + size + 6, y + 6)
+      }
+    } catch { /* QR illisible : le bon reste utilisable sans lui */ }
   }
 
   // ── FOOTER ──

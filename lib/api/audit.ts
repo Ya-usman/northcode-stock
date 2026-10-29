@@ -49,6 +49,8 @@ export type AuditAction =
   | 'stock_transfer.send'
   | 'stock_transfer.receive'
   | 'stock_transfer.cancel'
+  | 'stock_transfer.draft'
+  | 'stock_transfer.settle'
   | 'create_product'
   | 'update_product'
   | 'archive_product'

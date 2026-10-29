@@ -1,26 +1,26 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+// Stock › Transferts V1 (conception validée le 30 oct. 2026, maquette de l'utilisateur) : 3 compteurs cliquables
+// (Tous / En transit / Reçus), recherche (référence, boutiques, produits), « Filtrer » (OU dans une dimension, ET
+// entre dimensions) avec pastilles, « Scanner » (QR d'un transfert : ouvre la réception, ne réceptionne jamais),
+// « + Nouveau transfert », cartes entièrement cliquables avec menu « … » (QR, bon, partage, e-mail, WhatsApp,
+// annulation). Contexte : une boutique ou « Toutes les boutiques » ; chaque action utilise les boutiques RÉELLES du
+// transfert ; une création depuis « Toutes » demande la boutique source. Le serveur revérifie tous les droits.
+import { useEffect, useMemo, useState } from 'react'
 import { useLocale, useTranslations } from 'next-intl'
-import { useUnitLabel } from '@/lib/products/use-unit-label'
-import { dateLocaleTag } from '@/lib/i18n/date-format'
-import { Search, Plus, X, ArrowRight, Package, Download, Share2, Mail, Copy, Ban, CheckCircle2, ChevronDown, ChevronRight } from 'lucide-react'
-import { isCapacitor } from '@/lib/utils/native-share'
-import { createClient } from '@/lib/supabase/client'
+import { useRouter } from 'next/navigation'
+import { Ban, CheckCircle2, Copy, Download, FileEdit, Mail, MessageCircle, Plus, QrCode, ScanLine, Search, Send, Share2, Truck } from 'lucide-react'
 import { useAuthContext as useAuth } from '@/lib/contexts/auth-context'
 import { useShopScope } from '@/lib/shops/use-shop-scope'
 import { useFilterScope } from '@/lib/filters/use-filter-scope'
 import { useRolePermissions } from '@/lib/hooks/use-role-permissions'
 import { useToast } from '@/components/ui/use-toast'
-import { normalize } from '@/lib/utils/normalize'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { PremiumDialog, PremiumDialogBody, PremiumDialogFooter, FOOTER_CANCEL_CLASS, FOOTER_PRIMARY_CLASS, FOOTER_ROW_CLASS } from '@/components/ui/premium-dialog'
-import { AppDrawer } from '@/components/ui/app-drawer'
-import { FormDrawer } from '@/components/ui/form-drawer'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Skeleton } from '@/components/ui/skeleton'
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
+import { PremiumDialog, PremiumDialogBody, PremiumDialogFooter } from '@/components/ui/premium-dialog'
 import { usePersistedFilters } from '@/lib/hooks/use-persisted-filters'
 import { useOffline } from '@/lib/offline/use-offline'
 import { useRefetchOnReconnect } from '@/lib/hooks/use-refetch-on-reconnect'
@@ -28,712 +28,269 @@ import { useRefetchOnVisible } from '@/lib/hooks/use-refetch-on-visible'
 import { withTimeout } from '@/lib/utils/with-timeout'
 import { getPageCache, setPageCache } from '@/lib/offline/page-cache'
 import { generateStockTransferPDF } from '@/lib/utils/pdf'
-import type { Product } from '@/lib/types/database'
+import { isCapacitor } from '@/lib/utils/native-share'
+import { formatLocaleDate } from '@/lib/i18n/date-format'
+import { useUnitLabel } from '@/lib/products/use-unit-label'
+import { cn } from '@/lib/utils/cn'
+import { activeFilterCount, filterTransfers, searchTransfers, transferKpis, type TransferFilters } from '@/lib/stock/transfers-view'
+import { MoreButton, TransferCard, type TransferListRow } from './transfers/transfer-card'
+import { TransferFilterChips, TransferFiltersButton, TransferFiltersDrawer, useTransferFilterOptions } from './transfers/transfer-filters'
+import { TransferDetailDrawer } from './transfers/transfer-detail-drawer'
+import { TransferCreateDrawer, type TransferDraftInput } from './transfers/transfer-create-drawer'
+import { TransferQrDialog, TransferScanDialog, fetchTransferQrUrl, qrDataUrl } from './transfers/transfer-qr'
 
-const STATUS_STYLES: Record<string, string> = {
-  sent: 'bg-stockshop-blue-muted dark:bg-blue-950/40 text-stockshop-blue dark:text-blue-400',
-  received: 'bg-green-50 dark:bg-green-950/40 text-green-700 dark:text-green-400',
-  cancelled: 'bg-red-50 dark:bg-red-950/40 text-red-600 dark:text-red-400',
-}
+type Kpi = 'all' | 'sent' | 'received'
+const FILTER_DEFAULTS = { search: '', statuses: [] as string[], sources: [] as string[], destinations: [] as string[], products: [] as string[], creators: [] as string[], period: 'all' as TransferFilters['period'] }
 
-const DISCREPANCY_CATEGORIES = ['transport_loss', 'theft', 'breakage', 'count_error', 'other'] as const
-
-const supabase = createClient() as any
-
-// Onglet "Transferts" de la page Stock — pas un item de menu séparé, même
-// logique que les Bons de commande fournisseurs qui vivent en onglet dans
-// Suppliers plutôt qu'en item de menu à part (workflow rattaché à un sujet
-// plus large, pas une destination de navigation autonome).
 export function StockTransfersTab() {
-  const t = useTranslations()
+  const t = useTranslations('transfers')
+  const tRoot = useTranslations()
   const locale = useLocale()
+  const router = useRouter()
   const unitLabel = useUnitLabel()
-  const { shop, userShops, roleInActiveShop, profile } = useAuth()
+  const { shop, userShops } = useAuth()
   const { isOnline } = useOffline()
   const { toast } = useToast()
-
-  // Règle unique : niveau « modification » de Transferts (même règle que /api/stock-transfers)
   const { canWrite } = useRolePermissions()
-  const canManage = canWrite('transfers')
+  const canCreate = canWrite('transfers')
 
-  // Périmètre : celui de l'en-tête (une boutique, ou toutes les boutiques accessibles)
   const scope = useShopScope()
   const scopeKey = scope.shopIds.join(',')
   const filterScope = useFilterScope()
-  const [transfers, setTransfers] = useState<any[]>(() => getPageCache<any[]>(`transfers_${scopeKey}`) || [])
-  // Produits d'UNE boutique : la source d'un nouveau transfert, ou la destination d'une réception
-  const [products, setProducts] = useState<Product[]>([])
+  const [rows, setRows] = useState<TransferListRow[]>(() => getPageCache<TransferListRow[]>(`transfers_${scopeKey}`) || [])
+  const [workflow, setWorkflow] = useState(false)
   const [loading, setLoading] = useState(() => !getPageCache(`transfers_${scopeKey}`))
-  const [{ search }, setFilter] = usePersistedFilters('transfers', filterScope, { search: '' }, { keepPerScope: true })
-  const [expandedId, setExpandedId] = useState<string | null>(null)
+  const [saved, setFilter] = usePersistedFilters('transfers_v1', filterScope, FILTER_DEFAULTS, { keepPerScope: true })
+  const filters: TransferFilters = { statuses: saved.statuses, sources: saved.sources, destinations: saved.destinations, products: saved.products, creators: saved.creators, period: saved.period }
 
-  // ── Nouveau transfert ────────────────────────────────────────────────────
-  const [showNewDialog, setShowNewDialog] = useState(false)
-  // Boutique SOURCE du nouveau transfert (en-tête, ou choisie explicitement)
-  const [newSourceShop, setNewSourceShop] = useState<(typeof userShops)[number] | null>(null)
-  // Changement de contexte : un nouveau transfert en cours est fermé, sa source oubliée
-  useEffect(() => { setShowNewDialog(false); setNewSourceShop(null); setReceivingTransfer(null) }, [scopeKey]) // eslint-disable-line react-hooks/exhaustive-deps
-  const [newDestShopId, setNewDestShopId] = useState('')
-  const [newProductSearch, setNewProductSearch] = useState('')
-  const [newItems, setNewItems] = useState<{ product_id: string; name: string; unit: string; available: number; quantity: string }[]>([])
-  const [newNotes, setNewNotes] = useState('')
-  const [creating, setCreating] = useState(false)
-  const [lastCreatedRef, setLastCreatedRef] = useState<string | null>(null)
+  const [filtersOpen, setFiltersOpen] = useState(false)
+  const [scanOpen, setScanOpen] = useState(false)
+  const [detailId, setDetailId] = useState<string | null>(null)
+  const [qrFor, setQrFor] = useState<{ id: string; reference: string } | null>(null)
+  const [emailFor, setEmailFor] = useState<TransferListRow | null>(null)
+  const [create, setCreate] = useState<{ source: any; draft: TransferDraftInput | null } | null>(null)
+  const [busy, setBusy] = useState<string | null>(null)
 
-  // ── Réception ────────────────────────────────────────────────────────────
-  const [receivingTransfer, setReceivingTransfer] = useState<any | null>(null)
-  const [receiveLines, setReceiveLines] = useState<Record<string, {
-    destination_product_id: string | null
-    matchSearch: string
-    quantity_received: string
-    discrepancy_category: string
-    discrepancy_detail: string
-  }>>({})
-  const [receiving, setReceiving] = useState(false)
-
-  // ── Annulation / email ───────────────────────────────────────────────────
-  const [cancelling, setCancelling] = useState<string | null>(null)
-  const [emailTransfer, setEmailTransfer] = useState<any | null>(null)
-
-  const fetchTransfers = async () => {
+  const fetchRows = async () => {
     if (!scope.shopIds.length) return
     const cacheKey = `transfers_${scopeKey}`
-    const cached = getPageCache<any[]>(cacheKey)
-    if (cached) { setTransfers(cached); setLoading(false) }
+    const cached = getPageCache<TransferListRow[]>(cacheKey)
+    if (cached) { setRows(cached); setLoading(false) }
     if (!isOnline) { if (!cached) setLoading(false); return }
     try {
-      const res = await withTimeout(fetch(`/api/stock-transfers?shop_ids=${scopeKey}`), 20_000, t('transfers.load_timeout'))
+      const res = await withTimeout(fetch(`/api/stock-transfers?shop_ids=${scopeKey}`), 20_000, tRoot('transfers.load_timeout'))
       if (!res.ok) return
       const json = await res.json()
-      setTransfers(json.data || [])
+      setRows(json.data || [])
+      setWorkflow(!!json.workflow)
       setPageCache(cacheKey, json.data || [])
-    } catch {
-      // cache déjà appliqué si disponible
-    } finally {
-      setLoading(false)
-    }
+    } catch { /* cache déjà appliqué */ } finally { setLoading(false) }
   }
+  useEffect(() => { fetchRows() }, [scopeKey]) // eslint-disable-line react-hooks/exhaustive-deps
+  // Changement de contexte : panneaux en cours fermés
+  useEffect(() => { setCreate(null); setDetailId(null); setQrFor(null) }, [scopeKey])
+  useRefetchOnVisible(() => { fetchRows() })
+  useRefetchOnReconnect(() => { fetchRows() }, isOnline)
 
-  // Produits d'une boutique précise (source d'un envoi, destination d'une réception)
-  const loadProductsOf = async (shopId: string): Promise<Product[]> => {
-    try {
-      const { data } = await withTimeout<any>(
-        supabase.from('products').select('id, name, unit, quantity, selling_price')
-          .eq('shop_id', shopId).eq('is_active', true).order('name'),
-        20_000
-      )
-      const list = (data || []) as Product[]
-      setProducts(list)
-      return list
-    } catch {
-      // silencieux — la sélection de produits rouvre juste vide
-      setProducts([])
-      return []
-    }
-  }
+  const options = useTransferFilterOptions(rows)
+  // Compteurs : sur la liste cherchée et filtrée HORS statut ; la liste applique aussi le statut
+  const base = useMemo(() => filterTransfers(searchTransfers(rows, saved.search), { ...filters, statuses: [] }), [rows, saved.search, saved.sources, saved.destinations, saved.products, saved.creators, saved.period]) // eslint-disable-line react-hooks/exhaustive-deps
+  const kpis = transferKpis(base)
+  const list = useMemo(() => filterTransfers(base, { ...filters, sources: [], destinations: [], products: [], creators: [], period: 'all' }), [base, saved.statuses]) // eslint-disable-line react-hooks/exhaustive-deps
+  const kpiActive: Kpi | null = !filters.statuses.length ? 'all' : filters.statuses.length === 1 && (filters.statuses[0] === 'sent' || filters.statuses[0] === 'received') ? filters.statuses[0] as Kpi : null
+  const setKpi = (k: Kpi) => setFilter({ statuses: k === 'all' ? [] : [k] })
 
-  useEffect(() => { fetchTransfers() }, [scopeKey]) // eslint-disable-line react-hooks/exhaustive-deps
-
-  useRefetchOnVisible(() => { fetchTransfers() })
-  useRefetchOnReconnect(() => { fetchTransfers() }, isOnline)
-
-  const shopName = (id: string) => userShops.find(s => s.id === id)?.name ?? '—'
-
-  const filteredTransfers = transfers.filter(tr => {
-    if (!search) return true
-    const q = normalize(search)
-    return normalize(tr.reference || '').includes(q)
-      || normalize(tr.source_shop_name || '').includes(q)
-      || normalize(tr.destination_shop_name || '').includes(q)
-  })
-
-  // Destinations possibles : toutes les autres boutiques du compte (au moins une, sinon pas de transfert)
-  const destShopOptions = userShops.filter(s => s.id !== newSourceShop?.id)
-
-  // ── Nouveau transfert ────────────────────────────────────────────────────
-  const openNewTransfer = async () => {
-    const source = await scope.requireOneShop({ title: t('transfers.pick_source_title') })
+  // ── Actions ───────────────────────────────────────────────────────────────
+  const openCreate = async () => {
+    const source = await scope.requireOneShop({ title: tRoot('transfers.pick_source_title') })
     if (!source) return
-    setNewSourceShop(source)
-    await loadProductsOf(source.id)
-    setNewDestShopId('')
-    setNewProductSearch('')
-    setNewItems([])
-    setNewNotes('')
-    setLastCreatedRef(null)
-    setShowNewDialog(true)
+    setCreate({ source, draft: null })
   }
-
-  const addNewItem = (p: Product) => {
-    if (newItems.some(it => it.product_id === p.id)) return
-    setNewItems(prev => [...prev, { product_id: p.id, name: p.name, unit: p.unit || '', available: p.quantity, quantity: '1' }])
-    setNewProductSearch('')
+  const openEdit = (tr: any) => {
+    const source = userShops.find(s => s.id === tr.source_shop_id)
+    if (!source) return
+    setDetailId(null)
+    setCreate({ source, draft: { id: tr.id, destination_shop_id: tr.destination_shop_id, notes: tr.notes, updated_at: tr.updated_at, items: tr.stock_transfer_items } })
   }
-
-  const removeNewItem = (productId: string) => {
-    setNewItems(prev => prev.filter(it => it.product_id !== productId))
-  }
-
-  const newProductResults = newProductSearch.trim()
-    ? products.filter(p => !newItems.some(it => it.product_id === p.id) && normalize(p.name).includes(normalize(newProductSearch)))
-    : []
-
-  const submitNewTransfer = async () => {
-    if (!newSourceShop || !newDestShopId) return
-    const items = newItems
-      .filter(it => Number(it.quantity) > 0)
-      .map(it => ({ product_id: it.product_id, quantity: Number(it.quantity) }))
-    if (items.length === 0) {
-      toast({ title: t('transfers.select_at_least_one_product'), variant: 'destructive' })
-      return
-    }
-    setCreating(true)
+  const goReceive = (tr: { id: string }) => router.push(`/${locale}/stock/transfers/${tr.id}/receive`)
+  const sendDraft = async (tr: any) => {
+    setBusy(`send:${tr.id}`)
     try {
-      const res = await withTimeout(fetch('/api/stock-transfers', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ source_shop_id: newSourceShop.id, destination_shop_id: newDestShopId, notes: newNotes.trim() || null, items }),
-      }))
+      const res = await fetch('/api/stock-transfers/send', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ transfer_id: tr.id }) })
       const json = await res.json()
-      if (!res.ok) { toast({ title: json.error || t('toast.error'), variant: 'destructive' }); return }
-      setLastCreatedRef(json.data?.reference || null)
-      toast({ title: t('transfers.created_toast', { reference: json.data?.reference || '' }), variant: 'success' })
-      fetchTransfers()
-      loadProductsOf(newSourceShop.id)
-    } catch (err: any) {
-      toast({ title: err.message || t('toast.error'), variant: 'destructive' })
-    } finally {
-      setCreating(false)
-    }
+      if (!res.ok) { toast({ title: json.error || tRoot('toast.error'), variant: 'destructive' }); return }
+      toast({ title: tRoot('transfers.created_toast', { reference: tr.reference }), variant: 'success' })
+      setDetailId(null); fetchRows()
+    } finally { setBusy(null) }
   }
-
-  // ── Réception ────────────────────────────────────────────────────────────
-  const openReceive = async (tr: any) => {
-    // Rapprochement avec les produits de la boutique DE DESTINATION du transfert
-    const destProducts = await loadProductsOf(tr.destination_shop_id)
-    const lines: typeof receiveLines = {}
-    for (const item of (tr.stock_transfer_items || [])) {
-      const match = destProducts.find(p => normalize(p.name) === normalize(item.product_name))
-      lines[item.id] = {
-        destination_product_id: match?.id ?? null,
-        matchSearch: match?.name ?? item.product_name,
-        quantity_received: String(item.quantity_sent),
-        discrepancy_category: '',
-        discrepancy_detail: '',
-      }
-    }
-    setReceiveLines(lines)
-    setReceivingTransfer(tr)
-  }
-
-  const updateReceiveLine = (itemId: string, updates: Partial<(typeof receiveLines)[string]>) => {
-    setReceiveLines(prev => ({ ...prev, [itemId]: { ...prev[itemId], ...updates } }))
-  }
-
-  const submitReceive = async () => {
-    if (!receivingTransfer) return
-    const items = (receivingTransfer.stock_transfer_items || []).map((item: any) => {
-      const line = receiveLines[item.id]
-      const received = Number(line?.quantity_received) || 0
-      const hasDiscrepancy = received !== item.quantity_sent
-      return {
-        transfer_item_id: item.id,
-        destination_product_id: line?.destination_product_id || null,
-        quantity_received: received,
-        discrepancy_category: hasDiscrepancy ? (line?.discrepancy_category || 'other') : null,
-        discrepancy_detail: hasDiscrepancy ? (line?.discrepancy_detail || null) : null,
-      }
-    })
-    setReceiving(true)
-    try {
-      const res = await withTimeout(fetch('/api/stock-transfers/receive', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ transfer_id: receivingTransfer.id, destination_shop_id: receivingTransfer.destination_shop_id, items }),
-      }))
-      const json = await res.json()
-      if (!res.ok) { toast({ title: json.error || t('toast.error'), variant: 'destructive' }); return }
-      toast({ title: t('transfers.received_toast'), variant: 'success' })
-      setReceivingTransfer(null)
-      fetchTransfers()
-    } catch (err: any) {
-      toast({ title: err.message || t('toast.error'), variant: 'destructive' })
-    } finally {
-      setReceiving(false)
-    }
-  }
-
-  // ── Annulation ───────────────────────────────────────────────────────────
   const cancelTransfer = async (tr: any) => {
-    // La confirmation nomme les deux boutiques : « Annuler le transfert … (Akwa → Bastos) ? »
-    if (!confirm(t('transfers.confirm_cancel_shops', { reference: tr.reference, from: tr.source_shop_name || shopName(tr.source_shop_id), to: tr.destination_shop_name || shopName(tr.destination_shop_id) }))) return
-    setCancelling(tr.id)
+    if (!confirm(tRoot('transfers.confirm_cancel_shops', { reference: tr.reference, from: tr.source_shop_name, to: tr.destination_shop_name }))) return
+    setBusy(`cancel:${tr.id}`)
     try {
-      const res = await fetch('/api/stock-transfers/cancel', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ transfer_id: tr.id, source_shop_id: tr.source_shop_id }),
-      })
+      const res = await fetch('/api/stock-transfers/cancel', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ transfer_id: tr.id }) })
       const json = await res.json()
-      if (!res.ok) { toast({ title: json.error || t('toast.error'), variant: 'destructive' }); return }
-      toast({ title: t('transfers.cancelled_toast') })
-      fetchTransfers()
-    } catch (err: any) {
-      toast({ title: err.message || t('toast.error'), variant: 'destructive' })
-    } finally {
-      setCancelling(null)
-    }
+      if (!res.ok) { toast({ title: json.error || tRoot('toast.error'), variant: 'destructive' }); return }
+      toast({ title: tRoot('transfers.cancelled_toast') })
+      setDetailId(null); fetchRows()
+    } finally { setBusy(null) }
   }
-
-  // ── PDF / email ──────────────────────────────────────────────────────────
-  const downloadTransferPdf = async (tr: any) => {
+  const downloadNote = async (tr: TransferListRow) => {
+    const url = tr.status === 'sent' ? await fetchTransferQrUrl(tr.id, locale) : null
     await generateStockTransferPDF({
-      sourceShopName: tr.source_shop_name || shopName(tr.source_shop_id),
-      destinationShopName: tr.destination_shop_name || shopName(tr.destination_shop_id),
-      reference: tr.reference,
-      dateStr: new Date(tr.created_at).toLocaleDateString(dateLocaleTag(locale), { day: 'numeric', month: 'long', year: 'numeric' }),
-      notes: tr.notes,
-      items: (tr.stock_transfer_items || []).map((it: any) => ({ name: it.product_name, quantity: it.quantity_sent, unit: unitLabel(it.unit, it.quantity_sent) })),
+      sourceShopName: tr.source_shop_name || '', destinationShopName: tr.destination_shop_name || '', reference: tr.reference,
+      dateStr: formatLocaleDate(tr.sent_at || tr.created_at, locale, { day: 'numeric', month: 'long', year: 'numeric' }),
+      notes: (tr as any).notes,
+      items: (tr.stock_transfer_items || []).map(it => ({ name: it.product_name, quantity: it.quantity_sent, unit: unitLabel((it as any).unit, it.quantity_sent) })),
+      qrDataUrl: url ? await qrDataUrl(url, 360) : null,
+      qrCaption: url ? t('qr_hint') : undefined,
     })
   }
+  const shareText = async (tr: TransferListRow) => {
+    const url = tr.status === 'sent' ? await fetchTransferQrUrl(tr.id, locale) : null
+    return [tr.reference, `${tr.source_shop_name} → ${tr.destination_shop_name}`, tRoot('transfers.items_count', { count: (tr.stock_transfer_items || []).length }), url].filter(Boolean).join('\n')
+  }
+  const share = async (tr: TransferListRow) => {
+    const text = await shareText(tr)
+    try {
+      if (typeof navigator !== 'undefined' && (navigator as any).share) await (navigator as any).share({ title: tr.reference, text })
+      else { await navigator.clipboard.writeText(text); toast({ title: tRoot('suppliers.po_copied', { label: tr.reference }), variant: 'success' }) }
+    } catch { /* partage annulé */ }
+  }
+  const whatsapp = async (tr: TransferListRow) => window.open(`https://wa.me/?text=${encodeURIComponent(await shareText(tr))}`, '_blank', 'noopener')
 
-  const buildTransferEmailContent = (tr: any) => {
+  const menuFor = (tr: TransferListRow) => (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild><MoreButton /></DropdownMenuTrigger>
+      <DropdownMenuContent align="end" className="w-56">
+        {tr.status === 'sent' && <DropdownMenuItem onClick={() => setQrFor({ id: tr.id, reference: tr.reference })}><QrCode className="mr-2 h-4 w-4" />{t('action_show_qr')}</DropdownMenuItem>}
+        {tr.status === 'draft' && tr.can_manage_source && workflow && <DropdownMenuItem onClick={() => sendDraft(tr)}><Send className="mr-2 h-4 w-4" />{t('action_send')}</DropdownMenuItem>}
+        {tr.status === 'draft' && tr.can_manage_source && workflow && <DropdownMenuItem onClick={() => setDetailId(tr.id)}><FileEdit className="mr-2 h-4 w-4" />{t('action_edit')}</DropdownMenuItem>}
+        <DropdownMenuItem onClick={() => downloadNote(tr)}>{isCapacitor() ? <Share2 className="mr-2 h-4 w-4" /> : <Download className="mr-2 h-4 w-4" />}{t('action_download')}</DropdownMenuItem>
+        <DropdownMenuItem onClick={() => share(tr)}><Share2 className="mr-2 h-4 w-4" />{t('action_share')}</DropdownMenuItem>
+        <DropdownMenuItem onClick={() => setEmailFor(tr)}><Mail className="mr-2 h-4 w-4" />{t('action_email')}</DropdownMenuItem>
+        <DropdownMenuItem onClick={() => whatsapp(tr)}><MessageCircle className="mr-2 h-4 w-4" />{t('action_whatsapp')}</DropdownMenuItem>
+        {(tr.status === 'draft' || tr.status === 'sent') && tr.can_manage_source && (
+          <>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem className="text-destructive focus:text-destructive" onClick={() => cancelTransfer(tr)}><Ban className="mr-2 h-4 w-4" />{t('action_cancel')}</DropdownMenuItem>
+          </>
+        )}
+      </DropdownMenuContent>
+    </DropdownMenu>
+  )
+
+  // E-mail : objet et corps à copier, ou application de messagerie (assistant existant)
+  const emailContent = (tr: TransferListRow) => {
     const items = tr.stock_transfer_items || []
-    const subject = t('stock_transfers.email_subject', { reference: tr.reference, source: tr.source_shop_name, destination: tr.destination_shop_name })
-    const lines = items.map((it: any) => `- ${it.product_name} : ${it.quantity_sent} ${unitLabel(it.unit, it.quantity_sent)}`.trim())
+    const subject = tRoot('stock_transfers.email_subject', { reference: tr.reference, source: tr.source_shop_name, destination: tr.destination_shop_name })
     const body = [
-      t('stock_transfers.email_greeting'),
-      '',
-      t('stock_transfers.email_body', { reference: tr.reference, source: tr.source_shop_name, destination: tr.destination_shop_name }),
-      '',
-      t('stock_transfers.email_products_sent'),
-      ...lines,
-      '',
-      tr.notes ? t('stock_transfers.email_notes', { notes: tr.notes }) : '',
-      '',
-      t('stock_transfers.email_regards'),
-      tr.source_shop_name || 'StockShop',
-    ].filter(Boolean).join('\n')
+      tRoot('stock_transfers.email_greeting'), '',
+      tRoot('stock_transfers.email_body', { reference: tr.reference, source: tr.source_shop_name, destination: tr.destination_shop_name }), '',
+      tRoot('stock_transfers.email_products_sent'),
+      ...items.map(it => `- ${it.product_name} : ${it.quantity_sent} ${unitLabel((it as any).unit, it.quantity_sent)}`.trim()), '',
+      tRoot('stock_transfers.email_regards'), tr.source_shop_name || 'StockShop',
+    ].join('\n')
     return { subject, body }
   }
-
-  const copyToClipboard = async (text: string, label: string) => {
-    try {
-      await navigator.clipboard.writeText(text)
-      toast({ title: t('suppliers.po_copied', { label }), variant: 'success' })
-    } catch {
-      toast({ title: t('toast.error'), variant: 'destructive' })
-    }
+  const copy = async (text: string, label: string) => {
+    try { await navigator.clipboard.writeText(text); toast({ title: tRoot('suppliers.po_copied', { label }), variant: 'success' }) }
+    catch { toast({ title: tRoot('toast.error'), variant: 'destructive' }) }
   }
 
   if (!shop) return null
+  const destShops = userShops.filter(s => s.id !== create?.source?.id)
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between gap-2 flex-wrap">
-        <div className="relative flex-1 min-w-[200px]">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input
-            value={search}
-            onChange={e => setFilter({ search: e.target.value })}
-            placeholder={t('transfers.search_placeholder')}
-            className="pl-9 h-9"
-          />
+      {/* Compteurs : filtres rapides par statut */}
+      <div className="grid grid-cols-3 gap-2 sm:gap-3" role="group" aria-label={t('filter_status')}>
+        {([['all', kpis.all, Truck, 'text-stockshop-blue bg-stockshop-blue-muted dark:bg-blue-950/40 dark:text-blue-400', 'border-stockshop-blue/40'],
+           ['sent', kpis.in_transit, Truck, 'text-orange-600 bg-orange-50 dark:bg-orange-950/40 dark:text-orange-400', 'border-orange-300 dark:border-orange-800'],
+           ['received', kpis.received, CheckCircle2, 'text-green-600 bg-green-50 dark:bg-green-950/40 dark:text-green-400', 'border-green-300 dark:border-green-800']] as const).map(([k, n, Icon, iconCls, activeCls]) => (
+          <button key={k} type="button" onClick={() => setKpi(k)} aria-pressed={kpiActive === k} data-testid={`transfers-kpi-${k}`}
+            className={cn('flex min-h-[64px] items-center gap-2 rounded-xl border bg-card px-2.5 py-2 text-left shadow-sm transition-colors sm:gap-3 sm:px-4',
+              kpiActive === k ? activeCls : 'hover:bg-muted/40')}>
+            <span className={cn('hidden h-9 w-9 shrink-0 items-center justify-center rounded-full min-[380px]:flex', iconCls)}><Icon className="h-4 w-4" aria-hidden="true" /></span>
+            <span className="min-w-0">
+              <span className="block text-lg font-bold leading-tight tabular-nums text-foreground">{n}</span>
+              <span className="block truncate text-xs text-muted-foreground sm:text-sm">{k === 'all' ? t('kpi_all') : k === 'sent' ? t('kpi_in_transit') : t('kpi_received')}</span>
+            </span>
+          </button>
+        ))}
+      </div>
+
+      {/* Recherche, filtres, scan, création */}
+      <div className="flex flex-wrap items-center gap-2">
+        <div className="relative min-w-0 flex-1 basis-[200px]">
+          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+          <Input value={saved.search} onChange={e => setFilter({ search: e.target.value })} placeholder={t('search_placeholder')} className="h-11 pl-9" data-testid="transfers-search" />
         </div>
-        {canManage && destShopOptions.length > 0 && (
-          <Button variant="stockshop" size="sm" className="h-9 gap-1" onClick={openNewTransfer}>
-            <Plus className="h-4 w-4" />{t('transfers.new_transfer')}
+        <TransferFiltersButton count={activeFilterCount(filters)} onClick={() => setFiltersOpen(true)} />
+        {workflow && (
+          <Button variant="outline" className="h-11 shrink-0 gap-2 px-3" onClick={() => setScanOpen(true)} data-testid="transfers-scan" aria-label={t('scan_button')}>
+            <ScanLine className="h-4 w-4 shrink-0" /><span className="hidden sm:inline">{t('scan_button')}</span>
+          </Button>
+        )}
+        {canCreate && userShops.length > 1 && (
+          <Button variant="stockshop" className="h-11 w-full gap-2 sm:w-auto" onClick={openCreate} data-testid="transfers-new">
+            <Plus className="h-4 w-4" />{tRoot('transfers.new_transfer')}
           </Button>
         )}
       </div>
+      <TransferFilterChips value={filters} onChange={next => setFilter(next)} options={options} />
 
       {loading ? (
-        <div className="space-y-2">{[...Array(4)].map((_, i) => <Skeleton key={i} className="h-20" />)}</div>
-      ) : filteredTransfers.length === 0 ? (
-        <div className="flex h-32 items-center justify-center text-muted-foreground text-sm text-center px-6">
-          {transfers.length === 0 ? t('transfers.no_transfers') : t('transfers.no_search_results')}
+        <div className="space-y-3">{[...Array(3)].map((_, i) => <Skeleton key={i} className="h-44 rounded-xl" />)}</div>
+      ) : list.length === 0 ? (
+        <div className="flex h-32 items-center justify-center px-6 text-center text-sm text-muted-foreground">
+          {rows.length === 0 ? tRoot('transfers.no_transfers') : tRoot('transfers.no_search_results')}
         </div>
       ) : (
-        <div className="space-y-2">
-          {filteredTransfers.map(tr => {
-            // Mise en avant : la boutique de l'en-tête (une seule) ; en « Toutes les boutiques », aucune
-            const isSource = !scope.isAllShops && scope.shopIds.includes(tr.source_shop_id)
-            const isDestination = !scope.isAllShops && scope.shopIds.includes(tr.destination_shop_id)
-            // Actions : réception par la destination, annulation par la source — boutiques du périmètre affiché
-            const canReceiveHere = scope.shopIds.includes(tr.destination_shop_id)
-            const canCancelHere = scope.shopIds.includes(tr.source_shop_id)
-            const itemCount = (tr.stock_transfer_items || []).length
-            const isExpanded = expandedId === tr.id
-            return (
-              <div key={tr.id} className="rounded-lg border bg-card shadow-sm overflow-hidden">
-                <div
-                  role="button"
-                  tabIndex={0}
-                  className="w-full flex items-start justify-between gap-2 flex-wrap p-4 text-left hover:bg-muted/30 transition-colors cursor-pointer"
-                  onClick={() => setExpandedId(isExpanded ? null : tr.id)}
-                  onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setExpandedId(isExpanded ? null : tr.id) } }}
-                >
-                  <div className="min-w-0">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <p className="font-semibold text-sm">{tr.reference}</p>
-                      <span className={`text-[10px] font-medium rounded-full px-2 py-0.5 ${STATUS_STYLES[tr.status] || ''}`}>
-                        {t(`transfers.status_${tr.status}`)}
-                      </span>
-                    </div>
-                    <p className="text-xs text-muted-foreground mt-1 flex items-center gap-1.5">
-                      <span className={isSource ? 'font-medium text-foreground' : ''}>{tr.source_shop_name || shopName(tr.source_shop_id)}</span>
-                      <ArrowRight className="h-3 w-3 shrink-0" />
-                      <span className={isDestination ? 'font-medium text-foreground' : ''}>{tr.destination_shop_name || shopName(tr.destination_shop_id)}</span>
-                      <span>· {t('transfers.items_count', { count: itemCount })}</span>
-                    </p>
-                    <p className="text-[11px] text-muted-foreground/70 mt-0.5">
-                      {new Date(tr.created_at).toLocaleDateString(dateLocaleTag(locale), { day: 'numeric', month: 'short', year: 'numeric' })}
-                    </p>
-                  </div>
-                  <div className="flex items-center gap-1 shrink-0" onClick={e => e.stopPropagation()}>
-                    <Button variant="outline" size="sm" className="h-7 gap-1 text-xs" onClick={() => downloadTransferPdf(tr)}>
-                      {isCapacitor() ? <Share2 className="h-3 w-3" /> : <Download className="h-3 w-3" />}
-                      {isCapacitor() ? t('actions.share') : t('transfers.download_pdf')}
-                    </Button>
-                    <Button variant="outline" size="sm" className="h-7 gap-1 text-xs" onClick={() => setEmailTransfer(tr)}>
-                      <Mail className="h-3 w-3" />{t('suppliers.po_email_helper')}
-                    </Button>
-                    {tr.status === 'sent' && canReceiveHere && canManage && (
-                      <Button variant="stockshop" size="sm" className="h-7 gap-1 text-xs" onClick={() => openReceive(tr)}>
-                        <CheckCircle2 className="h-3 w-3" />{t('transfers.receive_button')}
-                      </Button>
-                    )}
-                    {isExpanded ? <ChevronDown className="h-4 w-4 text-muted-foreground ml-1" /> : <ChevronRight className="h-4 w-4 text-muted-foreground ml-1" />}
-                  </div>
-                </div>
-
-                {isExpanded && (
-                  <div className="border-t bg-muted/10 px-4 py-3">
-                    <div className="space-y-1.5 divide-y divide-border/50">
-                      {(tr.stock_transfer_items || []).map((it: any) => {
-                        const hasDiscrepancy = it.quantity_received != null && it.quantity_received !== it.quantity_sent
-                        return (
-                          <div key={it.id} className="text-sm pt-1.5 first:pt-0">
-                            <div className="flex items-center justify-between gap-2">
-                              <span className="truncate">{it.product_name}</span>
-                              <span className={`tabular-nums shrink-0 ${hasDiscrepancy ? 'text-amber-600 dark:text-amber-400 font-medium' : 'text-muted-foreground'}`}>
-                                {it.quantity_received != null ? `${it.quantity_received} / ${it.quantity_sent}` : `${it.quantity_sent}`} {unitLabel(it.unit, it.quantity_sent)}
-                              </span>
-                            </div>
-                            {hasDiscrepancy && (
-                              <p className="text-[11px] text-amber-600 dark:text-amber-400 mt-0.5">
-                                {it.discrepancy_category && t(`transfers.discrepancy_${it.discrepancy_category}`)}
-                                {it.discrepancy_detail ? ` — ${it.discrepancy_detail}` : ''}
-                              </p>
-                            )}
-                          </div>
-                        )
-                      })}
-                    </div>
-
-                    {tr.notes && (
-                      <p className="text-xs text-muted-foreground mt-3 pt-3 border-t">
-                        <span className="font-medium text-foreground/80">{t('transfers.notes_label')} </span>{tr.notes}
-                      </p>
-                    )}
-
-                    {tr.status === 'sent' && canCancelHere && canManage && (
-                      <div className="flex gap-2 pt-3 mt-3 border-t">
-                        <Button
-                          variant="outline" size="sm" className="h-8 gap-1.5 text-xs flex-1 text-destructive border-destructive/30 hover:bg-red-50 dark:hover:bg-red-950/40"
-                          loading={cancelling === tr.id}
-                          onClick={() => cancelTransfer(tr)}
-                        >
-                          <Ban className="h-3.5 w-3.5" />{t('actions.cancel')}
-                        </Button>
-                      </div>
-                    )}
-                  </div>
-                )}
-              </div>
-            )
-          })}
+        <div className="space-y-3" data-testid="transfers-list">
+          {list.map(tr => (
+            <TransferCard key={tr.id} tr={tr as TransferListRow} onOpen={() => setDetailId(tr.id)} onReceive={() => goReceive(tr)} menu={menuFor(tr as TransferListRow)} />
+          ))}
         </div>
       )}
 
-      {/* ── Nouveau transfert : panneau latéral, garde de fermeture ──────── */}
-      <AppDrawer
-        open={showNewDialog}
-        onOpenChange={open => { if (!open) setShowNewDialog(false) }}
-        category={newSourceShop ? t('transfers.from_shop', { name: newSourceShop.name }) : undefined}
-        title={t('transfers.new_transfer')}
-        icon={<Package className="h-4 w-4" />}
-        width="md"
-        dirty={!lastCreatedRef && (!!newDestShopId || newItems.length > 0 || !!newNotes.trim())}
-        testId="transfer-drawer"
-        footer={({ requestClose }) => lastCreatedRef ? (
-          <div className={FOOTER_ROW_CLASS}>
-            <Button variant="stockshop" className={FOOTER_PRIMARY_CLASS} onClick={() => setShowNewDialog(false)}>
-              {t('actions.close')}
-            </Button>
-          </div>
-        ) : (
-          <div className={FOOTER_ROW_CLASS}>
-            <Button type="button" variant="outline" className={FOOTER_CANCEL_CLASS} onClick={requestClose} disabled={creating}>
-              {t('actions.cancel')}
-            </Button>
-            <Button
-              variant="stockshop"
-              className={FOOTER_PRIMARY_CLASS}
-              onClick={submitNewTransfer}
-              loading={creating}
-              disabled={!newDestShopId || newItems.length === 0}
-            >
-              {t('transfers.send_button')}
-            </Button>
-          </div>
-        )}
-      >
-        <div>
-          {lastCreatedRef ? (
-            <div className="flex flex-col items-center text-center gap-3 py-6">
-              <CheckCircle2 className="h-10 w-10 text-green-600 dark:text-green-400" />
-              <p className="text-sm text-muted-foreground">{t('transfers.created_success_hint')}</p>
-              <p className="text-lg font-bold">{lastCreatedRef}</p>
-            </div>
-          ) : (
-            <>
-              <div className="space-y-1.5">
-                <Label>{t('transfers.destination_shop_label')} *</Label>
-                <Select value={newDestShopId} onValueChange={setNewDestShopId}>
-                  <SelectTrigger><SelectValue placeholder={t('form.select_placeholder')} /></SelectTrigger>
-                  <SelectContent>
-                    {destShopOptions.map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}
-                  </SelectContent>
-                </Select>
-              </div>
+      <TransferFiltersDrawer open={filtersOpen} onOpenChange={setFiltersOpen} value={filters} onApply={next => setFilter(next)} options={options} />
+      <TransferScanDialog open={scanOpen} onOpenChange={setScanOpen} activeShopId={scope.isAllShops ? null : scope.shopIds[0] ?? null} />
+      <TransferQrDialog transfer={qrFor} onOpenChange={open => { if (!open) setQrFor(null) }} />
+      <TransferDetailDrawer
+        id={detailId} onOpenChange={open => { if (!open) setDetailId(null) }} busy={busy}
+        onReceive={goReceive} onSend={sendDraft} onEdit={openEdit} onCancel={cancelTransfer} onShowQr={tr => setQrFor({ id: tr.id, reference: tr.reference })}
+      />
+      <TransferCreateDrawer
+        open={!!create} onOpenChange={open => { if (!open) setCreate(null) }}
+        source={create?.source ?? null} shops={destShops} workflow={workflow} draft={create?.draft ?? null}
+        onDone={({ reference, sent }) => {
+          toast({ title: sent ? tRoot('transfers.created_toast', { reference }) : tRoot('transfers.draft_saved_toast', { reference }), variant: 'success' })
+          fetchRows()
+        }}
+      />
 
-              <div className="space-y-1.5 mt-3">
-                <Label>{t('transfers.add_products_label')}</Label>
-                <div className="relative">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                  <Input
-                    value={newProductSearch}
-                    onChange={e => setNewProductSearch(e.target.value)}
-                    placeholder={t('transfers.search_own_product_placeholder')}
-                    className="pl-9 h-9"
-                  />
-                </div>
-                {newProductResults.length > 0 && (
-                  <div className="max-h-40 overflow-y-auto rounded-lg border bg-card divide-y">
-                    {newProductResults.slice(0, 20).map(p => (
-                      <button
-                        key={p.id}
-                        type="button"
-                        onClick={() => addNewItem(p)}
-                        className="w-full flex items-center justify-between px-3 py-2 text-sm hover:bg-accent transition-colors text-left"
-                      >
-                        <span className="truncate">{p.name}</span>
-                        <span className="text-xs text-muted-foreground shrink-0 ml-2">{t('transfers.available_short')}: {p.quantity}</span>
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </div>
-
-              {newItems.length > 0 && (
-                <div className="mt-3 space-y-1.5">
-                  {newItems.map(it => (
-                    <div key={it.product_id} className="flex items-center gap-2 rounded-lg border bg-card px-2.5 py-2">
-                      <div className="min-w-0 flex-1">
-                        <p className="text-sm truncate">{it.name}</p>
-                        <p className="text-[11px] text-muted-foreground">{t('transfers.available_short')}: {it.available} {unitLabel(it.unit, it.available)}</p>
-                      </div>
-                      <Input
-                        type="number" min={1} max={it.available} inputMode="numeric"
-                        value={it.quantity}
-                        onChange={e => setNewItems(prev => prev.map(x => x.product_id === it.product_id ? { ...x, quantity: e.target.value } : x))}
-                        className="w-16 h-8 text-center text-xs flex-shrink-0"
-                      />
-                      <button
-                        type="button"
-                        className="h-7 w-7 flex items-center justify-center rounded text-muted-foreground hover:text-destructive hover:bg-red-50 dark:hover:bg-red-950/40 transition-colors shrink-0"
-                        onClick={() => removeNewItem(it.product_id)}
-                      >
-                        <X className="h-3.5 w-3.5" />
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              )}
-
-              <div className="space-y-1.5 mt-3">
-                <Label>{t('transfers.notes_label')}</Label>
-                <textarea
-                  value={newNotes}
-                  onChange={e => setNewNotes(e.target.value)}
-                  rows={2}
-                  className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm resize-none"
-                />
-              </div>
-            </>
-          )}
-        </div>
-      </AppDrawer>
-
-      {/* ── Réception : panneau de formulaire ─────────────────────────────── */}
-      <FormDrawer
-        open={!!receivingTransfer}
-        onOpenChange={open => { if (!open) setReceivingTransfer(null) }}
-        title={t('transfers.receive_title')}
-        description={t('transfers.receive_hint')}
-        icon={<CheckCircle2 className="h-4 w-4" />}
-        width="md"
-        onSubmit={submitReceive}
-        submitting={receiving}
-        testId="receive-drawer"
-      >
-        {receivingTransfer && (
-          <>
-            <div>
-              <div className="space-y-3">
-                {(receivingTransfer.stock_transfer_items || []).map((item: any) => {
-                  const line = receiveLines[item.id]
-                  if (!line) return null
-                  const received = Number(line.quantity_received)
-                  const hasDiscrepancy = !isNaN(received) && received !== item.quantity_sent
-                  const matchResults = line.matchSearch.trim()
-                    ? products.filter(p => normalize(p.name).includes(normalize(line.matchSearch)))
-                    : []
-                  const matchedProduct = products.find(p => p.id === line.destination_product_id)
-                  return (
-                    <div key={item.id} className="rounded-lg border bg-card px-2.5 py-2 space-y-2">
-                      <div className="flex items-center justify-between gap-2">
-                        <div className="min-w-0 flex-1">
-                          <p className="text-sm truncate">{item.product_name}</p>
-                          <p className="text-[11px] text-muted-foreground">{t('transfers.sent_label')}: {item.quantity_sent} {unitLabel(item.unit, item.quantity_sent)}</p>
-                        </div>
-                        <Input
-                          type="number" min={0} inputMode="numeric"
-                          value={line.quantity_received}
-                          onChange={e => updateReceiveLine(item.id, { quantity_received: e.target.value })}
-                          className="w-20 h-9 text-center flex-shrink-0"
-                        />
-                      </div>
-
-                      <div className="space-y-1">
-                        <p className="text-[11px] text-muted-foreground">{t('transfers.match_product_label')}</p>
-                        {matchedProduct ? (
-                          <div className="flex items-center justify-between gap-2 rounded-md bg-muted/50 px-2 py-1.5">
-                            <span className="text-xs truncate">{matchedProduct.name}</span>
-                            <button
-                              type="button"
-                              className="text-[11px] text-stockshop-blue dark:text-blue-400 hover:underline shrink-0"
-                              onClick={() => updateReceiveLine(item.id, { destination_product_id: null, matchSearch: '' })}
-                            >
-                              {t('transfers.change_match')}
-                            </button>
-                          </div>
-                        ) : (
-                          <>
-                            <Input
-                              value={line.matchSearch}
-                              onChange={e => updateReceiveLine(item.id, { matchSearch: e.target.value })}
-                              placeholder={t('transfers.search_own_product_placeholder')}
-                              className="h-8 text-xs"
-                            />
-                            {matchResults.length > 0 && (
-                              <div className="max-h-28 overflow-y-auto rounded-md border divide-y">
-                                {matchResults.slice(0, 8).map(p => (
-                                  <button
-                                    key={p.id}
-                                    type="button"
-                                    onClick={() => updateReceiveLine(item.id, { destination_product_id: p.id, matchSearch: p.name })}
-                                    className="w-full text-left px-2 py-1.5 text-xs hover:bg-accent transition-colors truncate"
-                                  >
-                                    {p.name}
-                                  </button>
-                                ))}
-                              </div>
-                            )}
-                            {line.matchSearch.trim() && (
-                              <p className="text-[11px] text-muted-foreground">{t('transfers.no_match_will_create')}</p>
-                            )}
-                          </>
-                        )}
-                      </div>
-
-                      {hasDiscrepancy && (
-                        <div className="space-y-1.5 pt-1 border-t">
-                          <Select value={line.discrepancy_category} onValueChange={v => updateReceiveLine(item.id, { discrepancy_category: v })}>
-                            <SelectTrigger className="h-8 text-xs"><SelectValue placeholder={t('transfers.discrepancy_category_placeholder')} /></SelectTrigger>
-                            <SelectContent>
-                              {DISCREPANCY_CATEGORIES.map(cat => (
-                                <SelectItem key={cat} value={cat}>{t(`transfers.discrepancy_${cat}`)}</SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                          <Input
-                            value={line.discrepancy_detail}
-                            onChange={e => updateReceiveLine(item.id, { discrepancy_detail: e.target.value })}
-                            placeholder={t('transfers.discrepancy_detail_placeholder')}
-                            className="h-8 text-xs"
-                          />
-                        </div>
-                      )}
-                    </div>
-                  )
-                })}
-              </div>
-            </div>
-          </>
-        )}
-      </FormDrawer>
-
-      {/* ── Email ─────────────────────────────────────────────────────────── */}
-      <PremiumDialog
-        open={!!emailTransfer}
-        onOpenChange={open => { if (!open) setEmailTransfer(null) }}
-        title={t('suppliers.po_email_helper')}
-        icon={<Mail className="h-4 w-4" />}
-        maxWidth="max-w-lg"
-      >
-        {emailTransfer && (() => {
-          const { subject, body } = buildTransferEmailContent(emailTransfer)
-          const mailtoHref = `mailto:?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`
+      {/* E-mail : assistant existant (objet et corps à copier, ou application de messagerie) */}
+      <PremiumDialog open={!!emailFor} onOpenChange={open => { if (!open) setEmailFor(null) }} title={tRoot('suppliers.po_email_helper')} icon={<Mail className="h-4 w-4" />} maxWidth="max-w-lg">
+        {emailFor && (() => {
+          const { subject, body } = emailContent(emailFor)
           return (
             <>
               <PremiumDialogBody>
-                <p className="text-xs text-muted-foreground">
-                  {isCapacitor() ? t('suppliers.po_email_hint_mobile') : t('suppliers.po_email_hint')}
-                </p>
-
-                <div className="space-y-1.5 mt-3">
-                  <div className="flex items-center justify-between">
-                    <Label>{t('suppliers.po_email_subject')}</Label>
-                    <button className="flex items-center gap-1 text-xs text-stockshop-blue dark:text-blue-400 hover:underline" onClick={() => copyToClipboard(subject, t('suppliers.po_email_subject'))}>
-                      <Copy className="h-3 w-3" />{t('suppliers.po_copy')}
-                    </button>
-                  </div>
+                <p className="text-xs text-muted-foreground">{isCapacitor() ? tRoot('suppliers.po_email_hint_mobile') : tRoot('suppliers.po_email_hint')}</p>
+                <div className="mt-3 space-y-1.5">
+                  <div className="flex items-center justify-between"><Label>{tRoot('suppliers.po_email_subject')}</Label>
+                    <button className="flex items-center gap-1 text-xs text-stockshop-blue hover:underline dark:text-blue-400" onClick={() => copy(subject, tRoot('suppliers.po_email_subject'))}><Copy className="h-3 w-3" />{tRoot('suppliers.po_copy')}</button></div>
                   <Input readOnly value={subject} onFocus={e => e.target.select()} />
                 </div>
-
-                <div className="space-y-1.5 mt-3">
-                  <div className="flex items-center justify-between">
-                    <Label>{t('suppliers.po_email_body')}</Label>
-                    <button className="flex items-center gap-1 text-xs text-stockshop-blue dark:text-blue-400 hover:underline" onClick={() => copyToClipboard(body, t('suppliers.po_email_body'))}>
-                      <Copy className="h-3 w-3" />{t('suppliers.po_copy')}
-                    </button>
-                  </div>
-                  <textarea
-                    readOnly
-                    value={body}
-                    onFocus={e => e.target.select()}
-                    rows={10}
-                    className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm resize-none"
-                  />
+                <div className="mt-3 space-y-1.5">
+                  <div className="flex items-center justify-between"><Label>{tRoot('suppliers.po_email_body')}</Label>
+                    <button className="flex items-center gap-1 text-xs text-stockshop-blue hover:underline dark:text-blue-400" onClick={() => copy(body, tRoot('suppliers.po_email_body'))}><Copy className="h-3 w-3" />{tRoot('suppliers.po_copy')}</button></div>
+                  <textarea readOnly value={body} onFocus={e => e.target.select()} rows={9} className="w-full resize-none rounded-md border border-input bg-background px-3 py-2 text-sm" />
                 </div>
               </PremiumDialogBody>
-              <PremiumDialogFooter onCancel={() => setEmailTransfer(null)} cancelLabel={t('actions.cancel')}>
-                <Button variant="stockshop" className="flex-1 h-11 rounded-lg font-semibold min-w-0 px-2" asChild>
-                  <a href={mailtoHref} className="min-w-0">
-                    <Mail className="h-4 w-4 mr-1.5 flex-shrink-0" /><span className="truncate text-[13px] sm:text-sm">{t('suppliers.po_open_mail_app')}</span>
-                  </a>
+              <PremiumDialogFooter onCancel={() => setEmailFor(null)} cancelLabel={tRoot('actions.cancel')}>
+                <Button variant="stockshop" className="h-11 min-w-0 flex-1 rounded-lg px-2 font-semibold" asChild>
+                  <a href={`mailto:?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`} className="min-w-0"><Mail className="mr-1.5 h-4 w-4 flex-shrink-0" /><span className="truncate">{tRoot('suppliers.po_open_mail_app')}</span></a>
                 </Button>
               </PremiumDialogFooter>
             </>

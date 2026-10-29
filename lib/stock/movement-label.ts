@@ -37,7 +37,7 @@ export interface MovementInput {
   inventory_count?: boolean | null
 }
 
-const TYPE_LABEL: Record<string, string> = { in: 'label_entry', sale: 'label_sale', out: 'label_exit', adjustment: 'label_adjustment' }
+const TYPE_LABEL: Record<string, string> = { in: 'label_entry', sale: 'label_sale', out: 'label_exit', adjustment: 'label_adjustment', transit_loss: 'label_transfer_missing' }
 const INVENTORY_LABEL: Record<string, string> = {
   reason_inventory_loss: 'label_loss',
   reason_inventory_damage: 'label_damage',
@@ -77,6 +77,9 @@ export function describeMovement(m: MovementInput): MovementView {
     case 'reason_transfer_cancelled':
       // Le stock revient dans la boutique qui avait envoyé le transfert
       return view('label_transfer_cancelled', { raw: d.params.ref }, { kind: 'transfer', ref: d.params.ref, direction: 'out', otherShop: '', cancelled: true })
+    case 'reason_transfer_missing':
+      // Unités manquantes à la réception d'un transfert : écart enregistré à la source, aucun stock ne bouge
+      return view('label_transfer_missing', { raw: d.params.ref }, { kind: 'transfer', ref: d.params.ref, direction: 'out', otherShop: '' })
     case 'reason_batch_corrected':
     case 'reason_batch_deleted': {
       const action = d.key === 'reason_batch_deleted' ? 'deleted' : 'corrected'

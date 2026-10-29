@@ -12,7 +12,7 @@ export type MovementReason =
   | { key: 'reason_restock_from'; params: { name: string } }
   | { key: 'reason_transfer_out' | 'reason_transfer_in'; params: { ref: string; shop: string } }
   | { key: 'reason_inventory_other'; params: { detail: string } }
-  | { key: 'reason_transfer_cancelled'; params: { ref: string } }
+  | { key: 'reason_transfer_cancelled' | 'reason_transfer_missing'; params: { ref: string } }
   // Lot corrigé ou supprimé à la main (fiche produit) ; cause connue, ou null avec le texte enregistré
   | { key: 'reason_batch_corrected' | 'reason_batch_deleted'; params: { detail: string }; cause: 'correction' | 'loss' | 'damage' | 'expiry' | null }
   | { key: null; raw: string }
@@ -42,6 +42,8 @@ export function describeMovementReason(reason: string | null | undefined): Movem
   if (raw === 'Restock' || raw === 'Restock from supplier') return { key: 'reason_restock' }
   if ((m = raw.match(/^Restock from\s+(\S.*)$/))) return { key: 'reason_restock_from', params: { name: m[1] } }
   if ((m = raw.match(/^Réception\s+(\S+)$/))) return { key: 'reason_po_received', params: { ref: m[1] } }
+  // Migration 188 : unités manquantes à la réception, écart enregistré à la source (aucun stock ne bouge)
+  if ((m = raw.match(/^Transfert\s+(\S+)\s+:\s+manquant à la réception$/))) return { key: 'reason_transfer_missing', params: { ref: m[1] } }
   if ((m = raw.match(/^Transfert\s+(\S+)\s+vers\s+(\S.*)$/))) return { key: 'reason_transfer_out', params: { ref: m[1], shop: m[2] } }
   if ((m = raw.match(/^Transfert\s+(\S+)\s+depuis\s+(\S.*)$/))) return { key: 'reason_transfer_in', params: { ref: m[1], shop: m[2] } }
   if ((m = raw.match(/^Annulation transfert\s+(\S+)$/))) return { key: 'reason_transfer_cancelled', params: { ref: m[1] } }

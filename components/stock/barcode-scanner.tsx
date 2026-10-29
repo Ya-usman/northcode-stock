@@ -9,14 +9,20 @@ import { NotFoundException } from '@zxing/library'
 interface Props {
   onDetected: (code: string) => void
   onClose: () => void
+  /** Lecture en continu (réception d'un transfert : un scan par article) ; le même code n'est relu qu'après 1,2 s */
+  continuous?: boolean
 }
 
-export function BarcodeScanner({ onDetected, onClose }: Props) {
+export function BarcodeScanner({ onDetected, onClose, continuous = false }: Props) {
   const t = useTranslations('barcode_scanner')
   const videoRef = useRef<HTMLVideoElement>(null)
   const controlsRef = useRef<{ stop: () => void } | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [ready, setReady] = useState(false)
+  // Dernière fonction reçue : le flux caméra n'est pas relancé à chaque rendu du parent
+  const detectedRef = useRef(onDetected)
+  detectedRef.current = onDetected
+  const lastRef = useRef<{ code: string; at: number } | null>(null)
 
   useEffect(() => {
     const reader = new BrowserMultiFormatReader()
@@ -26,7 +32,15 @@ export function BarcodeScanner({ onDetected, onClose }: Props) {
       videoRef.current!,
       (result, err) => {
         if (result) {
-          onDetected(result.getText())
+          const code = result.getText()
+          if (continuous) {
+            const now = Date.now()
+            if (lastRef.current && lastRef.current.code === code && now - lastRef.current.at < 1200) return
+            lastRef.current = { code, at: now }
+            detectedRef.current(code)
+            return
+          }
+          detectedRef.current(code)
           controlsRef.current?.stop()
           return
         }
@@ -50,7 +64,7 @@ export function BarcodeScanner({ onDetected, onClose }: Props) {
     return () => {
       controlsRef.current?.stop()
     }
-  }, [onDetected, t])
+  }, [continuous, t])
 
   return (
     <div className="mt-2 rounded-xl overflow-hidden border border-border relative bg-black">

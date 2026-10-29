@@ -211,6 +211,8 @@ export default function SettingsPage({ params: { locale } }: { params: { locale:
     { key: 'movements',     label: t('settings.perm_movements'),     icon: <ArrowLeftRight className="h-4 w-4" /> },
     { key: 'categories',    label: t('settings.perm_categories'),    icon: <Tag className="h-4 w-4" /> },
     { key: 'suppliers',     label: t('settings.perm_suppliers'),     icon: <Truck className="h-4 w-4" /> },
+    // Transferts entre boutiques (décision du 29 oct. 2026) : le propriétaire décide qui peut envoyer / réceptionner
+    { key: 'transfers',     label: t('settings.perm_transfers'),     icon: <ArrowLeftRight className="h-4 w-4" /> },
     { key: 'inventory_count', label: t('settings.perm_inventory_count'), icon: <ClipboardCheck className="h-4 w-4" /> },
     { key: 'reports',        label: t('settings.perm_reports'),        icon: <BarChart2 className="h-4 w-4" /> },
     { key: 'expenses',       label: t('settings.perm_expenses'),       icon: <Receipt className="h-4 w-4" /> },

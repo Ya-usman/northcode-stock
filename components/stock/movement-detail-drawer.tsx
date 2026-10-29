@@ -122,7 +122,7 @@ export function MovementDetailDrawer({ movement, onClose, showShop, onViewProduc
       presetPersistedFilters('purchase_orders', shop?.id, { search: found.ref, status: '', dateFrom: '', dateTo: '' })
       router.push(`/${locale}/suppliers?view=purchase_orders`)
     } else {
-      presetPersistedFilters('transfers', filterScope, { search: found.ref })
+      presetPersistedFilters('transfers_v1', filterScope, { search: found.ref, statuses: [], sources: [], destinations: [], products: [], creators: [], period: 'all' })
       router.push(`/${locale}/stock/transfers`)
     }
   }
