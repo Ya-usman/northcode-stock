@@ -36,10 +36,36 @@ export function canApproveExtension(role: string | null | undefined, stored: Sto
 export async function approverIds(admin: any, shopId: string): Promise<string[]> {
   const [{ data: members }, { data: shop }] = await Promise.all([
     admin.from('shop_members').select('user_id, role').eq('shop_id', shopId).eq('is_active', true),
-    admin.from('shops').select('role_permissions').eq('id', shopId).maybeSingle(),
+    admin.from('shops').select('role_permissions, owner_id').eq('id', shopId).maybeSingle(),
   ])
   const stored = (shop?.role_permissions as StoredPermissions | null) ?? null
-  return ((members || []) as { user_id: string; role: string }[]).filter(m => canApproveExtension(m.role, stored)).map(m => m.user_id)
+  const ids = ((members || []) as { user_id: string; role: string }[]).filter(m => canApproveExtension(m.role, stored)).map(m => m.user_id)
+  // Le propriétaire est prévenu même sans adhésion dans shop_members
+  if (shop?.owner_id && !ids.includes(shop.owner_id)) ids.push(shop.owner_id)
+  return ids
+}
+
+/** Colonnes de la boutique renvoyées avec chaque demande (calcul de la nouvelle fermeture côté écran) */
+export const REQUEST_SHOP_COLUMNS = 'id, name, hours_enabled, closing_time, hours_extension_until, timezone, country, hours_extension_count, hours_extension_count_date, role_permissions'
+
+/**
+ * Boutiques dont cette personne peut accepter les demandes, TOUTES boutiques confondues (pas seulement la boutique
+ * active) : adhésions actives + boutiques dont elle est propriétaire, horaires activés, droit vérifié boutique par
+ * boutique (même règle que la route /decide). Le super admin n'y voit que ses propres boutiques.
+ */
+export async function approverShops(admin: any, userId: string): Promise<any[]> {
+  const [{ data: members }, { data: owned }, { data: profile }] = await Promise.all([
+    admin.from('shop_members').select('shop_id, role').eq('user_id', userId).eq('is_active', true),
+    admin.from('shops').select('id').eq('owner_id', userId),
+    admin.from('profiles').select('role, shop_id').eq('id', userId).maybeSingle(),
+  ])
+  const roles = new Map<string, string>()
+  for (const m of (members || []) as { shop_id: string; role: string }[]) roles.set(m.shop_id, m.role)
+  for (const o of (owned || []) as { id: string }[]) roles.set(o.id, 'owner')
+  if (profile?.role === 'owner' && profile.shop_id && !roles.has(profile.shop_id)) roles.set(profile.shop_id, 'owner')
+  if (!roles.size) return []
+  const { data: shops } = await admin.from('shops').select(REQUEST_SHOP_COLUMNS).in('id', Array.from(roles.keys())).eq('hours_enabled', true)
+  return ((shops || []) as any[]).filter(s => canApproveExtension(roles.get(s.id), (s.role_permissions as StoredPermissions | null) ?? null))
 }
 
 export interface ShopHoursRow {

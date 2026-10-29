@@ -42,5 +42,18 @@ ok(ms === 30 * 60_000, `Douala 19:30 locale : fermeture dans 30 min (${ms / 60_0
 const msExt = H.getMsUntilClosing(true, '08:00', '20:00', null, '2026-10-29T19:30:00Z', at('2026-10-29T18:30:00Z'), 'Africa/Douala')
 ok(msExt === 60 * 60_000, `avec prolongation à 20:30 : fermeture dans 60 min (${msExt / 60_000} min)`)
 
+// Carte de demande : « Accepter jusqu'à HH:MM » = même calcul que grant_hours_extension (migration 186)
+const P = (nowIso, min, ext = null) => H.projectedExtensionEnd('20:00:00', ext, min, at(nowIso), 'Africa/Douala')
+const hm = r => r && new Date(r.until).toISOString().slice(11, 16)
+ok(hm(P('2026-10-29T18:30:00Z', 60)) === '20:00', 'avant la fermeture (19:30) : +1 h à partir de 20:00, soit 21:00 locale (20:00 UTC)')
+ok(hm(P('2026-10-29T19:35:00Z', 60)) === '20:35', 'après la fermeture (20:35) : +1 h à partir de MAINTENANT, soit 21:35 locale')
+ok(hm(P('2026-10-29T19:35:00Z', 30, '2026-10-29T20:00:00Z')) === '20:30', 'prolongation en cours jusqu’à 21:00 : +30 min à partir de 21:00')
+const cap = P('2026-10-29T22:00:00Z', 120)
+ok(hm(cap) === '22:59' && cap.capped === true, 'à 23:00 locale, +2 h : plafond 23:59 locale, signalé')
+ok(P('2026-10-29T22:59:00Z', 30) === null, 'à 23:59 locale : trop tard (la base refuserait, P0054)')
+ok(H.projectedExtensionEnd(null, null, 60, at('2026-10-29T19:35:00Z'), 'Africa/Douala') === null, 'heure de fermeture absente : aucun calcul')
+const ec = H.effectiveCloseInstant('20:00:00', null, at('2026-10-29T19:35:00Z'), 'Africa/Douala')
+ok(new Date(ec).toISOString().slice(11, 16) === '19:00', 'fermeture effective du jour : 20:00 locale (19:00 UTC)')
+
 console.log(`${pass} réussis, ${fail} échec(s)`)
 process.exit(fail ? 1 : 0)

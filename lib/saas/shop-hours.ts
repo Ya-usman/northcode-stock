@@ -171,3 +171,36 @@ export function shopClosedPhase(
   if (openMinutes !== null && localMinutes(now, timeZone) < openMinutes) return 'before_open'
   return 'after_close'
 }
+
+// ── Carte de demande de prolongation (29 oct. 2026) ────────────────────────────────────────────────────────────
+// Même calcul que grant_hours_extension (migration 186) pour afficher « Accepter jusqu'à HH:MM » AVANT d'accepter :
+// départ = la plus tardive de (fermeture du jour, prolongation en cours, maintenant), plafond 23:59 à l'heure de la
+// boutique. null si trop tard pour prolonger aujourd'hui (la base refuserait : P0054) ou horaires invalides.
+
+/** Fermeture effective du jour (horaire normal ou prolongation en cours), instant en ms. null si horaires invalides. */
+export function effectiveCloseInstant(
+  closingTime: string | null | undefined,
+  extensionUntil: string | null | undefined,
+  now: Date = new Date(),
+  timeZone?: string | null,
+): number | null {
+  const closeMinutes = parseTimeToMinutes(closingTime)
+  if (closeMinutes === null) return null
+  return resolveCloseInstant(now, closeMinutes, extensionUntil, timeZone)
+}
+
+export function projectedExtensionEnd(
+  closingTime: string | null | undefined,
+  extensionUntil: string | null | undefined,
+  minutes: number,
+  now: Date = new Date(),
+  timeZone?: string | null,
+): { until: number; capped: boolean } | null {
+  const close = effectiveCloseInstant(closingTime, extensionUntil, now, timeZone)
+  if (close === null) return null
+  const lastMinute = todaysInstant(now, 23 * 60 + 59, timeZone)
+  const base = Math.max(close, now.getTime())
+  if (base >= lastMinute) return null
+  const wanted = base + minutes * 60_000
+  return { until: Math.min(wanted, lastMinute), capped: wanted > lastMinute }
+}

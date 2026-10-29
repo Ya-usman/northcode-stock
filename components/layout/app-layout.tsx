@@ -27,7 +27,7 @@ import { ShopPickerProvider } from '@/components/shops/shop-picker'
 import { useAnnouncements, appPath } from '@/lib/announcements/use-announcements'
 import { ShopClosedWall } from '@/components/saas/shop-closed-wall'
 import { ShopHoursCountdownBanner } from '@/components/saas/shop-hours-countdown-banner'
-import { ExtensionRequestsBanner } from '@/components/saas/extension-requests-banner'
+import { ExtensionRequestsBanner, ExtensionRequestsProvider } from '@/components/saas/extension-requests-banner'
 import { extensionsUsedToday } from '@/lib/saas/shop-hours'
 import { getTrialDaysLeft, hasActiveSubscription, isAccessAllowed, getGraceDaysLeft, isBetaPeriod } from '@/lib/saas/plans'
 import { isShopOpenNow } from '@/lib/saas/shop-hours'
@@ -440,15 +440,17 @@ export function AppLayout({ children, locale }: { children: React.ReactNode; loc
 
       <Sidebar locale={locale} role={roleInActiveShop ?? profile.role} profile={profile} onSignOut={handleSignOut} signingOut={signingOut} userEmail={user.email ?? ''} newNavPaths={whatsNew.newNavPaths} />
 
+      {/* Demandes de prolongation de TOUTES les boutiques où l'on peut accepter (propriétaire, droit « Prolonger »),
+          quelle que soit la boutique active ; une seule source pour la carte en haut de page et la cloche */}
+      <ExtensionRequestsProvider
+        enabled={accessAllowed}
+        onDecided={() => { refreshShop().catch(() => {}) }}
+      >
       <div className="sm:pl-64 flex flex-col min-h-screen">
         <OfflineBanner />
         <SlowLoadBanner />
         {showTrialBanner && <TrialBanner daysLeft={trialDaysLeft} locale={locale} />}
         {showGraceBanner && !isBillingPage && <GracePeriodBanner daysLeft={graceDaysLeft} locale={locale} />}
-        {/* Demandes de prolongation : pour le propriétaire et les personnes qui ont le droit « Prolonger » */}
-        {shop?.hours_enabled && (effectiveRole === 'owner' || canAccess('extend_hours')) && (
-          <ExtensionRequestsBanner shopId={shop.id} shopName={shop.name} />
-        )}
         {shop?.hours_enabled && shopOpen && (
           <ShopHoursCountdownBanner
             shopId={shop.id}
@@ -461,10 +463,13 @@ export function AppLayout({ children, locale }: { children: React.ReactNode; loc
             country={shop.country}
             timeZone={shop.timezone}
             canExtend={canAccess('extend_hours')}
+            onlyNearClosing={isExemptFromHours}
           />
         )}
 
         <Header title={title} locale={locale} onSignOut={handleSignOut} whatsNew={{ hasUnread: whatsNew.hasUnread, onOpen: openWhatsNew }} />
+
+        <ExtensionRequestsBanner />
 
         {profile.role === 'owner' && accessAllowed && !isBillingPage && (
           <PlanLimitAlert
@@ -483,6 +488,7 @@ export function AppLayout({ children, locale }: { children: React.ReactNode; loc
           <RouteGuard pathname={pathname}>{children}</RouteGuard>
         </main>
       </div>
+      </ExtensionRequestsProvider>
 
       <BottomNav locale={locale} role={roleInActiveShop ?? profile.role} onSignOut={handleSignOut} signingOut={signingOut} userEmail={user.email ?? ''} newNavPaths={whatsNew.newNavPaths} crispUnread={crispUnread} onOpenChat={handleOpenChat} />
 

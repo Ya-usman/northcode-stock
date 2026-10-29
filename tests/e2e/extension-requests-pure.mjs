@@ -167,5 +167,85 @@ db = setup(BOSS, 'owner', { rpcError: { code: 'P0054', message: 'Plus de prolong
 r = await call(X, 'POST', { shop_id: SHOP, minutes: 30 })
 ok(r.status === 400 && r.body.error === 'T:extension_too_late', 'trop tard (P0054) : message traduit au lieu du texte brut de la base')
 
+// ── 6. Demandes de TOUTES les boutiques où l'on peut accepter (carte et cloche, quelle que soit la boutique active) ──
+// Faux client à plusieurs boutiques : A possédée (owner_id), B adhésion manager SANS « Prolonger », C adhésion manager
+// AVEC « Prolonger », D possédée mais horaires désactivés.
+const SA = '6c3d4e5f-aaaa-4aaa-8aaa-aaaaaaaaaaaa', SB = '6c3d4e5f-bbbb-4bbb-8bbb-bbbbbbbbbbbb', SC = '6c3d4e5f-cccc-4ccc-8ccc-cccccccccccc', SD = '6c3d4e5f-dddd-4ddd-8ddd-dddddddddddd'
+const SHOPS = {
+  [SA]: { id: SA, name: 'Akwa', owner_id: BOSS, hours_enabled: true, closing_time: '20:00:00', hours_extension_until: null, timezone: 'Africa/Douala', country: 'CM', hours_extension_count: 0, hours_extension_count_date: null, role_permissions: null },
+  [SB]: { id: SB, name: 'Bastos', owner_id: 'autre', hours_enabled: true, closing_time: '20:00:00', hours_extension_until: null, timezone: 'Africa/Douala', country: 'CM', hours_extension_count: 0, hours_extension_count_date: null, role_permissions: null },
+  [SC]: { id: SC, name: 'Bonapriso', owner_id: 'autre', hours_enabled: true, closing_time: '21:00:00', hours_extension_until: null, timezone: 'Africa/Douala', country: 'CM', hours_extension_count: 1, hours_extension_count_date: null, role_permissions: { manager: { extend_hours: true } } },
+  [SD]: { id: SD, name: 'Deido', owner_id: BOSS, hours_enabled: false, closing_time: '20:00:00', hours_extension_until: null, timezone: 'Africa/Douala', country: 'CM', hours_extension_count: 0, hours_extension_count_date: null, role_permissions: null },
+}
+function inboxDb(st) {
+  const log = []
+  const from = table => {
+    const q = { table, op: 'select', filters: [], payload: null }
+    const has = (op, col) => q.filters.find(([o, c]) => o === op && c === col)
+    const run = () => {
+      log.push(q)
+      if (table === 'shop_members') return Promise.resolve({ data: st.members ?? [], error: null })
+      if (table === 'profiles') {
+        if (has('eq', 'id')) return Promise.resolve({ data: { role: st.profileRole ?? 'owner', shop_id: null }, error: null })
+        return Promise.resolve({ data: [{ id: EMP, full_name: 'Fatou' }, { id: 'e2', full_name: 'Moussa' }], error: null })
+      }
+      if (table === 'shops') {
+        if (has('eq', 'owner_id')) return Promise.resolve({ data: Object.values(SHOPS).filter(s => s.owner_id === has('eq', 'owner_id')[2]).map(s => ({ id: s.id })), error: null })
+        const ids = has('in', 'id')?.[2] ?? []
+        const onlyEnabled = has('eq', 'hours_enabled')
+        return Promise.resolve({ data: ids.map(id => SHOPS[id]).filter(s => s && (!onlyEnabled || s.hours_enabled)), error: null })
+      }
+      if (table === 'hours_extension_requests') {
+        if (st.missingTable) return Promise.resolve({ data: null, error: { code: '42P01', message: 'relation "hours_extension_requests" does not exist' } })
+        if (q.op === 'update') return Promise.resolve({ data: [], error: null })
+        const ids = has('in', 'shop_id')?.[2] ?? []
+        const all = [
+          { id: 'r-a', shop_id: SA, minutes: 60, message: 'client', status: 'pending', created_at: nowUtc.toISOString(), requested_by: EMP },
+          { id: 'r-b', shop_id: SB, minutes: 30, message: null, status: 'pending', created_at: nowUtc.toISOString(), requested_by: 'e2' },
+          { id: 'r-c', shop_id: SC, minutes: 120, message: null, status: 'pending', created_at: nowUtc.toISOString(), requested_by: 'e2' },
+        ]
+        return Promise.resolve({ data: all.filter(r => ids.includes(r.shop_id)), error: null })
+      }
+      return Promise.resolve({ data: null, error: null })
+    }
+    const f = op => (c, v) => { q.filters.push([op, c, v]); return b }
+    const b = {
+      select(c) { q.cols = c; return b }, update(p) { q.op = 'update'; q.payload = p; return b },
+      eq: f('eq'), in: f('in'), lt: f('lt'), gte: f('gte'), order() { return b }, limit() { return b },
+      single() { return run() }, maybeSingle() { return run() }, then(r, j) { return run().then(r, j) },
+    }
+    return b
+  }
+  return { log, from, rpc: async () => ({ data: null, error: null }) }
+}
+const H2 = await imp('lib/api/hours-extension.ts')
+const managerIn = [{ shop_id: SB, role: 'manager' }, { shop_id: SC, role: 'manager' }]
+let idb = inboxDb({ members: managerIn })
+const approvable = (await H2.approverShops(idb, BOSS)).map(s => s.name).sort()
+ok(approvable.join() === 'Akwa,Bonapriso', `boutiques où accepter : Akwa (propriétaire) et Bonapriso (droit « Prolonger ») ; pas Bastos (manager sans le droit) ni Deido (horaires désactivés) → ${approvable.join()}`)
+
+idb = inboxDb({ members: managerIn }); globalThis.__t = { db: idb, uid: BOSS, role: null, audit: [], push: [] }
+r = await call(R, 'GET', null, '?scope=approver')
+const got = (r.body.requests || []).map(x => x.id).sort().join()
+ok(r.status === 200 && r.body.approver === true && got === 'r-a,r-c', `lecture « toutes boutiques » : demandes d’Akwa et de Bonapriso, pas celle de Bastos → ${got}`)
+ok(r.body.shops?.[SC]?.name === 'Bonapriso' && r.body.shops[SC].closing_time === '21:00:00' && r.body.shops[SC].timezone === 'Africa/Douala' && !('role_permissions' in r.body.shops[SC]),
+   'chaque demande arrive avec les horaires de SA boutique (calcul « Accepter jusqu’à »), sans les réglages de droits')
+ok(r.body.requests.find(x => x.id === 'r-a')?.requester_name === 'Fatou', 'nom de la personne qui demande')
+ok(idb.log.some(q => q.table === 'hours_extension_requests' && q.op === 'update' && q.payload?.status === 'expired'), 'demandes dépassées passées à « expirée » au passage, sur ces boutiques seulement')
+
+idb = inboxDb({ members: [{ shop_id: SB, role: 'cashier' }], profileRole: 'cashier' }); globalThis.__t = { db: idb, uid: EMP, role: null, audit: [], push: [] }
+r = await call(R, 'GET', null, '?scope=approver')
+ok(r.status === 200 && r.body.approver === false && r.body.requests.length === 0 && !idb.log.some(q => q.table === 'hours_extension_requests'),
+   'caissier : rien à accepter nulle part, aucune demande lue')
+
+idb = inboxDb({ members: managerIn, missingTable: true }); globalThis.__t = { db: idb, uid: BOSS, role: null, audit: [], push: [] }
+r = await call(R, 'GET', null, '?scope=approver')
+ok(r.status === 200 && r.body.available === false && r.body.requests.length === 0, 'migration 186 non appliquée : lecture « toutes boutiques » indisponible, sans erreur')
+
+// Propriétaire prévenu même sans adhésion dans shop_members
+const ownerOnly = { log: [], from: t => { const b = { select() { return b }, eq() { return b }, maybeSingle: async () => ({ data: { role_permissions: null, owner_id: BOSS }, error: null }), then: (res, j) => Promise.resolve({ data: [{ user_id: EMP, role: 'cashier' }], error: null }).then(res, j) }; return b } }
+const ids = await H2.approverIds(ownerOnly, SA)
+ok(ids.join() === BOSS, 'notification : le propriétaire est prévenu même sans adhésion dans l’équipe')
+
 console.log(`${pass} réussis, ${fail} échec(s)`)
 process.exit(fail ? 1 : 0)

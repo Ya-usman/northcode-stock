@@ -9,6 +9,7 @@ import { usePathname, useRouter } from 'next/navigation'
 import { useAuthContext } from '@/lib/contexts/auth-context'
 import { ShopSelector } from '@/components/layout/shop-selector'
 import { NotificationBell } from '@/components/layout/notification-bell'
+import { ShopStatusPill } from '@/components/layout/shop-status-pill'
 import { useTheme } from '@/lib/hooks/use-theme'
 import { WhatsNewButton } from '@/components/announcements/whats-new'
 
@@ -43,16 +44,22 @@ export function Header({ title, locale, whatsNew }: HeaderProps) {
       {/* Mobile: StockShop logo */}
       <img src="/logo-icon-t.png" alt="StockShop" className="h-10 w-10 sm:hidden flex-shrink-0 dark:brightness-0 dark:invert" />
 
-      <h1 className="flex-1 font-semibold text-base text-foreground truncate">{title}</h1>
+      <div className="flex min-w-max flex-1 items-center gap-2 sm:min-w-0">
+        {/* Nom de la page : ordinateur seulement ; sur téléphone, la place va à l'état de la boutique (gardé pour les lecteurs d'écran) */}
+        <h1 className="sr-only sm:not-sr-only sm:min-w-0 sm:truncate sm:font-semibold sm:text-base sm:text-foreground">{title}</h1>
+        {/* État de la boutique (propriétaire) : ouverte jusqu'à quand, ou fermée jusqu'à quand */}
+        <ShopStatusPill locale={locale} />
+      </div>
 
-      <div className="flex items-center gap-1">
+      {/* min-w-0 : sur téléphone, c'est le nom de la boutique (sélecteur) qui se raccourcit, jamais de défilement horizontal */}
+      <div className="flex min-w-0 items-center gap-1">
         {/* Contexte boutique — téléphone seulement (sur ordinateur, il est dans la barre latérale).
             Texte court toujours visible (« Akwa ▾ » / « Toutes ▾ ») dans cet en-tête collant : le
             contexte ne disparaît jamais au défilement ; noms complets dans la liste. Comptes à
             plusieurs boutiques uniquement (rien à choisir sinon). */}
-        <ShopSelector variant="compact" iconOnly className="flex sm:hidden w-auto" />
+        <ShopSelector variant="compact" iconOnly className="flex min-w-0 sm:hidden w-auto" />
 
-        {/* Messages du support — visible seulement pour le owner (voir notification-bell.tsx) */}
+        {/* Centre de notifications : demandes de prolongation et messages du support (voir notification-bell.tsx) */}
         <NotificationBell />
 
         {whatsNew && <WhatsNewButton hasUnread={whatsNew.hasUnread} onOpen={whatsNew.onOpen} />}

@@ -584,6 +584,7 @@ export function ShopInspector({ shopId, locale, adminEmail, tier }: Props) {
                     {n.read_at
                       ? <span className="text-xs text-green-500">Lu ✓</span>
                       : <span className="text-xs text-muted-foreground">Non lu</span>}
+                    {n.dismissed_at && <span className="text-xs text-muted-foreground">Masqué par le propriétaire</span>}
                   </div>
                   <p className="text-sm font-medium text-foreground">{n.title}</p>
                   <p className="text-xs text-muted-foreground mt-0.5">{n.message}</p>

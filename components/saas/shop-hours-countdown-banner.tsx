@@ -23,6 +23,8 @@ interface ShopHoursCountdownBannerProps {
   country?: string | null
   /** Fuseau de la boutique (shops.timezone) : le compte à rebours suit l'heure de la boutique */
   timeZone?: string | null
+  /** Propriétaire (pastille dans l'en-tête) : bandeau seulement dans les 30 dernières minutes */
+  onlyNearClosing?: boolean
 }
 
 const PRESET_MINUTES = [15, 30, 45, 60] as const
@@ -42,7 +44,7 @@ function formatDuration(ms: number): string {
 // qui n'est pas non plus dismissible.
 export function ShopHoursCountdownBanner({
   shopId, hoursEnabled, openingTime, closingTime, manualOverride,
-  extensionUntil, extensionCount, canExtend, country, timeZone,
+  extensionUntil, extensionCount, canExtend, country, timeZone, onlyNearClosing = false,
 }: ShopHoursCountdownBannerProps) {
   const t = useTranslations('shop_hours')
   const tRoot = useTranslations()
@@ -63,6 +65,8 @@ export function ShopHoursCountdownBanner({
 
   const remaining = Math.max(0, 2 - extensionCount)
   const urgency = msLeft <= CRITICAL_THRESHOLD_MS ? 'critical' : msLeft <= WARNING_THRESHOLD_MS ? 'warning' : 'normal'
+  // Propriétaire : l'état de la boutique est déjà dans l'en-tête (pastille) ; le bandeau ne sert qu'à l'approche de la fermeture
+  if (onlyNearClosing && urgency === 'normal') return null
   // Only offer to extend once closing is actually approaching (same
   // threshold as the banner's own warning color) — showing it all day,
   // hours before closing, invited spending one of the 2 daily extensions

@@ -5,7 +5,7 @@ import { getApiTranslator, getLocaleTranslator } from '@/lib/api/i18n'
 import { writeAuditLog, getClientIp } from '@/lib/api/audit'
 import { sendUsersPush } from '@/lib/api/push-server'
 import {
-  REQUEST_MINUTES, HOURS_COLUMNS, approverIds, canApproveExtension, phaseOf, requestsUnavailable, type ShopHoursRow,
+  REQUEST_MINUTES, HOURS_COLUMNS, approverIds, approverShops, canApproveExtension, phaseOf, requestsUnavailable, type ShopHoursRow,
 } from '@/lib/api/hours-extension'
 import type { StoredPermissions } from '@/lib/permissions'
 
@@ -28,11 +28,47 @@ async function context(request: Request, shopId: string | null) {
 const expireStale = (admin: any, shopId: string) => admin.from('hours_extension_requests')
   .update({ status: 'expired' }).eq('shop_id', shopId).eq('status', 'pending').lt('expires_at', new Date().toISOString())
 
+// GET /api/shops/extension-requests?scope=approver — demandes en attente de TOUTES les boutiques où l'on peut
+// accepter (carte en haut de page et cloche, quelle que soit la boutique active), avec les horaires de chaque boutique.
+async function approverInbox(t: (key: any) => string) {
+  const { user } = await getAuthedUser()
+  if (!user) return NextResponse.json({ error: t('not_authenticated') }, { status: 401 })
+  const admin = await createAdminClient() as any
+  const shops = await approverShops(admin, user.id)
+  if (!shops.length) return NextResponse.json({ approver: false, available: true, requests: [], shops: {} })
+  const ids = shops.map(s => s.id)
+  const exp = await admin.from('hours_extension_requests')
+    .update({ status: 'expired' }).in('shop_id', ids).eq('status', 'pending').lt('expires_at', new Date().toISOString())
+  if (exp.error) {
+    if (requestsUnavailable(exp.error)) return NextResponse.json({ approver: true, available: false, requests: [], shops: {} })
+    throw new Error(exp.error.message)
+  }
+  const { data: pending, error } = await admin.from('hours_extension_requests').select(`${REQUEST_COLUMNS}, shop_id`)
+    .in('shop_id', ids).eq('status', 'pending').order('created_at', { ascending: true })
+  if (error) throw new Error(error.message)
+  const people = Array.from(new Set(((pending || []) as any[]).map(r => r.requested_by)))
+  const names: Record<string, string> = {}
+  if (people.length) {
+    const { data } = await admin.from('profiles').select('id, full_name').in('id', people)
+    for (const p of data || []) names[p.id] = p.full_name
+  }
+  const byId: Record<string, any> = {}
+  for (const s of shops) {
+    const { role_permissions, ...rest } = s
+    byId[s.id] = rest
+  }
+  return NextResponse.json({
+    approver: true, available: true, shops: byId,
+    requests: ((pending || []) as any[]).map(r => ({ ...r, requester_name: names[r.requested_by] ?? null })),
+  })
+}
+
 // GET /api/shops/extension-requests?shop_id — état pour l'écran « boutique fermée » (ma dernière demande, moment de la
 // fermeture) et, pour qui peut accepter, les demandes en attente de la boutique.
 export async function GET(request: Request) {
   const t = getApiTranslator(request)
   try {
+    if (new URL(request.url).searchParams.get('scope') === 'approver') return await approverInbox(t)
     const c = await context(request, new URL(request.url).searchParams.get('shop_id'))
     if ('error' in c) return NextResponse.json({ error: t(c.error) }, { status: c.status })
     const { user, role, admin, shop } = c

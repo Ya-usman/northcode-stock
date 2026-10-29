@@ -127,7 +127,7 @@ export function ShopSelector({ variant, allowAllShops = true, className, onShopC
           aria-expanded={open}
           title={currentLabel}
           data-testid="header-shop-context"
-          className="tap-target flex max-w-[8.5rem] items-center gap-1 rounded-md px-2 text-sm font-medium text-foreground transition-colors hover:bg-accent"
+          className="tap-target flex min-w-0 max-w-[8.5rem] items-center gap-1 rounded-md px-2 text-sm font-medium text-foreground transition-colors hover:bg-accent"
         >
           {showingAll
             ? <Layers aria-hidden className="h-4 w-4 shrink-0 text-stockshop-blue dark:text-blue-400" />
