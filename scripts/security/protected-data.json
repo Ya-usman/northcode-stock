@@ -35,6 +35,7 @@
   ],
   "serverFiles": {
     "lib/stock/pipeline-load.ts": "lecture serveur partagée : le client (rôle de service) est fourni par la route appelante",
+    "lib/stock/replenishment-load.ts": "lecture serveur du réapprovisionnement : appelée seulement par /api/stock/replenishment, avec le client de service fourni par la route",
     "lib/reports/evening-report.ts": "résumé du soir : appelé par la tâche planifiée, avec le client de service fourni par la route"
   }
 }
