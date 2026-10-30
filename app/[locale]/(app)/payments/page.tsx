@@ -49,6 +49,7 @@ import { useRefetchOnVisible } from '@/lib/hooks/use-refetch-on-visible'
 import { useShopLoadTimeout } from '@/lib/hooks/use-shop-load-timeout'
 import { LoadErrorFallback } from '@/components/ui/load-error-fallback'
 import { SegmentedTabs } from '@/components/ui/segmented-tabs'
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 
 interface UnpaidSale {
   id: string
@@ -1624,46 +1625,25 @@ export default function CreditsPage() {
               )}
               {filteredDebtors.length > 0 && (
                 <div className="relative flex-shrink-0">
-                  <Button
-                    variant="outline"
-                    size="icon"
-                    className="h-9 w-9"
-                    loading={exporting || debtsExport.exporting}
-                    onClick={() => setExportMenuOpen(v => !v)}
-                    aria-label={t('actions.export_pdf')}
-                  >
-                    <FileDown className="h-4 w-4" />
-                  </Button>
-                  {exportMenuOpen && (
-                    <>
-                      <div className="fixed inset-0 z-40" onClick={() => setExportMenuOpen(false)} />
-                      <div className="absolute right-0 top-10 z-50 w-44 rounded-xl border bg-background shadow-lg p-1 flex flex-col gap-0.5">
-                        <button
-                          onClick={exportDebtorsPDF}
-                          className="flex items-center gap-2.5 rounded-lg px-3 py-2.5 text-sm hover:bg-muted transition-colors text-left"
-                        >
-                          <FileText className="h-4 w-4 text-red-500 flex-shrink-0" />
-                          <span>{t('actions.export_pdf')}</span>
-                        </button>
-                        <button
-                          onClick={() => exportDebtors('xlsx')}
-                          className="flex items-center gap-2.5 rounded-lg px-3 py-2.5 text-sm hover:bg-muted transition-colors text-left"
-                          data-testid="export-xlsx"
-                        >
-                          <FileSpreadsheet className="h-4 w-4 text-green-600 dark:text-green-400 flex-shrink-0" />
-                          <span>{t('exports.excel')}</span>
-                        </button>
-                        <button
-                          onClick={() => exportDebtors('csv')}
-                          className="flex items-center gap-2.5 rounded-lg px-3 py-2.5 text-sm hover:bg-muted transition-colors text-left"
-                          data-testid="export-csv"
-                        >
-                          <Table2 className="h-4 w-4 text-muted-foreground flex-shrink-0" />
-                          <span>{t('exports.csv')}</span>
-                        </button>
-                      </div>
-                    </>
-                  )}
+                  {/* Export : menu déroulant commun (Échap, retour Android, clavier) */}
+                  <DropdownMenu open={exportMenuOpen} onOpenChange={setExportMenuOpen}>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="outline" size="icon" className="h-9 w-9" loading={exporting || debtsExport.exporting} aria-label={t('actions.export_pdf')}>
+                        <FileDown className="h-4 w-4" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end" className="w-48">
+                      <DropdownMenuItem onSelect={() => exportDebtorsPDF()} className="gap-2.5 py-2.5">
+                        <FileText className="h-4 w-4 flex-shrink-0 text-red-500" />{t('actions.export_pdf')}
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onSelect={() => exportDebtors('xlsx')} className="gap-2.5 py-2.5" data-testid="export-xlsx">
+                        <FileSpreadsheet className="h-4 w-4 flex-shrink-0 text-green-600 dark:text-green-400" />{t('exports.excel')}
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onSelect={() => exportDebtors('csv')} className="gap-2.5 py-2.5" data-testid="export-csv">
+                        <Table2 className="h-4 w-4 flex-shrink-0 text-muted-foreground" />{t('exports.csv')}
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
                 </div>
               )}
             </div>

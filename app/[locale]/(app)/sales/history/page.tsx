@@ -23,7 +23,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Skeleton } from '@/components/ui/skeleton'
 import { PremiumDialog, PremiumDialogBody, PremiumDialogFooter } from '@/components/ui/premium-dialog'
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
+import { FormDrawer } from '@/components/ui/form-drawer'
+import { DrawerSection } from '@/components/ui/app-drawer'
 import { Label } from '@/components/ui/label'
 import { useToast } from '@/components/ui/use-toast'
 import { useCurrency } from '@/lib/hooks/use-currency'
@@ -56,6 +57,7 @@ import { invalidateSalesData } from '@/lib/query-keys'
 import { queryClient } from '@/lib/query-client'
 import { onSalesDataChanged } from '@/lib/data-refresh'
 import { SegmentedTabs } from '@/components/ui/segmented-tabs'
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 
 
 const supabase = createClient() as any
@@ -242,6 +244,8 @@ export default function SalesHistoryPage() {
   // Edit dialog state
   type EditItem = { product_id: string | null; product_name: string; quantity: number; unit_price: number }
   const [editDialog, setEditDialog] = useState<Sale | null>(null)
+  // Garde « modifications non enregistrées » : photo du formulaire prise à l'ouverture
+  const [editInitial, setEditInitial] = useState('')
   const [editItems, setEditItems] = useState<EditItem[]>([])
   const [editCustomerId, setEditCustomerId] = useState<string | null>(null)
   const [editCustomerQuery, setEditCustomerQuery] = useState('')
@@ -552,12 +556,14 @@ export default function SalesHistoryPage() {
 
   const openEditDialog = (sale: Sale) => {
     const s = sale as any
-    setEditItems((s.sale_items || []).map((item: any) => ({
+    const items = (s.sale_items || []).map((item: any) => ({
       product_id: item.product_id || null,
       product_name: item.product_name,
       quantity: item.quantity,
       unit_price: item.unit_price,
-    })))
+    }))
+    setEditItems(items)
+    setEditInitial(JSON.stringify({ items, customer: s.customer_id || null, method: s.payment_method || 'cash', notes: s.notes || '' }))
     setEditCustomerId(s.customer_id || null)
     setEditCustomerQuery(s.customers?.name || '')
     setEditPaymentMethod(s.payment_method || 'cash')
@@ -1183,46 +1189,25 @@ export default function SalesHistoryPage() {
 
         {isOwner && (
           <div className="relative flex-shrink-0">
-            <Button
-              variant="outline"
-              size="icon"
-              className="h-9 w-9"
-              loading={exportingPDF || salesExport.exporting}
-              onClick={() => setExportMenuOpen(v => !v)}
-              aria-label={t('actions.export_pdf')}
-            >
-              <FileDown className="h-4 w-4" />
-            </Button>
-            {exportMenuOpen && (
-              <>
-                <div className="fixed inset-0 z-40" onClick={() => setExportMenuOpen(false)} />
-                <div className="absolute right-0 top-10 z-50 w-44 rounded-xl border bg-background shadow-lg p-1 flex flex-col gap-0.5">
-                  <button
-                    onClick={exportPDF}
-                    className="flex items-center gap-2.5 rounded-lg px-3 py-2.5 text-sm hover:bg-muted transition-colors text-left"
-                  >
-                    <FileText className="h-4 w-4 text-red-500 flex-shrink-0" />
-                    <span>{t('actions.export_pdf')}</span>
-                  </button>
-                  <button
-                    onClick={() => exportSales('xlsx')}
-                    className="flex items-center gap-2.5 rounded-lg px-3 py-2.5 text-sm hover:bg-muted transition-colors text-left"
-                    data-testid="export-xlsx"
-                  >
-                    <FileSpreadsheet className="h-4 w-4 text-green-600 dark:text-green-400 flex-shrink-0" />
-                    <span>{t('exports.excel')}</span>
-                  </button>
-                  <button
-                    onClick={() => exportSales('csv')}
-                    className="flex items-center gap-2.5 rounded-lg px-3 py-2.5 text-sm hover:bg-muted transition-colors text-left"
-                    data-testid="export-csv"
-                  >
-                    <Table2 className="h-4 w-4 text-muted-foreground flex-shrink-0" />
-                    <span>{t('exports.csv')}</span>
-                  </button>
-                </div>
-              </>
-            )}
+            {/* Export : menu déroulant commun (Échap, retour Android, clavier) */}
+            <DropdownMenu open={exportMenuOpen} onOpenChange={setExportMenuOpen}>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" size="icon" className="h-9 w-9" loading={exportingPDF || salesExport.exporting} aria-label={t('actions.export_pdf')}>
+                  <FileDown className="h-4 w-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-48">
+                <DropdownMenuItem onSelect={() => exportPDF()} className="gap-2.5 py-2.5">
+                  <FileText className="h-4 w-4 flex-shrink-0 text-red-500" />{t('actions.export_pdf')}
+                </DropdownMenuItem>
+                <DropdownMenuItem onSelect={() => exportSales('xlsx')} className="gap-2.5 py-2.5" data-testid="export-xlsx">
+                  <FileSpreadsheet className="h-4 w-4 flex-shrink-0 text-green-600 dark:text-green-400" />{t('exports.excel')}
+                </DropdownMenuItem>
+                <DropdownMenuItem onSelect={() => exportSales('csv')} className="gap-2.5 py-2.5" data-testid="export-csv">
+                  <Table2 className="h-4 w-4 flex-shrink-0 text-muted-foreground" />{t('exports.csv')}
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
         )}
       </div>
@@ -1557,14 +1542,21 @@ export default function SalesHistoryPage() {
       )}
 
       {/* ── Edit sale dialog ───────────────────────────────── */}
-      <Dialog open={!!editDialog} onOpenChange={open => !open && setEditDialog(null)}>
-        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Edit2 className="h-4 w-4" />
-              {t('sales.edit_sale_title')} <span className="font-mono text-stockshop-blue dark:text-blue-400">#{(editDialog as any)?.sale_number}</span>
-            </DialogTitle>
-          </DialogHeader>
+      {/* Modifier une vente : formulaire long (articles, client, paiement, note) → panneau en sections, avec garde */}
+      <FormDrawer
+        open={!!editDialog}
+        onOpenChange={open => { if (!open) setEditDialog(null) }}
+        title={t('sales.edit_sale_title')}
+        description={(editDialog as any)?.sale_number ? `#${(editDialog as any).sale_number}` : undefined}
+        icon={<Edit2 className="h-4 w-4" />}
+        width="lg"
+        testId="edit-sale-drawer"
+        dirty={!!editDialog && !editSaving && JSON.stringify({ items: editItems, customer: editCustomerId, method: editPaymentMethod, notes: editNotes }) !== editInitial}
+        onSubmit={doEdit}
+        submitting={editSaving}
+        submitLabel={t('sales.edit_save')}
+        submitDisabled={editItems.length === 0 || Number((editDialog as any)?.amount_paid || 0) > editItems.reduce((s, i) => s + i.quantity * i.unit_price, 0)}
+      >
 
           {editDialog && (() => {
             const fmtE = fmtIn((editDialog as any).shop_id)
@@ -1573,19 +1565,17 @@ export default function SalesHistoryPage() {
             const overCollected = amountPaid > editNewTotal && editItems.length > 0
 
             return (
-              <div className="space-y-4 py-2">
+              <div className="space-y-4">
                 {/* Items */}
+                <DrawerSection title={t('sales.edit_items_section')}>
                 <div className="space-y-2">
-                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                    {t('sales.edit_items_section')}
-                  </p>
                   {editItems.map((item, idx) => (
-                    <div key={idx} className="flex items-center gap-2 text-sm">
-                      <span className="flex-1 truncate text-xs">{item.product_name}</span>
+                    <div key={idx} className="flex flex-wrap items-center gap-2 border-b pb-2 text-sm last:border-b-0" data-testid="edit-sale-line">
+                      <span className="min-w-0 flex-1 basis-full truncate text-sm font-medium sm:basis-auto">{item.product_name}</span>
                       <div className="flex items-center gap-1">
                         <button
                           type="button"
-                          className="h-6 w-6 rounded border flex items-center justify-center text-muted-foreground hover:bg-muted"
+                          className="flex h-9 w-9 items-center justify-center rounded-md border text-muted-foreground hover:bg-muted"
                           onClick={() => setEditItems(prev => prev.map((it, i) => i === idx && it.quantity > 1 ? { ...it, quantity: it.quantity - 1 } : it))}
                         >−</button>
                         <input
@@ -1593,11 +1583,12 @@ export default function SalesHistoryPage() {
                           min={1}
                           value={item.quantity}
                           onChange={e => setEditItems(prev => prev.map((it, i) => i === idx ? { ...it, quantity: Math.max(1, Number(e.target.value) || 1) } : it))}
-                          className="w-12 h-6 rounded border text-center text-xs bg-background"
+                          className="h-9 w-14 rounded-md border bg-background text-center text-sm"
+                          aria-label={t('sales.edit_qty_label', { name: item.product_name })}
                         />
                         <button
                           type="button"
-                          className="h-6 w-6 rounded border flex items-center justify-center text-muted-foreground hover:bg-muted"
+                          className="flex h-9 w-9 items-center justify-center rounded-md border text-muted-foreground hover:bg-muted"
                           onClick={() => setEditItems(prev => prev.map((it, i) => i === idx ? { ...it, quantity: it.quantity + 1 } : it))}
                         >+</button>
                       </div>
@@ -1606,14 +1597,16 @@ export default function SalesHistoryPage() {
                         min={0}
                         value={item.unit_price}
                         onChange={e => setEditItems(prev => prev.map((it, i) => i === idx ? { ...it, unit_price: Number(e.target.value) || 0 } : it))}
-                        className="w-24 h-6 rounded border text-right text-xs bg-background px-1"
+                        className="h-9 w-24 rounded-md border bg-background px-2 text-right text-sm"
+                        aria-label={t('sales.edit_price_label', { name: item.product_name })}
                       />
-                      <span className="w-20 text-right text-xs font-medium shrink-0">
+                      <span className="ml-auto w-24 shrink-0 text-right text-sm font-semibold">
                         {fmtE(item.quantity * item.unit_price)}
                       </span>
                       <button
                         type="button"
-                        className="text-red-400 hover:text-red-600 dark:hover:text-red-400 flex-shrink-0"
+                        className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-md text-red-500 hover:bg-red-50 dark:hover:bg-red-950/40"
+                        aria-label={t('sales.edit_remove_line', { name: item.product_name })}
                         onClick={() => setEditItems(prev => prev.filter((_, i) => i !== idx))}
                       >
                         <Trash2 className="h-3.5 w-3.5" />
@@ -1629,7 +1622,7 @@ export default function SalesHistoryPage() {
                         value={editProductQuery}
                         onChange={e => { setEditProductQuery(e.target.value); searchEditProducts(e.target.value) }}
                         placeholder={t('sales.edit_product_search')}
-                        className="pl-8 h-8 text-xs"
+                        className="h-10 pl-8 text-sm"
                       />
                     </div>
                     {editProducts.length > 0 && (
@@ -1650,13 +1643,15 @@ export default function SalesHistoryPage() {
                             }}
                           >
                             <span className="truncate">{p.name}</span>
-                            <span className="text-muted-foreground ml-2 shrink-0">{fmtE(p.selling_price)} · stock: {p.quantity}</span>
+                            <span className="ml-2 shrink-0 text-muted-foreground">{t('sales.edit_product_option', { price: fmtE(p.selling_price), qty: p.quantity })}</span>
                           </button>
                         ))}
                       </div>
                     )}
                   </div>
                 </div>
+
+                </DrawerSection>
 
                 {/* New total */}
                 <div className={`flex items-center justify-between rounded-lg px-3 py-2 text-sm font-semibold ${overCollected ? 'bg-red-50 dark:bg-red-950/30 text-red-600 dark:text-red-400' : 'bg-muted/50'}`}>
@@ -1667,8 +1662,10 @@ export default function SalesHistoryPage() {
                   <p className="text-xs text-red-500">{t('sales.edit_amount_paid_warning')}</p>
                 )}
 
+                <DrawerSection title={t('sales.edit_details_section')}>
+                <div className="space-y-4">
                 {/* Customer */}
-                <div className="space-y-1">
+                <div className="space-y-1.5">
                   <Label className="text-xs">{t('sales.edit_customer_section')}</Label>
                   <div className="relative">
                     <Input
@@ -1679,7 +1676,7 @@ export default function SalesHistoryPage() {
                         else searchEditCustomers(e.target.value)
                       }}
                       placeholder={t('sales.edit_customer_placeholder')}
-                      className="h-8 text-xs"
+                      className="h-10 text-sm"
                     />
                     {editCustomers.length > 0 && (
                       <div className="absolute z-50 top-full mt-1 w-full rounded-lg border bg-popover shadow-lg overflow-hidden">
@@ -1700,10 +1697,10 @@ export default function SalesHistoryPage() {
                 </div>
 
                 {/* Payment method */}
-                <div className="space-y-1">
+                <div className="space-y-1.5">
                   <Label className="text-xs">{t('payment.method')}</Label>
                   <Select value={editPaymentMethod} onValueChange={setEditPaymentMethod}>
-                    <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+                    <SelectTrigger className="h-10 text-sm"><SelectValue /></SelectTrigger>
                     <SelectContent>
                       {getCountry(shopOf((editDialog as any).shop_id)?.country).paymentMethods.map(m => (
                         <SelectItem key={m.id} value={m.id}>{m.label}</SelectItem>
@@ -1713,32 +1710,22 @@ export default function SalesHistoryPage() {
                 </div>
 
                 {/* Notes */}
-                <div className="space-y-1">
+                <div className="space-y-1.5">
                   <Label className="text-xs">{t('sales.note_label')}</Label>
                   <Input
                     value={editNotes}
                     onChange={e => setEditNotes(e.target.value)}
                     placeholder={t('sales.edit_notes_placeholder')}
-                    className="h-8 text-xs"
+                    className="h-10 text-sm"
                   />
                 </div>
+                </div>
+                </DrawerSection>
               </div>
             )
           })()}
 
-          <DialogFooter className="gap-2">
-            <Button variant="outline" onClick={() => setEditDialog(null)}>{t('actions.cancel')}</Button>
-            <Button
-              onClick={doEdit}
-              disabled={editSaving || editItems.length === 0 || Number((editDialog as any)?.amount_paid || 0) > editItems.reduce((s, i) => s + i.quantity * i.unit_price, 0)}
-              loading={editSaving}
-              className="bg-stockshop-blue hover:bg-stockshop-blue-light dark:bg-blue-600 dark:hover:bg-blue-500 text-white border-0"
-            >
-              {t('sales.edit_save')}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      </FormDrawer>
 
       {/* Action dialog */}
       <PremiumDialog

@@ -6,7 +6,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import {
   Search, Plus, Minus, Trash2, CheckCircle, MessageCircle, Printer, Share2,
   Scan, X, User, Clock, PauseCircle, PlayCircle, Edit2, ShoppingCart, ChevronUp, ChevronRight, Star, ArrowLeft,
-  AlertTriangle, CreditCard, Coins, ShoppingBag, FileText, Store,
+  AlertTriangle, CreditCard, Coins, ShoppingBag, FileText, Store, Tag, TrendingUp,
 } from 'lucide-react'
 import { readTicketSettings } from '@/lib/receipt/print-settings'
 import { printSaleTicket, ticketErrorKey } from '@/lib/receipt/print-ticket'
@@ -31,8 +31,8 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent } from '@/components/ui/card'
-import { Dialog, DialogContent } from '@/components/ui/dialog'
-import { PremiumDialog, PremiumDialogBody } from '@/components/ui/premium-dialog'
+import { PremiumDialog, PremiumDialogBody, PremiumDialogFooter } from '@/components/ui/premium-dialog'
+import { AppDrawer } from '@/components/ui/app-drawer'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Separator } from '@/components/ui/separator'
 import { useCurrency } from '@/lib/hooks/use-currency'
@@ -305,6 +305,8 @@ function PosScreen({ params: { locale: _locale } }: { params: { locale: string }
   const [activeDraftId, setActiveDraftId] = useState<string | null>(null)
   // Mise en attente : petite fenêtre pour un nom facultatif.
   const [showHoldDialog, setShowHoldDialog] = useState(false)
+  // Facture en attente dont la suppression est demandée (confirmation)
+  const [heldDeleteAsk, setHeldDeleteAsk] = useState<Draft | null>(null)
   const [holdLabel, setHoldLabel] = useState('')
   // Reprise demandée alors qu'un autre panier est en cours → confirmation.
   const [pendingResume, setPendingResume] = useState<Draft | null>(null)
@@ -2718,29 +2720,34 @@ function PosScreen({ params: { locale: _locale } }: { params: { locale: string }
 
       </div>{/* end RIGHT column */}
 
-      {/* Price edit modal — premium design */}
-      <Dialog open={!!priceModalItem} onOpenChange={open => { if (!open) setPriceModalItem(null) }}>
-        <DialogContent className="max-w-[360px] p-0 gap-0">
-          {priceModalItem && (() => {
-            const minPrice = effectivePrice(priceModalItem.product, frontBatchPromo)
-            return (
-            <div className="overflow-hidden rounded-lg">
-              {/* Header gradient */}
-              <div className="bg-stockshop-blue px-5 pt-5 pb-4">
-                <p className="text-xs font-medium text-blue-200 uppercase tracking-wider mb-1">{t('products.selling_price')}</p>
-                <p className="text-white font-semibold text-base leading-tight truncate">{priceModalItem.product.name}</p>
-                <div className="flex items-center gap-2 mt-2">
-                  <span className="text-xs text-blue-200">{minPrice !== priceModalItem.product.selling_price ? t('products.promo_badge') : t('sales.list_price_label')} :</span>
-                  <span className="text-sm font-bold text-white">{formatNaira(minPrice)}</span>
-                  <span className="text-[10px] bg-white/20 text-blue-100 px-1.5 py-0.5 rounded-full">{t('sales.min_price_badge')}</span>
+      {/* Prix d'un article : fenêtre commune (en-tête bleu, Échap / retour Android), textes traduits. Le prix ne
+          descend jamais sous le prix effectif (catalogue ou promotion) ; Entrée valide. */}
+      <PremiumDialog
+        open={!!priceModalItem}
+        onOpenChange={open => { if (!open) setPriceModalItem(null) }}
+        category={t('products.selling_price')}
+        title={priceModalItem?.product.name ?? ''}
+        icon={<Tag className="h-4 w-4" />}
+        maxWidth="max-w-sm"
+        testId="price-dialog"
+      >
+        {priceModalItem && (() => {
+          const minPrice = effectivePrice(priceModalItem.product, frontBatchPromo)
+          const value = Number(priceModalInput)
+          const valid = !!priceModalInput && value >= minPrice
+          const confirmPrice = () => { if (!valid) return; updateItemPrice(priceModalItem.product.id, value); setPriceModalItem(null) }
+          return (
+            <>
+              <PremiumDialogBody>
+                <div className="flex flex-wrap items-center gap-2 text-sm">
+                  <span className="text-muted-foreground">{minPrice !== priceModalItem.product.selling_price ? t('products.promo_badge') : t('sales.list_price_label')} :</span>
+                  <span className="font-bold">{formatNaira(minPrice)}</span>
+                  <span className="rounded-full bg-muted px-2 py-0.5 text-[11px] text-muted-foreground">{t('sales.min_price_badge')}</span>
                 </div>
-              </div>
-              {/* Body */}
-              <div className="p-5 space-y-4 bg-background">
                 <div>
-                  <p className="text-xs text-muted-foreground mb-2 font-medium">{t('sales.new_selling_price')}</p>
-                  <div className="flex rounded-xl border-2 border-stockshop-blue dark:border-blue-500 overflow-hidden shadow-sm">
-                    <span className="flex items-center px-4 bg-stockshop-blue/5 border-r border-stockshop-blue/30 text-sm font-bold text-stockshop-blue dark:text-blue-400 whitespace-nowrap select-none">
+                  <p className="mb-2 text-xs font-medium text-muted-foreground">{t('sales.new_selling_price')}</p>
+                  <div className="flex overflow-hidden rounded-xl border-2 border-stockshop-blue shadow-sm dark:border-blue-500">
+                    <span className="flex select-none items-center whitespace-nowrap border-r border-stockshop-blue/30 bg-stockshop-blue/5 px-4 text-sm font-bold text-stockshop-blue dark:text-blue-400">
                       {symbol}
                     </span>
                     <input
@@ -2750,54 +2757,40 @@ function PosScreen({ params: { locale: _locale } }: { params: { locale: string }
                       autoFocus
                       value={formatInputValue(priceModalInput, currencyCode)}
                       onChange={e => setPriceModalInput(e.target.value.replace(/\D/g, ''))}
-                      className="flex-1 h-14 px-4 text-2xl font-bold bg-card outline-none tracking-tight"
+                      onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); confirmPrice() } }}
+                      aria-label={t('sales.new_selling_price')}
+                      data-testid="price-input"
+                      className="h-14 flex-1 bg-card px-4 text-2xl font-bold tracking-tight outline-none"
                       placeholder={formatInputValue(minPrice, currencyCode)}
                     />
                   </div>
-                  <div className="h-5 mt-1.5">
-                    {Number(priceModalInput) > 0 && Number(priceModalInput) < minPrice && (
-                      <p className="text-xs text-red-500 flex items-center gap-1">
-                        <span>⚠</span> Prix minimum : {formatNaira(minPrice)}
-                      </p>
+                  <div className="mt-1.5 h-5">
+                    {value > 0 && value < minPrice && (
+                      <p className="flex items-center gap-1 text-xs text-red-500"><AlertTriangle className="h-3.5 w-3.5" />{t('sales.price_min_warning', { price: formatNaira(minPrice) })}</p>
                     )}
-                    {Number(priceModalInput) > minPrice && (
-                      <p className="text-xs text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
-                        <span>↑</span> +{formatNaira(Number(priceModalInput) - minPrice)} par rapport au catalogue
-                      </p>
+                    {value > minPrice && (
+                      <p className="flex items-center gap-1 text-xs text-emerald-600 dark:text-emerald-400"><TrendingUp className="h-3.5 w-3.5" />{t('sales.price_above_catalog', { amount: formatNaira(value - minPrice) })}</p>
                     )}
                   </div>
                 </div>
-                <div className="flex gap-2.5">
-                  <Button variant="outline" className="flex-1 h-11 rounded-lg" onClick={() => setPriceModalItem(null)}>
-                    Annuler
-                  </Button>
-                  <Button
-                    variant="stockshop"
-                    className="flex-1 h-11 rounded-lg font-semibold"
-                    disabled={!priceModalInput || Number(priceModalInput) < minPrice}
-                    onClick={() => {
-                      updateItemPrice(priceModalItem.product.id, Number(priceModalInput))
-                      setPriceModalItem(null)
-                    }}
-                  >
-                    Confirmer
-                  </Button>
-              </div>
-            </div>
-            </div>
-            )
-          })()}
-        </DialogContent>
-      </Dialog>
+              </PremiumDialogBody>
+              <PremiumDialogFooter onCancel={() => setPriceModalItem(null)} onConfirm={confirmPrice} confirmLabel={t('actions.confirm')} confirmDisabled={!valid} />
+            </>
+          )
+        })()}
+      </PremiumDialog>
 
-      {/* Drafts modal */}
-      <PremiumDialog
+      {/* Factures en attente : une LISTE, donc un panneau (plein écran sur téléphone, flèche retour) */}
+      <AppDrawer
         open={showDrafts}
         onOpenChange={setShowDrafts}
         title={t('sales.pending_invoices_title')}
+        description={t('sales.held_count', { count: shopDrafts.length })}
         icon={<Clock className="h-4 w-4" />}
+        width="md"
+        testId="held-drawer"
       >
-        <PremiumDialogBody className="space-y-2 max-h-[70vh] overflow-y-auto">
+        <div className="space-y-2">
           {/* Nettoyage des anciennes — jamais automatique (ce sont des ventes),
               toujours sur confirmation du caissier. */}
           {(() => {
@@ -2820,15 +2813,15 @@ function PosScreen({ params: { locale: _locale } }: { params: { locale: string }
               : age === 1 ? t('sales.held_yesterday', { time })
               : t('sales.held_days_ago', { days: age })
             return (
-              <div key={draft.id} className="rounded-xl border bg-card p-3 space-y-2">
+              <div key={draft.id} className="rounded-xl border bg-card p-3 space-y-2" data-testid="held-card">
                 <div className="flex items-start justify-between gap-2">
                   <div className="min-w-0">
-                    <p className="text-sm font-semibold truncate">{draft.label || draft.customerName || 'Client anonyme'}</p>
+                    <p className="text-sm font-semibold truncate">{draft.label || draft.customerName || t('sales.held_anonymous')}</p>
                     {draft.label && draft.customerName && <p className="text-xs text-muted-foreground truncate">{draft.customerName}</p>}
                     {draft.customerPhone && <p className="text-xs text-muted-foreground">{draft.customerPhone}</p>}
                     {releasedDrafts.has(draft.id) && <p className="mt-0.5 text-xs font-medium text-amber-700 dark:text-amber-300" data-testid="held-released">{t('sales.held_reservation_released')}</p>}
                     <p className={cn('text-xs mt-0.5', age >= HELD_STALE_DAYS ? 'text-amber-700 dark:text-amber-300 font-medium' : 'text-muted-foreground')}>
-                      {itemCount} article{itemCount > 1 ? 's' : ''} · {when}
+                      {t('sales.held_items', { count: itemCount })} · {when}
                     </p>
                   </div>
                   <div className="text-right flex-shrink-0">
@@ -2839,19 +2832,35 @@ function PosScreen({ params: { locale: _locale } }: { params: { locale: string }
                   {draft.cart.map(i => `${i.product.name} ×${i.quantity}`).join(', ')}
                 </div>
                 <div className="flex gap-2">
-                  <Button variant="stockshop" size="sm" className="flex-1 h-8 gap-1" onClick={() => resumeDraft(draft)}>
-                    <PlayCircle className="h-3.5 w-3.5" /> Reprendre
+                  <Button variant="stockshop" className="h-10 flex-1 gap-1.5" onClick={() => resumeDraft(draft)} data-testid="held-resume">
+                    <PlayCircle className="h-4 w-4" /> {t('sales.held_resume')}
                   </Button>
-                  <Button size="sm" variant="outline" className="h-8 border-red-200 dark:border-red-800/60 text-red-500 hover:bg-red-50 dark:hover:bg-red-950/40"
-                    onClick={() => deleteDraft(draft.id)}>
-                    <Trash2 className="h-3.5 w-3.5" />
+                  <Button variant="outline" size="icon" className="h-10 w-10 border-red-200 text-red-500 hover:bg-red-50 dark:border-red-800/60 dark:hover:bg-red-950/40"
+                    aria-label={t('sales.held_delete_aria', { name: draft.label || draft.customerName || t('sales.held_anonymous') })}
+                    onClick={() => setHeldDeleteAsk(draft)} data-testid="held-delete">
+                    <Trash2 className="h-4 w-4" />
                   </Button>
                 </div>
               </div>
             )
           })}
-        </PremiumDialogBody>
-      </PremiumDialog>
+        </div>
+      </AppDrawer>
+
+      {/* Suppression d'une facture en attente : confirmée (c'est une vente commencée ; les réservations sont libérées) */}
+      <ConfirmModal
+        open={!!heldDeleteAsk}
+        onOpenChange={o => { if (!o) setHeldDeleteAsk(null) }}
+        tone="danger"
+        icon={<Trash2 className="h-4 w-4" />}
+        title={t('sales.held_delete_title')}
+        description={heldDeleteAsk ? t('sales.held_delete_body', {
+          name: heldDeleteAsk.label || heldDeleteAsk.customerName || t('sales.held_anonymous'),
+          amount: formatNaira(heldDeleteAsk.cart.reduce((x, i) => x + i.subtotal, 0) - heldDeleteAsk.discount),
+        }) : undefined}
+        confirmLabel={t('actions.delete')}
+        onConfirm={() => { if (heldDeleteAsk) deleteDraft(heldDeleteAsk.id); setHeldDeleteAsk(null) }}
+      />
 
       {/* Mise en attente — nom facultatif pour retrouver la facture */}
       <PremiumDialog

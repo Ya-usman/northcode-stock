@@ -84,6 +84,9 @@ async function cookieFor(email) {
       const setShop = id => page.context().addInitScript(([shop]) => { try { localStorage.setItem('active_shop_id', shop); localStorage.setItem('dashboard_shop_filter', shop); localStorage.setItem('stock_table_columns', JSON.stringify(['physical', 'inTransit', 'onOrder'])) } catch {} }, [id])
       await setShop(AKWA)
       await page.goto(`${BASE}/${locale}/stock`, { waitUntil: 'domcontentloaded', timeout: 120000 }); await page.waitForTimeout(8000)
+      // La section « Stock à venir » arrive après les produits (route du pipeline) : sous charge, au-delà de 8 s. On
+      // attend qu'elle soit affichée (jusqu'à 40 s) avant de la lire ; la vérification elle-même ne change pas.
+      await page.waitForFunction(s => (document.querySelector('main')?.innerText || '').replace(/\n+/g, ' | ').includes(s), W.units(ORDER_UNITS), { timeout: 40000 }).catch(() => {})
       let text = await page.evaluate(() => document.querySelector('main').innerText.replace(/\n+/g, ' | '))
       check(`Vue d'ensemble Akwa : section « Stock à venir », ${ORDER_UNITS} unités en commande, ${ORDER_COUNT} bon(s)`, text.includes(W.incoming) && text.includes(W.units(ORDER_UNITS)) && text.includes(W.pos(ORDER_COUNT)), text.slice(0, 400))
       check('Vue d\'ensemble Akwa : en transit affiché sans rien en route', text.includes('0 | ' + W.cardTransitLabel) && text.includes(W.none), text.slice(0, 400))
@@ -125,6 +128,7 @@ async function cookieFor(email) {
         const s2 = await session({ width, height, scale: 1, locale })
         await s2.page.context().addInitScript(([shop]) => { try { localStorage.setItem('active_shop_id', shop); localStorage.setItem('dashboard_shop_filter', shop); localStorage.setItem('stock_table_columns', JSON.stringify(['inTransit', 'onOrder'])) } catch {} }, [BASTOS])
         await s2.page.goto(`${BASE}/${locale}/stock`, { waitUntil: 'domcontentloaded', timeout: 120000 }); await s2.page.waitForTimeout(8000)
+        await s2.page.waitForFunction(s => (document.querySelector('main')?.innerText || '').replace(/\n+/g, ' | ').includes(s), W.units34, { timeout: 40000 }).catch(() => {})
         text = await s2.page.evaluate(() => document.querySelector('main').innerText.replace(/\n+/g, ' | '))
         check('Vue d\'ensemble Bastos : 34 unités en transit, 1 transfert à recevoir', text.includes(W.units34) && text.includes(W.tr1), text.slice(0, 400))
         await s2.page.locator('main button').filter({ hasText: W.cardTransitLabel }).first().click(); await s2.page.waitForTimeout(3500)
