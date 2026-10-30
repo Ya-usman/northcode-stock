@@ -1137,6 +1137,7 @@
     "data_to_fix": "Data to fix",
     "total_debt_label": "Balance Due",
     "payments_received": "Payments received",
+    "payments_made": "Payments made",
     "no_payments_recorded": "No payments recorded",
     "total_paid": "Total paid",
     "remaining_due": "Remaining due",

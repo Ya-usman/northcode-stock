@@ -24,6 +24,7 @@ import { Label } from '@/components/ui/label'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent } from '@/components/ui/card'
 import { PremiumDialog, PremiumDialogBody, PremiumDialogFooter } from '@/components/ui/premium-dialog'
+import { DetailDrawer } from '@/components/ui/detail-drawer'
 import { Skeleton } from '@/components/ui/skeleton'
 import { useCurrency } from '@/lib/hooks/use-currency'
 import type { Customer, Supplier } from '@/lib/types/database'
@@ -36,7 +37,7 @@ import {
 import { DebtGauge } from '@/components/dashboard/recent-sales-feed'
 import { OpeningBalanceDrawer } from '@/components/credits/opening-balance-drawer'
 import { ConfirmModal } from '@/components/ui/confirm-modal'
-import { getCountry, getMethodType } from '@/lib/saas/countries'
+import { getCountry, getMethodType, getPaymentMethodLabel } from '@/lib/saas/countries'
 import { normalizeWhatsAppNumber } from '@/lib/utils/whatsapp'
 import { formatInputValue } from '@/lib/utils/currency'
 import { format } from 'date-fns'
@@ -495,6 +496,13 @@ export default function CreditsPage() {
   const scope = useShopScope()
   const scopeKey = scope.shopIds.join(',')
   const shopOf = (shopId?: string | null) => userShops.find(x => x.id === shopId) ?? null
+  // Libellé d'un mode de paiement : traduit d'abord (Espèces, Carte, Virement, Crédit), sinon nom de marque du pays
+  // de la boutique (Orange Money, MTN MoMo…), jamais la clé brute « payment.mtn_momo »
+  const payMethodLabel = (method: string | null | undefined, shopId?: string | null) => {
+    if (!method) return ''
+    if (t.has(`payment.${method}` as any)) return t(`payment.${method}` as any)
+    return getCountry(shopOf(shopId)?.country).paymentMethods.find(x => x.id === method)?.label ?? getPaymentMethodLabel(method) ?? method
+  }
   const isMultiShop = effectiveShopIds.length > 1
   // Règle unique : « Paiements / Crédits » en modification pour encaisser, reporter, modifier ; direction seule pour
   // passer en perte ou annuler (mêmes règles que /api/payments/*), dans la boutique DE LA DETTE
@@ -1303,7 +1311,7 @@ export default function CreditsPage() {
         // so the running balance stays correct all the way to today's total_debt.
         ...historyPayments.filter(p => !p.is_cancelled).map(p => ({
           date: p.paid_at,
-          label: `${t('payments.statement_payment_label')} (${t(`payment.${p.method}` as any) || p.method})`,
+          label: `${t('payments.statement_payment_label')} (${payMethodLabel(p.method, histShopId)})`,
           debit: 0,
           credit: p.amount,
         })),
@@ -1580,7 +1588,7 @@ export default function CreditsPage() {
                 detail = `#${meta.sale_number || '—'} · ${fmtIn(log.shop_id)(meta.amount || 0)}${meta.reason ? ` · ${meta.reason}` : ''}`
               } else if (log.action === 'payment.edit') {
                 label = t('payments.journal_edited')
-                detail = `${t(`payment.${meta.old_method}` as any) || meta.old_method} → ${t(`payment.${meta.new_method}` as any) || meta.new_method}`
+                detail = `${payMethodLabel(meta.old_method, log.shop_id)} → ${payMethodLabel(meta.new_method, log.shop_id)}`
               } else if (log.action === 'payment.write_off') {
                 label = t('payments.journal_written_off')
                 detail = `#${meta.sale_number || '—'} · ${fmtIn(log.shop_id)(meta.amount || 0)}${meta.reason ? ` · ${meta.reason}` : ''}`
@@ -2338,207 +2346,205 @@ export default function CreditsPage() {
         )}
       </PremiumDialog>
 
-      {/* ── History Dialog ── */}
-      <PremiumDialog
+      {/* ── Historique d'un client : panneau de consultation (plein écran et flèche retour sur téléphone) ── */}
+      <DetailDrawer
         open={!!historyDebtor}
         onOpenChange={open => { if (!open) { setHistoryDebtor(null); setHistorySales([]); setHistoryPayments([]) } }}
-        title={t('customers.payment_history')}
+        category={t('customers.payment_history')}
+        title={historyDebtor?.customer.name || ''}
+        description={scope.multiShop && historyDebtor ? shopOf(historyDebtor.customer.shop_id)?.name : undefined}
         icon={<History className="h-4 w-4" />}
-        maxWidth="max-w-lg"
+        width="md"
+        testId="customer-history-drawer"
+        meta={historyDebtor && historyDebtor.totalDebt > 0 ? (
+          <div className="flex items-center justify-between gap-3 text-sm">
+            <span className="text-muted-foreground">{t('payments.remaining_due')}</span>
+            <span className="font-bold tabular-nums text-red-600 dark:text-red-400">{fmtH(historyDebtor.totalDebt)}</span>
+          </div>
+        ) : undefined}
+        actions={historyDebtor ? (
+          <div className="flex gap-2">
+            <Button variant="outline" className="h-11 flex-1 gap-1.5" onClick={printAccountStatement} disabled={historySales.length === 0} data-testid="history-statement">
+              <FileText className="h-4 w-4" /> {t('payments.statement_action')}
+            </Button>
+            {historyDebtor.totalDebt > 0 && canWritePayIn(histShopId) && (
+              <Button variant="stockshop" className="h-11 flex-1 gap-1.5" onClick={() => openRepayDialog(historyDebtor)} data-testid="history-repay">
+                <Banknote className="h-4 w-4" /> {t('payments.repay')}
+              </Button>
+            )}
+          </div>
+        ) : undefined}
       >
-        <div className="flex flex-col max-h-[65vh]">
-          <div className="flex-1 overflow-y-auto">
-            <PremiumDialogBody>
-              {historyDebtor && (
-                <div className="flex items-center justify-between -mt-1 mb-1">
-                  <p className="text-sm text-muted-foreground">{historyDebtor.customer.name}</p>
-                  <button
-                    type="button"
-                    onClick={printAccountStatement}
-                    disabled={historySales.length === 0}
-                    className="flex items-center gap-1 text-xs font-medium text-stockshop-blue dark:text-blue-400 hover:underline disabled:opacity-40 disabled:no-underline"
-                  >
-                    <FileText className="h-3.5 w-3.5" /> {t('payments.statement_action')}
-                  </button>
+        {loadingHistory ? (
+          <div className="space-y-2">{[...Array(3)].map((_, i) => <Skeleton key={i} className="h-20" />)}</div>
+        ) : historySales.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-8 text-muted-foreground">
+            <Clock className="h-8 w-8 mb-2 opacity-30" />
+            <p className="text-sm">{t('payments.no_sales_for_customer')}</p>
+          </div>
+        ) : (
+          <div className="space-y-3 pr-1">
+        {historySales.map(sale => {
+          const salePayments = historyPayments.filter(p => p.sale_id === sale.id)
+          const isOpen = expandedSaleId === sale.id
+          const statusVariant = STATUS_VARIANTS[sale.payment_status] || ('outline' as any)
+          const statusLabel = sale.payment_status === 'paid' ? t('status.paid') : sale.payment_status === 'partial' ? t('status.partial') : t('status.pending')
+          const paidPct = sale.total > 0 ? Math.min(100, (sale.amount_paid / sale.total) * 100) : 0
+          return (
+            <div key={sale.id} className="border rounded-xl overflow-hidden">
+              <button
+                className="w-full flex items-start justify-between gap-2 p-3 bg-muted/40 hover:bg-accent transition-colors text-left"
+                onClick={() => setExpandedSaleId(isOpen ? null : sale.id)}
+              >
+                <div className="space-y-0.5 flex-1 min-w-0">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="font-mono text-sm font-bold text-stockshop-blue dark:text-blue-400">#{sale.sale_number}</span>
+                    {(sale as any).sale_status === 'opening' && <OpeningTag t={t} />}
+                    <Badge variant={statusVariant} className="text-[10px]">{statusLabel}</Badge>
+                    <Badge variant="outline" className="text-[10px]">{payMethodLabel(sale.payment_method, histShopId)}</Badge>
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    {format(new Date(sale.created_at), dateTimePattern(locale), { locale: dateFnsLocale(locale) })}
+                    {sale.cashier_name && <> · {t('payments.by_connector')} <strong>{sale.cashier_name}</strong></>}
+                  </p>
+                  <DebtGauge pct={paidPct} remaining={sale.balance > 0 ? sale.balance : undefined} fmt={fmtH} t={t} />
                 </div>
-              )}
-              {loadingHistory ? (
-                <div className="space-y-2">{[...Array(3)].map((_, i) => <Skeleton key={i} className="h-20" />)}</div>
-              ) : historySales.length === 0 ? (
-                <div className="flex flex-col items-center justify-center py-8 text-muted-foreground">
-                  <Clock className="h-8 w-8 mb-2 opacity-30" />
-                  <p className="text-sm">{t('payments.no_sales_for_customer')}</p>
+                <div className="text-right flex-shrink-0">
+                  <p className="text-sm font-bold">{fmtH(sale.total)}</p>
+                  {sale.balance > 0
+                    ? <p className="text-xs text-red-500">{t('payment.remaining')}: {fmtH(sale.balance)}</p>
+                    : <p className="text-xs text-green-600 dark:text-green-400">{t('payments.paid_off')} ✓</p>
+                  }
                 </div>
-              ) : (
-                <div className="space-y-3 pr-1">
-              {historySales.map(sale => {
-                const salePayments = historyPayments.filter(p => p.sale_id === sale.id)
-                const isOpen = expandedSaleId === sale.id
-                const statusVariant = STATUS_VARIANTS[sale.payment_status] || ('outline' as any)
-                const statusLabel = sale.payment_status === 'paid' ? t('status.paid') : sale.payment_status === 'partial' ? t('status.partial') : t('status.pending')
-                const paidPct = sale.total > 0 ? Math.min(100, (sale.amount_paid / sale.total) * 100) : 0
-                return (
-                  <div key={sale.id} className="border rounded-xl overflow-hidden">
-                    <button
-                      className="w-full flex items-start justify-between gap-2 p-3 bg-muted/40 hover:bg-accent transition-colors text-left"
-                      onClick={() => setExpandedSaleId(isOpen ? null : sale.id)}
-                    >
-                      <div className="space-y-0.5 flex-1 min-w-0">
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <span className="font-mono text-sm font-bold text-stockshop-blue dark:text-blue-400">#{sale.sale_number}</span>
-                          {(sale as any).sale_status === 'opening' && <OpeningTag t={t} />}
-                          <Badge variant={statusVariant} className="text-[10px]">{statusLabel}</Badge>
-                          <Badge variant="outline" className="text-[10px]">{t(`payment.${sale.payment_method}` as any) || sale.payment_method}</Badge>
-                        </div>
-                        <p className="text-xs text-muted-foreground">
-                          {format(new Date(sale.created_at), dateTimePattern(locale), { locale: dateFnsLocale(locale) })}
-                          {sale.cashier_name && <> · {t('payments.by_connector')} <strong>{sale.cashier_name}</strong></>}
-                        </p>
-                        <DebtGauge pct={paidPct} remaining={sale.balance > 0 ? sale.balance : undefined} fmt={fmtH} t={t} />
-                      </div>
-                      <div className="text-right flex-shrink-0">
-                        <p className="text-sm font-bold">{fmtH(sale.total)}</p>
-                        {sale.balance > 0
-                          ? <p className="text-xs text-red-500">{t('payment.remaining')}: {fmtH(sale.balance)}</p>
-                          : <p className="text-xs text-green-600 dark:text-green-400">{t('payments.paid_off')} ✓</p>
-                        }
-                      </div>
-                    </button>
+              </button>
 
-                    {isOpen && (
-                      <div className="divide-y">
-                        {sale.sale_items.length > 0 && (
-                          <div className="px-3 py-2 bg-card space-y-0.5">
-                            <p className="text-[10px] font-semibold text-muted-foreground uppercase mb-1">{t('sales.items')}</p>
-                            {sale.sale_items.map((item, i) => (
-                              <div key={i} className="flex justify-between text-[11px] text-muted-foreground">
-                                <span>{item.product_name} × {item.quantity}</span>
-                                <span>{fmtH(item.subtotal)}</span>
+              {isOpen && (
+                <div className="divide-y">
+                  {sale.sale_items.length > 0 && (
+                    <div className="px-3 py-2 bg-card space-y-0.5">
+                      <p className="text-[10px] font-semibold text-muted-foreground uppercase mb-1">{t('sales.items')}</p>
+                      {sale.sale_items.map((item, i) => (
+                        <div key={i} className="flex justify-between text-[11px] text-muted-foreground">
+                          <span>{item.product_name} × {item.quantity}</span>
+                          <span>{fmtH(item.subtotal)}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  <div className="px-3 py-2 bg-card">
+                    <p className="text-[10px] font-semibold text-muted-foreground uppercase mb-2">
+                      {t('payments.payments_received')} ({salePayments.length})
+                    </p>
+                    {salePayments.length === 0 ? (
+                      <p className="text-xs text-muted-foreground italic">{t('payments.no_payments_recorded')}</p>
+                    ) : (
+                      <div className="space-y-1.5">
+                        {salePayments.map(p => {
+                          const canCancel = !p.is_cancelled && (isManagerialIn(histShopId) || (roleByShop[histShopId ?? ''] === 'cashier' && canWritePayIn(histShopId) && p.received_by === profile?.id))
+                          return (
+                          <div
+                            key={p.id}
+                            className={cn(
+                              'flex items-start justify-between gap-2 rounded-lg border px-2.5 py-2',
+                              p.is_cancelled
+                                ? 'bg-muted/50 border-border opacity-60'
+                                : p.is_write_off
+                                ? 'bg-slate-50 dark:bg-slate-900/30 border-slate-200 dark:border-slate-800'
+                                : 'bg-green-50 dark:bg-green-950/20 border-green-100 dark:border-green-900'
+                            )}
+                          >
+                            <div className="space-y-0.5">
+                              <div className="flex items-center gap-1.5 flex-wrap">
+                                {!p.is_write_off && (
+                                  <Badge variant="outline" className="text-[10px] px-1.5 bg-card">
+                                    {payMethodLabel(p.method, histShopId)}
+                                  </Badge>
+                                )}
+                                {p.is_write_off && (
+                                  <Badge variant="secondary" className="text-[10px] px-1.5" title={p.notes || undefined}>
+                                    {t('payments.write_off_badge')}
+                                  </Badge>
+                                )}
+                                {p.is_cancelled && (
+                                  <Badge variant="destructive" className="text-[10px] px-1.5" title={p.cancel_reason || undefined}>
+                                    {t('payments.cancelled_badge')}
+                                  </Badge>
+                                )}
+                                {p.edited_at && !p.is_cancelled && (
+                                  <span className="text-[10px] text-muted-foreground italic">{t('payments.edited_badge')}</span>
+                                )}
+                                {p.received_by_name && (
+                                  <span className="text-[11px] text-muted-foreground">{t('payments.by_connector')} <strong>{p.received_by_name}</strong></span>
+                                )}
                               </div>
-                            ))}
+                              <p className={cn('text-[11px]', p.is_cancelled ? 'line-through text-muted-foreground' : 'text-muted-foreground')}>
+                                {format(new Date(p.paid_at), dateTimePattern(locale), { locale: dateFnsLocale(locale) })}
+                              </p>
+                              {p.reference && <p className="text-[11px] text-muted-foreground">{t('payments.ref_label')}: {p.reference}</p>}
+                              {p.notes && <p className="text-[11px] text-muted-foreground italic">{p.notes}</p>}
+                            </div>
+                            <div className="flex flex-col items-end gap-1 flex-shrink-0">
+                              <span className={cn(
+                                'font-bold text-sm',
+                                p.is_cancelled ? 'text-muted-foreground line-through' : p.is_write_off ? 'text-slate-500 dark:text-slate-400' : 'text-green-600'
+                              )}>
+                                {p.is_write_off ? '−' : '+'}{fmtH(p.amount)}
+                              </span>
+                              <div className="flex items-center gap-0.5">
+                                <button
+                                  type="button"
+                                  title={t('payments.print_action')}
+                                  onClick={() => printHistoryPayment(sale, p)}
+                                  className="h-9 w-9 flex items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
+                                >
+                                  <Printer className="h-3.5 w-3.5" />
+                                </button>
+                                {canWritePayIn(histShopId) && !p.is_cancelled && !p.is_write_off && (
+                                  <button
+                                    type="button"
+                                    title={t('payments.edit_action')}
+                                    onClick={() => openEditPayment(p)}
+                                    className="h-9 w-9 flex items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
+                                  >
+                                    <Pencil className="h-3.5 w-3.5" />
+                                  </button>
+                                )}
+                                {canCancel && (
+                                  <button
+                                    type="button"
+                                    title={t('payments.cancel_action')}
+                                    onClick={() => setCancellingPayment(p)}
+                                    className="h-9 w-9 flex items-center justify-center rounded-md text-muted-foreground hover:bg-destructive/10 hover:text-destructive transition-colors"
+                                  >
+                                    <Ban className="h-3.5 w-3.5" />
+                                  </button>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                          )
+                        })}
+                        <div className="flex justify-between text-xs pt-1 border-t">
+                          <span className="text-muted-foreground">{t('payments.total_paid')}</span>
+                          <span className="font-semibold text-green-600 dark:text-green-400">{fmtH(sale.amount_paid)}</span>
+                        </div>
+                        {sale.balance > 0 && (
+                          <div className="flex justify-between text-xs">
+                            <span className="text-muted-foreground">{t('payments.remaining_due')}</span>
+                            <span className="font-semibold text-red-600 dark:text-red-400">{fmtH(sale.balance)}</span>
                           </div>
                         )}
-                        <div className="px-3 py-2 bg-card">
-                          <p className="text-[10px] font-semibold text-muted-foreground uppercase mb-2">
-                            {t('payments.payments_received')} ({salePayments.length})
-                          </p>
-                          {salePayments.length === 0 ? (
-                            <p className="text-xs text-muted-foreground italic">{t('payments.no_payments_recorded')}</p>
-                          ) : (
-                            <div className="space-y-1.5">
-                              {salePayments.map(p => {
-                                const canCancel = !p.is_cancelled && (isManagerialIn(histShopId) || (roleByShop[histShopId ?? ''] === 'cashier' && canWritePayIn(histShopId) && p.received_by === profile?.id))
-                                return (
-                                <div
-                                  key={p.id}
-                                  className={cn(
-                                    'flex items-start justify-between gap-2 rounded-lg border px-2.5 py-2',
-                                    p.is_cancelled
-                                      ? 'bg-muted/50 border-border opacity-60'
-                                      : p.is_write_off
-                                      ? 'bg-slate-50 dark:bg-slate-900/30 border-slate-200 dark:border-slate-800'
-                                      : 'bg-green-50 dark:bg-green-950/20 border-green-100 dark:border-green-900'
-                                  )}
-                                >
-                                  <div className="space-y-0.5">
-                                    <div className="flex items-center gap-1.5 flex-wrap">
-                                      {!p.is_write_off && (
-                                        <Badge variant="outline" className="text-[10px] px-1.5 bg-card">
-                                          {t(`payment.${p.method}` as any) || p.method}
-                                        </Badge>
-                                      )}
-                                      {p.is_write_off && (
-                                        <Badge variant="secondary" className="text-[10px] px-1.5" title={p.notes || undefined}>
-                                          {t('payments.write_off_badge')}
-                                        </Badge>
-                                      )}
-                                      {p.is_cancelled && (
-                                        <Badge variant="destructive" className="text-[10px] px-1.5" title={p.cancel_reason || undefined}>
-                                          {t('payments.cancelled_badge')}
-                                        </Badge>
-                                      )}
-                                      {p.edited_at && !p.is_cancelled && (
-                                        <span className="text-[10px] text-muted-foreground italic">{t('payments.edited_badge')}</span>
-                                      )}
-                                      {p.received_by_name && (
-                                        <span className="text-[11px] text-muted-foreground">{t('payments.by_connector')} <strong>{p.received_by_name}</strong></span>
-                                      )}
-                                    </div>
-                                    <p className={cn('text-[11px]', p.is_cancelled ? 'line-through text-muted-foreground' : 'text-muted-foreground')}>
-                                      {format(new Date(p.paid_at), dateTimePattern(locale), { locale: dateFnsLocale(locale) })}
-                                    </p>
-                                    {p.reference && <p className="text-[11px] text-muted-foreground">{t('payments.ref_label')}: {p.reference}</p>}
-                                    {p.notes && <p className="text-[11px] text-muted-foreground italic">{p.notes}</p>}
-                                  </div>
-                                  <div className="flex flex-col items-end gap-1 flex-shrink-0">
-                                    <span className={cn(
-                                      'font-bold text-sm',
-                                      p.is_cancelled ? 'text-muted-foreground line-through' : p.is_write_off ? 'text-slate-500 dark:text-slate-400' : 'text-green-600'
-                                    )}>
-                                      {p.is_write_off ? '−' : '+'}{fmtH(p.amount)}
-                                    </span>
-                                    <div className="flex items-center gap-0.5">
-                                      <button
-                                        type="button"
-                                        title={t('payments.print_action')}
-                                        onClick={() => printHistoryPayment(sale, p)}
-                                        className="h-6 w-6 flex items-center justify-center rounded text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
-                                      >
-                                        <Printer className="h-3.5 w-3.5" />
-                                      </button>
-                                      {canWritePayIn(histShopId) && !p.is_cancelled && !p.is_write_off && (
-                                        <button
-                                          type="button"
-                                          title={t('payments.edit_action')}
-                                          onClick={() => openEditPayment(p)}
-                                          className="h-6 w-6 flex items-center justify-center rounded text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
-                                        >
-                                          <Pencil className="h-3.5 w-3.5" />
-                                        </button>
-                                      )}
-                                      {canCancel && (
-                                        <button
-                                          type="button"
-                                          title={t('payments.cancel_action')}
-                                          onClick={() => setCancellingPayment(p)}
-                                          className="h-6 w-6 flex items-center justify-center rounded text-muted-foreground hover:bg-destructive/10 hover:text-destructive transition-colors"
-                                        >
-                                          <Ban className="h-3.5 w-3.5" />
-                                        </button>
-                                      )}
-                                    </div>
-                                  </div>
-                                </div>
-                                )
-                              })}
-                              <div className="flex justify-between text-xs pt-1 border-t">
-                                <span className="text-muted-foreground">{t('payments.total_paid')}</span>
-                                <span className="font-semibold text-green-600 dark:text-green-400">{fmtH(sale.amount_paid)}</span>
-                              </div>
-                              {sale.balance > 0 && (
-                                <div className="flex justify-between text-xs">
-                                  <span className="text-muted-foreground">{t('payments.remaining_due')}</span>
-                                  <span className="font-semibold text-red-600 dark:text-red-400">{fmtH(sale.balance)}</span>
-                                </div>
-                              )}
-                            </div>
-                          )}
-                        </div>
                       </div>
                     )}
                   </div>
-                )
-              })}
                 </div>
               )}
-            </PremiumDialogBody>
+            </div>
+          )
+        })}
           </div>
-          <PremiumDialogFooter
-            onCancel={() => { setHistoryDebtor(null); setHistorySales([]); setHistoryPayments([]) }}
-            cancelLabel={t('actions.close')}
-          />
-        </div>
-      </PremiumDialog>
+        )}
+      </DetailDrawer>
 
       {/* ── Edit payment Dialog ── */}
       <PremiumDialog
@@ -2757,130 +2763,131 @@ export default function CreditsPage() {
         />
       </PremiumDialog>
 
-      {/* ── Supplier History Dialog ── */}
-      <PremiumDialog
+      {/* ── Historique d'un fournisseur : panneau de consultation ── */}
+      <DetailDrawer
         open={!!historySupplier}
         onOpenChange={open => { if (!open) { setHistorySupplier(null); setHistoryPOs([]); setHistorySupplierPayments([]) } }}
-        title={t('payments.payment_history_title')}
+        category={t('payments.payment_history_title')}
+        title={historySupplier?.supplier.name || ''}
+        description={scope.multiShop && historySupplier ? shopOf(historySupplier.supplier.shop_id)?.name : undefined}
         icon={<History className="h-4 w-4" />}
-        maxWidth="max-w-lg"
+        width="md"
+        testId="supplier-history-drawer"
+        meta={historySupplier && historySupplier.totalOwed > 0 ? (
+          <div className="flex items-center justify-between gap-3 text-sm">
+            <span className="text-muted-foreground">{t('payments.remaining_due')}</span>
+            <span className="font-bold tabular-nums text-amber-600 dark:text-amber-400">{fmtSH(historySupplier.totalOwed)}</span>
+          </div>
+        ) : undefined}
+        actions={historySupplier && historySupplier.totalOwed > 0 && canPaySuppliersIn(historySupplier.supplier.shop_id) ? (
+          <Button variant="stockshop" className="h-11 w-full gap-1.5" onClick={() => openSupplierRepayDialog(historySupplier)} data-testid="history-repay">
+            <Banknote className="h-4 w-4" /> {t('payments.repay')}
+          </Button>
+        ) : undefined}
       >
-        <div className="flex flex-col max-h-[65vh]">
-          <div className="flex-1 overflow-y-auto">
-            <PremiumDialogBody>
-              {historySupplier && (
-                <p className="text-sm text-muted-foreground -mt-1 mb-1">{historySupplier.supplier.name}</p>
-              )}
-              {loadingSupplierHistory ? (
-                <div className="space-y-2">{[...Array(3)].map((_, i) => <Skeleton key={i} className="h-20" />)}</div>
-              ) : historyPOs.length === 0 ? (
-                <div className="flex flex-col items-center justify-center py-8 text-muted-foreground">
-                  <Clock className="h-8 w-8 mb-2 opacity-30" />
-                  <p className="text-sm">{t('payments.no_orders_for_supplier')}</p>
-                </div>
-              ) : (
-                <div className="space-y-3 pr-1">
-                  {historyPOs.map(po => {
-                    const poPayments = historySupplierPayments.filter(p => p.purchase_order_id === po.id)
-                    const isOpen = expandedPoId === po.id
-                    const statusLabel = po.payment_status === 'paid' ? t('payments.solde_badge') : po.payment_status === 'partial' ? t('payments.partial_label') : t('payments.unpaid_label')
-                    const statusVariant = po.payment_status === 'paid' ? 'success' : po.payment_status === 'partial' ? 'warning' : 'destructive'
-                    const paidPct = po.total_amount > 0 ? Math.min(100, (po.amount_paid / po.total_amount) * 100) : 0
-                    return (
-                      <div key={po.id} className="border rounded-xl overflow-hidden">
-                        <button
-                          className="w-full flex items-start justify-between gap-2 p-3 bg-muted/40 hover:bg-accent transition-colors text-left"
-                          onClick={() => setExpandedPoId(isOpen ? null : po.id)}
-                        >
-                          <div className="space-y-0.5 flex-1 min-w-0">
-                            <div className="flex items-center gap-2 flex-wrap">
-                              <span className="font-mono text-sm font-bold text-stockshop-blue dark:text-blue-400">{po.reference}</span>
-                              {(po as any).is_opening_balance && <OpeningTag t={t} />}
-                              <Badge variant={statusVariant as any} className="text-[10px]">{statusLabel}</Badge>
-                            </div>
-                            <p className="text-xs text-muted-foreground">
-                              {format(new Date(po.created_at), "dd MMM yyyy", { locale: dateFnsLocale(locale) })}
-                            </p>
-                            <DebtGauge pct={paidPct} remaining={po.balance > 0 ? po.balance : undefined} fmt={fmtSH} t={t} />
-                          </div>
-                          <div className="text-right flex-shrink-0">
-                            <p className="text-sm font-bold">{fmtSH(po.total_amount)}</p>
-                            {po.balance > 0
-                              ? <p className="text-xs text-amber-600 dark:text-amber-400">{t('payment.remaining')}: {fmtSH(po.balance)}</p>
-                              : <p className="text-xs text-green-600 dark:text-green-400">{t('payments.paid_off')} ✓</p>
-                            }
-                          </div>
-                        </button>
+        {loadingSupplierHistory ? (
+          <div className="space-y-2">{[...Array(3)].map((_, i) => <Skeleton key={i} className="h-20" />)}</div>
+        ) : historyPOs.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-8 text-muted-foreground">
+            <Clock className="h-8 w-8 mb-2 opacity-30" />
+            <p className="text-sm">{t('payments.no_orders_for_supplier')}</p>
+          </div>
+        ) : (
+          <div className="space-y-3 pr-1">
+            {historyPOs.map(po => {
+              const poPayments = historySupplierPayments.filter(p => p.purchase_order_id === po.id)
+              const isOpen = expandedPoId === po.id
+              const statusLabel = po.payment_status === 'paid' ? t('payments.solde_badge') : po.payment_status === 'partial' ? t('payments.partial_label') : t('payments.unpaid_label')
+              const statusVariant = po.payment_status === 'paid' ? 'success' : po.payment_status === 'partial' ? 'warning' : 'destructive'
+              const paidPct = po.total_amount > 0 ? Math.min(100, (po.amount_paid / po.total_amount) * 100) : 0
+              return (
+                <div key={po.id} className="border rounded-xl overflow-hidden">
+                  <button
+                    className="w-full flex items-start justify-between gap-2 p-3 bg-muted/40 hover:bg-accent transition-colors text-left"
+                    onClick={() => setExpandedPoId(isOpen ? null : po.id)}
+                  >
+                    <div className="space-y-0.5 flex-1 min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="font-mono text-sm font-bold text-stockshop-blue dark:text-blue-400">{po.reference}</span>
+                        {(po as any).is_opening_balance && <OpeningTag t={t} />}
+                        <Badge variant={statusVariant as any} className="text-[10px]">{statusLabel}</Badge>
+                      </div>
+                      <p className="text-xs text-muted-foreground">
+                        {format(new Date(po.created_at), "dd MMM yyyy", { locale: dateFnsLocale(locale) })}
+                      </p>
+                      <DebtGauge pct={paidPct} remaining={po.balance > 0 ? po.balance : undefined} fmt={fmtSH} t={t} />
+                    </div>
+                    <div className="text-right flex-shrink-0">
+                      <p className="text-sm font-bold">{fmtSH(po.total_amount)}</p>
+                      {po.balance > 0
+                        ? <p className="text-xs text-amber-600 dark:text-amber-400">{t('payment.remaining')}: {fmtSH(po.balance)}</p>
+                        : <p className="text-xs text-green-600 dark:text-green-400">{t('payments.paid_off')} ✓</p>
+                      }
+                    </div>
+                  </button>
 
-                        {isOpen && (
-                          <div className="divide-y">
-                            {po.purchase_order_items && po.purchase_order_items.length > 0 && (
-                              <div data-po-lines className="px-3 py-2 bg-card space-y-0.5">
-                                <p className="text-[10px] font-semibold text-muted-foreground uppercase mb-1">{t('sales.items')}</p>
-                                {po.purchase_order_items.map((item, i) => (
-                                  <div key={i} className="flex justify-between text-[11px] text-muted-foreground">
-                                    <span>{item.product_name} × {item.quantity_received ?? item.quantity_ordered}</span>
-                                    <span>{fmtSH((item.unit_price || 0) * (item.quantity_received ?? item.quantity_ordered))}</span>
+                  {isOpen && (
+                    <div className="divide-y">
+                      {po.purchase_order_items && po.purchase_order_items.length > 0 && (
+                        <div data-po-lines className="px-3 py-2 bg-card space-y-0.5">
+                          <p className="text-[10px] font-semibold text-muted-foreground uppercase mb-1">{t('sales.items')}</p>
+                          {po.purchase_order_items.map((item, i) => (
+                            <div key={i} className="flex justify-between text-[11px] text-muted-foreground">
+                              <span>{item.product_name} × {item.quantity_received ?? item.quantity_ordered}</span>
+                              <span>{fmtSH((item.unit_price || 0) * (item.quantity_received ?? item.quantity_ordered))}</span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                      <div className="px-3 py-2 bg-card">
+                        <p className="text-[10px] font-semibold text-muted-foreground uppercase mb-2">
+                          {t('payments.payments_made')} ({poPayments.length})
+                        </p>
+                        {poPayments.length === 0 ? (
+                          <p className="text-xs text-muted-foreground italic">{t('payments.no_payments_recorded')}</p>
+                        ) : (
+                          <div className="space-y-1.5">
+                            {poPayments.map(p => (
+                              <div key={p.id} className="flex items-start justify-between gap-2 rounded-lg bg-green-50 dark:bg-green-950/20 border border-green-100 dark:border-green-900 px-2.5 py-2">
+                                <div className="space-y-0.5">
+                                  <div className="flex items-center gap-1.5 flex-wrap">
+                                    <Badge variant="outline" className="text-[10px] px-1.5 bg-card">
+                                      {payMethodLabel(p.method, historySupplier?.supplier.shop_id)}
+                                    </Badge>
+                                    {p.paid_by_name && (
+                                      <span className="text-[11px] text-muted-foreground">{t('payments.by_connector')} <strong>{p.paid_by_name}</strong></span>
+                                    )}
                                   </div>
-                                ))}
+                                  <p className="text-[11px] text-muted-foreground">
+                                    {format(new Date(p.paid_at), dateTimePattern(locale), { locale: dateFnsLocale(locale) })}
+                                  </p>
+                                  {p.reference && <p className="text-[11px] text-muted-foreground">{t('payments.ref_label')}: {p.reference}</p>}
+                                  {p.notes && <p className="text-[11px] text-muted-foreground italic">{p.notes}</p>}
+                                </div>
+                                <span className="font-bold text-green-600 dark:text-green-400 text-sm flex-shrink-0">+{fmtSH(p.amount)}</span>
+                              </div>
+                            ))}
+                            <div className="flex justify-between text-xs pt-1 border-t">
+                              <span className="text-muted-foreground">{t('payments.total_paid')}</span>
+                              <span className="font-semibold text-green-600 dark:text-green-400">{fmtSH(po.amount_paid)}</span>
+                            </div>
+                            {po.balance > 0 && (
+                              <div className="flex justify-between text-xs">
+                                <span className="text-muted-foreground">{t('payments.remaining_due')}</span>
+                                <span className="font-semibold text-amber-600 dark:text-amber-400">{fmtSH(po.balance)}</span>
                               </div>
                             )}
-                            <div className="px-3 py-2 bg-card">
-                              <p className="text-[10px] font-semibold text-muted-foreground uppercase mb-2">
-                                {t('payments.payments_received')} ({poPayments.length})
-                              </p>
-                              {poPayments.length === 0 ? (
-                                <p className="text-xs text-muted-foreground italic">{t('payments.no_payments_recorded')}</p>
-                              ) : (
-                                <div className="space-y-1.5">
-                                  {poPayments.map(p => (
-                                    <div key={p.id} className="flex items-start justify-between gap-2 rounded-lg bg-green-50 dark:bg-green-950/20 border border-green-100 dark:border-green-900 px-2.5 py-2">
-                                      <div className="space-y-0.5">
-                                        <div className="flex items-center gap-1.5 flex-wrap">
-                                          <Badge variant="outline" className="text-[10px] px-1.5 bg-card">
-                                            {t(`payment.${p.method}` as any) || p.method}
-                                          </Badge>
-                                          {p.paid_by_name && (
-                                            <span className="text-[11px] text-muted-foreground">{t('payments.by_connector')} <strong>{p.paid_by_name}</strong></span>
-                                          )}
-                                        </div>
-                                        <p className="text-[11px] text-muted-foreground">
-                                          {format(new Date(p.paid_at), dateTimePattern(locale), { locale: dateFnsLocale(locale) })}
-                                        </p>
-                                        {p.reference && <p className="text-[11px] text-muted-foreground">{t('payments.ref_label')}: {p.reference}</p>}
-                                        {p.notes && <p className="text-[11px] text-muted-foreground italic">{p.notes}</p>}
-                                      </div>
-                                      <span className="font-bold text-green-600 dark:text-green-400 text-sm flex-shrink-0">+{fmtSH(p.amount)}</span>
-                                    </div>
-                                  ))}
-                                  <div className="flex justify-between text-xs pt-1 border-t">
-                                    <span className="text-muted-foreground">{t('payments.total_paid')}</span>
-                                    <span className="font-semibold text-green-600 dark:text-green-400">{fmtSH(po.amount_paid)}</span>
-                                  </div>
-                                  {po.balance > 0 && (
-                                    <div className="flex justify-between text-xs">
-                                      <span className="text-muted-foreground">{t('payments.remaining_due')}</span>
-                                      <span className="font-semibold text-amber-600 dark:text-amber-400">{fmtSH(po.balance)}</span>
-                                    </div>
-                                  )}
-                                </div>
-                              )}
-                            </div>
                           </div>
                         )}
                       </div>
-                    )
-                  })}
+                    </div>
+                  )}
                 </div>
-              )}
-            </PremiumDialogBody>
+              )
+            })}
           </div>
-          <PremiumDialogFooter
-            onCancel={() => { setHistorySupplier(null); setHistoryPOs([]); setHistorySupplierPayments([]) }}
-            cancelLabel={t('actions.close')}
-          />
-        </div>
-      </PremiumDialog>
+        )}
+      </DetailDrawer>
 
       {openingShopId && (
         <OpeningBalanceDrawer open={openingDrawer} onOpenChange={o => { setOpeningDrawer(o); if (!o) setOpeningShopId(null) }}

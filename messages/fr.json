@@ -1137,6 +1137,7 @@
     "data_to_fix": "Données à corriger",
     "total_debt_label": "Solde dû",
     "payments_received": "Paiements reçus",
+    "payments_made": "Paiements effectués",
     "no_payments_recorded": "Aucun paiement enregistré",
     "total_paid": "Total payé",
     "remaining_due": "Reste dû",
