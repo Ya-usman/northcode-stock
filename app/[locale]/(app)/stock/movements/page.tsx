@@ -20,7 +20,6 @@ import { Input } from '@/components/ui/input'
 import { Skeleton } from '@/components/ui/skeleton'
 import { cn } from '@/lib/utils/cn'
 import { useUnitLabel } from '@/lib/products/use-unit-label'
-import { StockTabs } from '@/components/stock/stock-tabs'
 import { MovementList } from '@/components/stock/movement-list'
 import { MovementDetailDrawer, type MovementRow } from '@/components/stock/movement-detail-drawer'
 import { ProductSheetViewer } from '@/components/stock/product-sheet-viewer'
@@ -206,8 +205,6 @@ export default function StockMovementsPage({ params: { locale } }: { params: { l
 
   return (
     <div className="space-y-4">
-      <StockTabs locale={locale} />
-
       {/* Type de mouvement : « Tous » par défaut, un toucher pour filtrer */}
       <div
         ref={pillsRef}

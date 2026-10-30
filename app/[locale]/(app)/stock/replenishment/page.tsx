@@ -2,7 +2,6 @@
 
 import { useTranslations } from 'next-intl'
 import { PackagePlus } from 'lucide-react'
-import { StockTabs } from '@/components/stock/stock-tabs'
 import { ReplenishmentTab } from '@/components/stock/replenishment/replenishment-tab'
 import { useRolePermissions } from '@/lib/hooks/use-role-permissions'
 
@@ -15,7 +14,6 @@ export default function StockReplenishmentPage({ params: { locale } }: { params:
   if (!canAccess('stock')) {
     return (
       <div className="space-y-4">
-        <StockTabs locale={locale} />
         <div className="flex flex-col items-center justify-center py-24 text-center">
           <PackagePlus className="mb-4 h-12 w-12 text-muted-foreground/40" />
           <p className="text-sm text-muted-foreground">{t('no_access')}</p>
@@ -26,7 +24,6 @@ export default function StockReplenishmentPage({ params: { locale } }: { params:
 
   return (
     <div className="space-y-4">
-      <StockTabs locale={locale} />
       <ReplenishmentTab />
     </div>
   )

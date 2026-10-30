@@ -2,7 +2,6 @@
 
 import { useTranslations } from 'next-intl'
 import { ArrowRightLeft } from 'lucide-react'
-import { StockTabs } from '@/components/stock/stock-tabs'
 import { StockTransfersTab } from '@/components/stock/stock-transfers-tab'
 import { useAuthContext as useAuth } from '@/lib/contexts/auth-context'
 import { useRolePermissions } from '@/lib/hooks/use-role-permissions'
@@ -19,7 +18,6 @@ export default function StockTransfersPage({ params: { locale } }: { params: { l
   if (!isAuthorized) {
     return (
       <div className="space-y-4">
-        <StockTabs locale={locale} />
         <div className="flex flex-col items-center justify-center py-24 text-center">
           <ArrowRightLeft className="h-12 w-12 text-muted-foreground/40 mb-4" />
           <p className="text-muted-foreground text-sm">{t('no_access')}</p>
@@ -30,7 +28,6 @@ export default function StockTransfersPage({ params: { locale } }: { params: { l
 
   return (
     <div className="space-y-4">
-      <StockTabs locale={locale} />
       <StockTransfersTab />
     </div>
   )

@@ -23,7 +23,6 @@ import { withTimeout } from '@/lib/utils/with-timeout'
 import { cn } from '@/lib/utils/cn'
 import { LoadErrorFallback } from '@/components/ui/load-error-fallback'
 import { Skeleton } from '@/components/ui/skeleton'
-import { StockTabs } from '@/components/stock/stock-tabs'
 import { computeStockKpis, fetchDatedLots, fetchExpiryByProduct, fetchExpiredQtyByProduct, fetchSoldQty30dForShops, lotExpiryCounts, readSignalsCache, shopRulesOf, writeSignalsCache, type DatedLot, type StockProductLike } from '@/lib/stock/signals'
 import { fetchStockPipeline, type StockPipeline } from '@/lib/stock/pipeline'
 import { fetchReservedQtyByProduct } from '@/lib/stock/reservations'
@@ -304,8 +303,6 @@ export default function StockOverviewPage({ params: { locale } }: { params: { lo
 
   return (
     <div className="space-y-5">
-      <StockTabs locale={locale} />
-
       <div>
         <div className="flex items-center justify-between gap-3">
           <h1 className="text-lg font-semibold">{t('stock_overview.title')}</h1>

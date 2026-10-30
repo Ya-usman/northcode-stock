@@ -34,7 +34,6 @@ import { Button } from '@/components/ui/button'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Skeleton } from '@/components/ui/skeleton'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
-import { StockTabs } from '@/components/stock/stock-tabs'
 import { ProductThumbnail } from '@/components/stock/product-thumbnail'
 import { ProductSheetViewer } from '@/components/stock/product-sheet-viewer'
 import { LotDetailDrawer, LotStatusBadge, countdownTone, useLotTexts, type LotRow } from '@/components/stock/lot-detail-drawer'
@@ -278,8 +277,6 @@ export default function ExpiryPage({ params: { locale } }: { params: { locale: s
 
   return (
     <div className="space-y-3">
-      <StockTabs locale={locale} />
-
       {/* Le titre est déjà dans l'en-tête et dans l'onglet : ici, une ligne suffit */}
       <h1 className="sr-only">{t('expiry.title')}</h1>
       <p className="text-sm text-muted-foreground" data-testid="lots-subtitle">{t('expiry.subtitle')}</p>

@@ -72,7 +72,6 @@ import { EmptyGuide } from '@/components/onboarding/empty-guide'
 import { useTableExport } from '@/lib/export/use-table-export'
 import { PRODUCT_UNITS } from '@/lib/import/products-import'
 import { useStockRealtime } from '@/lib/hooks/use-realtime'
-import { StockTabs } from '@/components/stock/stock-tabs'
 import { withTimeout } from '@/lib/utils/with-timeout'
 import { getExpiryAlertDays } from '@/lib/utils/expiry'
 
@@ -1435,9 +1434,6 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
 
   return (
     <div className="space-y-4">
-      {/* Stock / Mouvements / Inventaire physique */}
-      <StockTabs locale={locale} />
-
       <>
       {/* Zone du haut, du plus important au moins important :
             1. la recherche et « Ajouter » (seule action pleine) ;

@@ -13,7 +13,6 @@ import { useState, useEffect, useMemo, useCallback, useRef } from 'react'
 import dynamic from 'next/dynamic'
 import { useTranslations } from 'next-intl'
 import { Search, ClipboardCheck, Store, Scan, CheckCircle2, AlertTriangle, History, RotateCcw, ChevronRight, ArrowLeft } from 'lucide-react'
-import { StockTabs } from '@/components/stock/stock-tabs'
 import { useAuthContext as useAuth } from '@/lib/contexts/auth-context'
 import { useShopScope } from '@/lib/shops/use-shop-scope'
 import { useShopPermissions } from '@/lib/hooks/use-role-permissions'
@@ -304,7 +303,6 @@ export default function InventoryCountPage({ params: { locale } }: { params: { l
   if (!isAuthorized) {
     return (
       <div className="space-y-4">
-        <StockTabs locale={locale} />
         <div className="flex flex-col items-center justify-center py-24 text-center">
           <ClipboardCheck className="mb-4 h-12 w-12 text-muted-foreground/40" />
           <p className="text-sm text-muted-foreground">{t('no_access')}</p>
@@ -322,8 +320,6 @@ export default function InventoryCountPage({ params: { locale } }: { params: { l
 
   return (
     <div className="space-y-4 pb-28">
-      <StockTabs locale={locale} />
-
       {/* Boutique inventoriée : toujours visible (compte à plusieurs boutiques) */}
       {shop && multiShopAccount && (
         <div className="flex flex-wrap items-center gap-2" data-testid="inventory-shop">
