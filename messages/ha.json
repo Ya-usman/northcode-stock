@@ -2714,6 +2714,9 @@
     }
   },
   "notes": {
+    "confirm_delete_title": "Share bayanin kula",
+    "confirm_delete_named": "Za a share « {title} » gaba ɗaya.",
+    "confirm_delete_body": "Za a share wannan bayanin kula gaba ɗaya.",
     "load_timeout": "Loda bayanan kula yana ɗaukar lokaci mai yawa — sake gwadawa.",
     "updated_toast": "An gyara bayanin kula",
     "created_toast": "An ƙirƙiri bayanin kula",

@@ -177,7 +177,11 @@ const pickShop = async (page, id) => { const p = page.getByTestId('shop-picker')
       const cancelItem = s.page.getByRole('menuitem', { name: /Annuler le transfert/ })
       if (await cancelItem.count()) {
         await cancelItem.first().click(); await s.page.waitForTimeout(800)
-        ok(s.dialogs.some(d => d.includes('TR-2026-0002') && d.includes('Marché Soleil Akwa → Marché Soleil Bastos')) && s.writes.length === n2, 'annuler : « Annuler le transfert TR-2026-0002 (Marché Soleil Akwa → Marché Soleil Bastos) ? », refusé → rien envoyé')
+        // Fenêtre de confirmation commune (plus de confirm() du navigateur, 30 oct. 2026) : refusée par « Retour »
+        const askTxt = await s.page.getByRole('dialog').last().innerText().catch(() => '')
+        await s.page.getByRole('dialog').last().getByRole('button', { name: 'Retour', exact: true }).click().catch(() => {}); await s.page.waitForTimeout(600)
+        ok(askTxt.includes('TR-2026-0002') && askTxt.includes('Marché Soleil Akwa → Marché Soleil Bastos') && s.dialogs.length === 0 && s.writes.length === n2 && await s.page.getByRole('dialog').count() === 0,
+          'annuler : fenêtre « Annuler le transfert TR-2026-0002 (Marché Soleil Akwa → Marché Soleil Bastos) ? », refusée → rien envoyé, aucune fenêtre du navigateur')
       } else console.log('  info  bouton Annuler non trouvé')
       const g = [...s.gets].reverse().find(x => x.path === '/api/stock-transfers')
       ok(g && g.query.shop_ids && g.query.shop_ids.split(',').length === 3, 'liste demandée pour les 3 boutiques du contexte')

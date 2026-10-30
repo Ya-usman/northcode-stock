@@ -7,6 +7,7 @@ import { useAuthContext as useAuth } from '@/lib/contexts/auth-context'
 import { useToast } from '@/components/ui/use-toast'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { ConfirmModal } from '@/components/ui/confirm-modal'
 import { PremiumDialog, PremiumDialogBody, PremiumDialogFooter } from '@/components/ui/premium-dialog'
 import { useShopScope } from '@/lib/shops/use-shop-scope'
 import { ShopScopeBadge } from '@/components/shops/shop-scope-badge'
@@ -227,8 +228,13 @@ export default function NotesPage() {
     if (!error) fetchNotes()
   }
 
-  const deleteNote = async (id: string, e: React.MouseEvent) => {
+  // Suppression : toujours confirmée (fenêtre commune rouge), la note est définitivement effacée
+  const [deleteAsk, setDeleteAsk] = useState<Note | null>(null)
+  const askDelete = (id: string, e: React.MouseEvent) => {
     e.stopPropagation()
+    setDeleteAsk(notes.find(n => n.id === id) ?? null)
+  }
+  const deleteNote = async (id: string) => {
     setDeleting(id)
     try {
       await Promise.race([supabase.auth.refreshSession(), new Promise(r => setTimeout(r, 3_000))]).catch(() => {})
@@ -305,7 +311,7 @@ export default function NotesPage() {
           <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground px-1">
             {t('pinned_section')}
           </p>
-          <NoteGrid notes={pinned_notes} onEdit={openEdit} onPin={togglePin} onDelete={deleteNote} deleting={deleting} shopName={shopName} multiShop={userShops.length > 1} dateFnsLocale={dateFnsLocale} />
+          <NoteGrid notes={pinned_notes} onEdit={openEdit} onPin={togglePin} onDelete={askDelete} deleting={deleting} shopName={shopName} multiShop={userShops.length > 1} dateFnsLocale={dateFnsLocale} />
         </div>
       )}
 
@@ -317,7 +323,7 @@ export default function NotesPage() {
               {t('other_section')}
             </p>
           )}
-          <NoteGrid notes={regular_notes} onEdit={openEdit} onPin={togglePin} onDelete={deleteNote} deleting={deleting} shopName={shopName} multiShop={userShops.length > 1} dateFnsLocale={dateFnsLocale} />
+          <NoteGrid notes={regular_notes} onEdit={openEdit} onPin={togglePin} onDelete={askDelete} deleting={deleting} shopName={shopName} multiShop={userShops.length > 1} dateFnsLocale={dateFnsLocale} />
         </div>
       )}
 
@@ -409,6 +415,16 @@ export default function NotesPage() {
           confirmLoading={saving}
         />
       </PremiumDialog>
+
+      <ConfirmModal
+        open={!!deleteAsk} onOpenChange={o => { if (!o && !deleting) setDeleteAsk(null) }}
+        tone="danger" icon={<Trash2 className="h-4 w-4" />}
+        title={t('confirm_delete_title')}
+        description={deleteAsk?.title ? t('confirm_delete_named', { title: deleteAsk.title }) : t('confirm_delete_body')}
+        confirmLabel={tRoot('actions.delete')} cancelLabel={tRoot('actions.cancel')}
+        loading={!!deleteAsk && deleting === deleteAsk.id}
+        onConfirm={async () => { if (deleteAsk) { await deleteNote(deleteAsk.id); setDeleteAsk(null) } }}
+      />
     </div>
   )
 }
@@ -423,6 +439,7 @@ function NoteGrid({ notes, onEdit, onPin, onDelete, deleting, shopName, multiSho
   multiShop: boolean
   dateFnsLocale: Locale
 }) {
+  const tRoot = useTranslations()
   return (
     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
       {notes.map(note => {
@@ -452,15 +469,18 @@ function NoteGrid({ notes, onEdit, onPin, onDelete, deleting, shopName, multiSho
               <button
                 onClick={e => onDelete(note.id, e)}
                 disabled={deleting === note.id}
+                aria-label={tRoot('actions.delete')}
+                title={tRoot('actions.delete')}
+                data-testid="note-delete"
                 className="rounded-md p-1.5 text-muted-foreground hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
               >
                 <Trash2 className="h-3.5 w-3.5" />
               </button>
             </div>
 
-            {/* Pin badge — desktop only (mobile shows PinOff button in actions) */}
+            {/* Pin badge (ordinateur) : décoratif, ne capte aucun clic (il recouvrait la corbeille d’une note épinglée) */}
             {note.pinned && (
-              <Pin className="hidden sm:block absolute top-3 right-3 h-3 w-3 text-amber-500 group-hover:opacity-0 transition-opacity" />
+              <Pin className="pointer-events-none hidden sm:block absolute top-3 right-3 h-3 w-3 text-amber-500 group-hover:opacity-0 transition-opacity" aria-hidden />
             )}
 
             {/* Title */}

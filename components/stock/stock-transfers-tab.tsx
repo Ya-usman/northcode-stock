@@ -21,6 +21,7 @@ import { Label } from '@/components/ui/label'
 import { Skeleton } from '@/components/ui/skeleton'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import { PremiumDialog, PremiumDialogBody, PremiumDialogFooter } from '@/components/ui/premium-dialog'
+import { ConfirmModal } from '@/components/ui/confirm-modal'
 import { usePersistedFilters } from '@/lib/hooks/use-persisted-filters'
 import { useOffline } from '@/lib/offline/use-offline'
 import { useRefetchOnReconnect } from '@/lib/hooks/use-refetch-on-reconnect'
@@ -123,15 +124,19 @@ export function StockTransfersTab() {
       setDetailId(null); fetchRows()
     } finally { setBusy(null) }
   }
-  const cancelTransfer = async (tr: any) => {
-    if (!confirm(tRoot('transfers.confirm_cancel_shops', { reference: tr.reference, from: tr.source_shop_name, to: tr.destination_shop_name }))) return
+  // Annulation : confirmation commune (rouge) nommant le transfert et ses deux boutiques, jamais le confirm() du navigateur
+  const [cancelAsk, setCancelAsk] = useState<any | null>(null)
+  const cancelTransfer = (tr: any) => setCancelAsk(tr)
+  const doCancel = async () => {
+    const tr = cancelAsk
+    if (!tr) return
     setBusy(`cancel:${tr.id}`)
     try {
       const res = await fetch('/api/stock-transfers/cancel', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ transfer_id: tr.id }) })
       const json = await res.json()
       if (!res.ok) { toast({ title: json.error || tRoot('toast.error'), variant: 'destructive' }); return }
       toast({ title: tRoot('transfers.cancelled_toast') })
-      setDetailId(null); fetchRows()
+      setCancelAsk(null); setDetailId(null); fetchRows()
     } finally { setBusy(null) }
   }
   const downloadNote = async (tr: TransferListRow) => {
@@ -270,6 +275,16 @@ export function StockTransfersTab() {
       />
 
       {/* E-mail : assistant existant (objet et corps à copier, ou application de messagerie) */}
+      <ConfirmModal
+        open={!!cancelAsk} onOpenChange={o => { if (!o && !busy) setCancelAsk(null) }}
+        tone="danger" icon={<Ban className="h-4 w-4" />}
+        title={t('action_cancel')}
+        description={cancelAsk ? tRoot('transfers.confirm_cancel_shops', { reference: cancelAsk.reference, from: cancelAsk.source_shop_name, to: cancelAsk.destination_shop_name }) : undefined}
+        confirmLabel={t('action_cancel')} cancelLabel={tRoot('actions.back')}
+        loading={!!cancelAsk && busy === `cancel:${cancelAsk.id}`}
+        onConfirm={doCancel}
+      />
+
       <PremiumDialog open={!!emailFor} onOpenChange={open => { if (!open) setEmailFor(null) }} title={tRoot('suppliers.po_email_helper')} icon={<Mail className="h-4 w-4" />} maxWidth="max-w-lg">
         {emailFor && (() => {
           const { subject, body } = emailContent(emailFor)

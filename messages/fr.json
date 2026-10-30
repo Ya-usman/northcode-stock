@@ -2679,6 +2679,9 @@
     }
   },
   "notes": {
+    "confirm_delete_title": "Supprimer la note",
+    "confirm_delete_named": "« {title} » sera supprimée définitivement.",
+    "confirm_delete_body": "Cette note sera supprimée définitivement.",
     "load_timeout": "Chargement des notes trop lent — réessayez.",
     "updated_toast": "Note modifiée",
     "created_toast": "Note créée",
