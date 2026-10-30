@@ -15,7 +15,8 @@ import { NavigationProgress } from './navigation-progress'
 import { AppShellSkeleton } from './app-shell-skeleton'
 import { SlowLoadBanner } from './slow-load-banner'
 import { OfflineBanner } from '@/components/offline/offline-banner'
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog'
+import { PremiumDialog, PremiumDialogBody, PremiumDialogFooter } from '@/components/ui/premium-dialog'
+import { AlertTriangle } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { TrialBanner } from '@/components/saas/trial-banner'
 import { UpgradeWall } from '@/components/saas/upgrade-wall'
@@ -500,46 +501,51 @@ export function AppLayout({ children, locale }: { children: React.ReactNode; loc
 
       <BottomNav locale={locale} role={roleInActiveShop ?? profile.role} onSignOut={handleSignOut} signingOut={signingOut} userEmail={user.email ?? ''} newNavPaths={whatsNew.newNavPaths} crispUnread={crispUnread} onOpenChat={handleOpenChat} />
 
-      {/* Sign-out protection dialog */}
-      <Dialog open={signOutDialogOpen} onOpenChange={open => { if (!open && !forcingSignOut) setSignOutDialogOpen(false) }}>
-        <DialogContent className="max-w-sm">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <span className="text-xl">⚠️</span>
-              {signOutReason === 'blocked' ? t('app_layout.offline_title') : t('app_layout.sync_failed_title')}
-            </DialogTitle>
-            <DialogDescription className="pt-1 space-y-2">
-              <span className="block">
-                {signOutReason === 'blocked'
-                  ? t('app_layout.blocked_signout_body', { count: pendingCount })
-                  : t('app_layout.sync_failed_body', { count: pendingCount })
-                }
-              </span>
-              <span className="block text-xs text-destructive font-medium">
-                {t('app_layout.signout_now_erases_data')}
-              </span>
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter className="flex-col gap-2 sm:flex-col">
-            {signOutReason === 'sync_failed' && (
-              <Button onClick={handleRetrySync} disabled={retryingSync} className="w-full bg-stockshop-blue hover:bg-stockshop-blue-light dark:bg-blue-600 dark:hover:bg-blue-500">
-                {retryingSync ? t('app_layout.syncing_ellipsis') : t('app_layout.retry_sync')}
-              </Button>
-            )}
-            <Button
-              variant="destructive"
-              onClick={handleForceSignOut}
-              disabled={forcingSignOut}
-              className="w-full"
-            >
+      {/* Déconnexion protégée (ventes pas encore synchronisées) : fenêtre commune. Pied : Annuler + action principale
+          (réessayer la synchronisation, ou se déconnecter quand même si la synchronisation est impossible hors ligne) ;
+          « Se déconnecter quand même » reste toujours accessible, en rouge, sous le message. */}
+      <PremiumDialog
+        open={signOutDialogOpen}
+        onOpenChange={open => { if (!open && !forcingSignOut) setSignOutDialogOpen(false) }}
+        title={signOutReason === 'blocked' ? t('app_layout.offline_title') : t('app_layout.sync_failed_title')}
+        icon={<AlertTriangle className="h-4 w-4" />}
+        maxWidth="max-w-sm"
+        centered
+        testId="signout-dialog"
+      >
+        <PremiumDialogBody>
+          <p className="text-sm text-foreground/90">
+            {signOutReason === 'blocked'
+              ? t('app_layout.blocked_signout_body', { count: pendingCount })
+              : t('app_layout.sync_failed_body', { count: pendingCount })}
+          </p>
+          <p className="rounded-lg bg-red-50 px-3 py-2 text-xs font-medium text-red-700 dark:bg-red-950/40 dark:text-red-400">
+            {t('app_layout.signout_now_erases_data')}
+          </p>
+          {signOutReason === 'sync_failed' && (
+            <Button variant="outline" onClick={handleForceSignOut} disabled={forcingSignOut}
+              className="h-11 w-full border-red-200 text-red-600 hover:bg-red-50 hover:text-red-700 dark:border-red-900 dark:text-red-400 dark:hover:bg-red-950/40">
               {forcingSignOut ? t('app_layout.signing_out_ellipsis') : t('app_layout.signout_anyway')}
             </Button>
-            <Button variant="ghost" onClick={() => setSignOutDialogOpen(false)} disabled={forcingSignOut} className="w-full">
-              {t('actions.cancel')}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+          )}
+        </PremiumDialogBody>
+        {signOutReason === 'sync_failed' ? (
+          <PremiumDialogFooter
+            onCancel={() => setSignOutDialogOpen(false)}
+            onConfirm={handleRetrySync}
+            confirmLabel={retryingSync ? t('app_layout.syncing_ellipsis') : t('app_layout.retry_sync')}
+            confirmDisabled={retryingSync || forcingSignOut}
+          />
+        ) : (
+          <PremiumDialogFooter
+            onCancel={() => setSignOutDialogOpen(false)}
+            onConfirm={handleForceSignOut}
+            confirmTone="danger"
+            confirmLabel={forcingSignOut ? t('app_layout.signing_out_ellipsis') : t('app_layout.signout_anyway')}
+            confirmDisabled={forcingSignOut}
+          />
+        )}
+      </PremiumDialog>
 
       <WhatsNewPanel open={whatsNewOpen} onOpenChange={setWhatsNewOpen} items={whatsNew.items} />
 

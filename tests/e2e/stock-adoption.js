@@ -202,7 +202,7 @@ const pickShop = async (page, id) => { const p = page.getByTestId('shop-picker')
   s = await open('stock/products', { shop: AKWA, width: 390, height: 844 }); page = s.page
   const switchTo = async label => {
     await page.getByTestId('header-shop-context').click(); await page.waitForTimeout(300)
-    await page.locator('header button', { hasText: label }).last().click(); await page.waitForTimeout(3500)
+    await page.getByTestId('header-shop-option').filter({ hasText: label }).last().click(); await page.waitForTimeout(3500)
   }
   const headerTxt = async () => (await page.getByTestId('header-shop-context').innerText()).trim()
   const countNow = async () => Number(((await page.getByTestId('products-count').innerText()).match(/\d+/) || [0])[0])

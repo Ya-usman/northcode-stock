@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { useTranslations } from 'next-intl'
 import { Store, ChevronDown, Layers, Check } from 'lucide-react'
 import { cn } from '@/lib/utils/cn'
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import { useAuthContext } from '@/lib/contexts/auth-context'
 import { shortShopName } from '@/lib/shops/short-name'
 
@@ -115,16 +116,16 @@ export function ShopSelector({ variant, allowAllShops = true, className, onShopC
 
   const currentLabel = showingAll ? t('all_shops') : shop?.name
 
+  // Menu déroulant commun (Radix) : se ferme avec retour Android, Échap ou un clic à côté ; navigation au clavier
   return (
+    <DropdownMenu open={open} onOpenChange={setOpen}>
     <div className={cn('relative', className)}>
+      <DropdownMenuTrigger asChild>
       {iconOnly ? (
         // En-tête du téléphone : le contexte reste LISIBLE pendant le défilement (l'en-tête est collant) —
         // « Akwa ▾ » ou « Toutes ▾ », nom complet en info-bulle, pour les lecteurs d'écran et dans la liste
         <button
-          onClick={() => setOpen(o => !o)}
           aria-label={tScope('aria_context', { name: currentLabel ?? '' })}
-          aria-haspopup="listbox"
-          aria-expanded={open}
           title={currentLabel}
           data-testid="header-shop-context"
           className="tap-target flex min-w-0 max-w-[8.5rem] items-center gap-1 rounded-md px-2 text-sm font-medium text-foreground transition-colors hover:bg-accent"
@@ -137,7 +138,6 @@ export function ShopSelector({ variant, allowAllShops = true, className, onShopC
         </button>
       ) : (
         <button
-          onClick={() => setOpen(o => !o)}
           className="w-full flex items-center gap-2 rounded-lg border bg-card px-3 py-2 text-sm font-medium shadow-sm hover:bg-accent transition-colors"
         >
           {showingAll
@@ -151,43 +151,42 @@ export function ShopSelector({ variant, allowAllShops = true, className, onShopC
           <ChevronDown className={cn('h-3.5 w-3.5 text-muted-foreground flex-shrink-0 transition-transform ml-auto', open && 'rotate-180')} />
         </button>
       )}
-      {open && (
-        <>
-          <div className="fixed inset-0 z-10" onClick={() => setOpen(false)} />
-          <div className="absolute right-0 top-full z-20 mt-1 min-w-[180px] rounded-xl border bg-card shadow-lg p-1.5">
-            {allowAllShops && (
-              <button
-                onClick={selectAll}
-                className={cn(
-                  'w-full flex items-center gap-2 rounded-lg px-3 py-2 text-sm text-left transition-colors',
-                  showingAll ? 'bg-stockshop-blue-muted dark:bg-blue-950/40 text-stockshop-blue dark:text-blue-400 font-medium' : 'hover:bg-accent text-foreground/80'
-                )}
-              >
-                <Layers className="h-3.5 w-3.5 flex-shrink-0" />
-                <span className="truncate italic">{t('all_shops')}</span>
-              </button>
-            )}
-            {userShops.map(s => (
-              <button
-                key={s.id}
-                onClick={() => selectShop(s.id)}
-                className={cn(
-                  'w-full flex items-center gap-2 rounded-lg px-3 py-2.5 text-sm text-left transition-colors',
-                  !showingAll && s.id === shop?.id
-                    ? 'bg-stockshop-blue-muted dark:bg-blue-950/40 text-stockshop-blue dark:text-blue-400 font-medium'
-                    : 'hover:bg-accent text-foreground/80'
-                )}
-              >
-                <Store className="h-3.5 w-3.5 flex-shrink-0" />
-                <div className="min-w-0">
-                  <p className="font-medium truncate">{s.name}</p>
-                  {s.city && <p className="text-xs text-muted-foreground truncate">{s.city}</p>}
-                </div>
-              </button>
-            ))}
-          </div>
-        </>
-      )}
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" className="min-w-[200px] rounded-xl p-1.5" data-testid="header-shop-menu">
+        {allowAllShops && (
+          <DropdownMenuItem
+            onSelect={selectAll}
+            data-testid="header-shop-option"
+            className={cn('flex cursor-pointer items-center gap-2 rounded-lg px-3 py-2 text-sm',
+              showingAll ? 'bg-stockshop-blue-muted font-medium text-stockshop-blue focus:bg-stockshop-blue-muted dark:bg-blue-950/40 dark:text-blue-400' : 'text-foreground/80')}
+          >
+            <Layers className="h-3.5 w-3.5 flex-shrink-0" />
+            <span className="truncate italic">{t('all_shops')}</span>
+            {showingAll && <Check className="ml-auto h-3.5 w-3.5 flex-shrink-0" />}
+          </DropdownMenuItem>
+        )}
+        {userShops.map(s => {
+          const current = !showingAll && s.id === shop?.id
+          return (
+            <DropdownMenuItem
+              key={s.id}
+              onSelect={() => selectShop(s.id)}
+              data-testid="header-shop-option"
+              className={cn('flex cursor-pointer items-center gap-2 rounded-lg px-3 py-2.5 text-sm',
+                current ? 'bg-stockshop-blue-muted font-medium text-stockshop-blue focus:bg-stockshop-blue-muted dark:bg-blue-950/40 dark:text-blue-400' : 'text-foreground/80')}
+            >
+              <Store className="h-3.5 w-3.5 flex-shrink-0" />
+              <div className="min-w-0">
+                <p className="truncate font-medium">{s.name}</p>
+                {s.city && <p className="truncate text-xs text-muted-foreground">{s.city}</p>}
+              </div>
+              {current && <Check className="ml-auto h-3.5 w-3.5 flex-shrink-0" />}
+            </DropdownMenuItem>
+          )
+        })}
+      </DropdownMenuContent>
     </div>
+    </DropdownMenu>
   )
+
 }

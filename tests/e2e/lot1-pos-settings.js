@@ -62,7 +62,7 @@ const pickShop = async (page, id) => { const p = page.getByTestId('shop-picker')
 const pickerOptions = async page => { const p = page.getByTestId('shop-picker'); await p.waitFor({ timeout: 10000 }); return p.locator('[data-shop-option]').evaluateAll(els => els.map(e => e.getAttribute('data-shop-option'))) }
 const switchTo = async (page, label) => {
   await page.getByTestId('header-shop-context').click(); await page.waitForTimeout(300)
-  await page.locator('header button', { hasText: label }).last().click(); await page.waitForTimeout(3500)
+  await page.getByTestId('header-shop-option').filter({ hasText: label }).last().click(); await page.waitForTimeout(3500)
 }
 const headerTxt = async page => (await page.getByTestId('header-shop-context').innerText()).trim()
 const gridText = async page => (await page.locator('[data-tour="pos-grid"]').innerText().catch(() => ''))

@@ -63,7 +63,7 @@ const go = async (page, path = '/fr/stock/products') => { await page.goto(BASE +
 
   console.log('\nSélection explicite, puis rechargement')
   await page.getByTestId('header-shop-context').click()
-  await page.locator('button', { hasText: 'Marché Soleil Bonapriso' }).first().click(); await page.waitForTimeout(1500)
+  await page.getByTestId('header-shop-option').filter({ hasText: 'Marché Soleil Bonapriso' }).first().click(); await page.waitForTimeout(1500)
   await go(page)
   ok(await header(page) === 'Bonapriso', 'Bonapriso choisi → restauré au rechargement')
   ok(await ls(page, `shop_ctx_filter:${ms.id}`) === BONA && await ls(page, 'dashboard_shop_filter') === null, 'mémorisé sous la clé du compte (aucune clé commune à l’appareil)')
@@ -81,7 +81,7 @@ const go = async (page, path = '/fr/stock/products') => { await page.goto(BASE +
   await go(page)
   ok(await header(page) === 'Toutes', 'ancienne clé d’une boutique inaccessible → « Toutes »')
   await page.getByTestId('header-shop-context').click()
-  await page.locator('button', { hasText: 'Marché Soleil Akwa' }).first().click(); await page.waitForTimeout(1500)
+  await page.getByTestId('header-shop-option').filter({ hasText: 'Marché Soleil Akwa' }).first().click(); await page.waitForTimeout(1500)
 
   console.log('\nChangement de compte sur le même appareil')
   await loginAs(ctx, adm.email); await go(page)

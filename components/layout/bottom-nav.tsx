@@ -1,6 +1,7 @@
 ﻿'use client'
 
-import { useState } from 'react'
+import { useRef, useState } from 'react'
+import * as DialogPrimitive from '@radix-ui/react-dialog'
 import { usePathname, useRouter } from 'next/navigation'
 import { useTheme } from '@/lib/hooks/use-theme'
 import { useAuthContext } from '@/lib/contexts/auth-context'
@@ -38,6 +39,18 @@ export function BottomNav({ locale, role, onSignOut, signingOut = false, userEma
   const t = useTranslations('nav')
   const pathname = usePathname()
   const [moreOpen, setMoreOpen] = useState(false)
+  // Glisser la poignée vers le bas ferme la feuille (au-delà de 80 px, ou geste rapide) ; sinon elle revient en place
+  const [dragY, setDragY] = useState(0)
+  const drag = useRef<{ y: number; t: number } | null>(null)
+  const onDragStart = (e: React.PointerEvent) => { drag.current = { y: e.clientY, t: Date.now() }; (e.target as HTMLElement).setPointerCapture?.(e.pointerId) }
+  const onDragMove = (e: React.PointerEvent) => { if (drag.current) setDragY(Math.max(0, e.clientY - drag.current.y)) }
+  const onDragEnd = (e: React.PointerEvent) => {
+    if (!drag.current) return
+    const dy = e.clientY - drag.current.y, speed = dy / Math.max(1, Date.now() - drag.current.t)
+    drag.current = null
+    if (dy > 80 || speed > 0.6) setMoreOpen(false)
+    setDragY(0)
+  }
   const router = useRouter()
   const { isDark, toggle } = useTheme()
   const { updateLocale } = useAuthContext()
@@ -120,6 +133,9 @@ export function BottomNav({ locale, role, onSignOut, signingOut = false, userEma
             <button
               data-tour="nav-more"
               onClick={() => setMoreOpen(o => !o)}
+              aria-haspopup="dialog"
+              aria-expanded={moreOpen}
+              data-testid="nav-more"
               className={cn(
                 'relative flex flex-1 flex-col items-center justify-center gap-0.5 text-xs transition-colors tap-target',
                 moreOpen ? 'text-stockshop-blue dark:text-blue-400' : 'text-muted-foreground'
@@ -135,19 +151,29 @@ export function BottomNav({ locale, role, onSignOut, signingOut = false, userEma
         </div>
       </nav>
 
-      {/* More drawer — slides up from bottom */}
-      {moreOpen && (
-        <>
-          {/* Backdrop */}
-          <div
-            className="fixed inset-0 z-30 bg-black/40 sm:hidden"
-            onClick={() => setMoreOpen(false)}
-          />
-
-          {/* Panel */}
-          <div className="fixed bottom-16 left-0 right-0 z-40 bg-card rounded-t-2xl shadow-2xl border-t sm:hidden animate-in slide-in-from-bottom-4 duration-200">
-            <div className="px-4 pt-4 pb-2">
-              <div className="w-10 h-1 rounded-full bg-border mx-auto mb-4" />
+      {/* Feuille « Plus » : aspect inchangé, base commune Radix (retour Android et Échap la ferment, glisser la poignée
+          vers le bas aussi, fermeture animée, rôle de fenêtre pour les lecteurs d'écran). Au-dessus de la barre du bas. */}
+      <DialogPrimitive.Root open={moreOpen} onOpenChange={setMoreOpen}>
+        <DialogPrimitive.Portal>
+          <DialogPrimitive.Overlay className="fixed inset-0 bottom-16 z-30 bg-black/40 sm:hidden data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0" />
+          <DialogPrimitive.Content
+            data-testid="more-sheet"
+            aria-describedby={undefined}
+            onOpenAutoFocus={e => e.preventDefault()}
+            className={cn('fixed bottom-16 left-0 right-0 z-40 rounded-t-2xl border-t bg-card shadow-2xl outline-none sm:hidden',
+              'duration-200 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=open]:slide-in-from-bottom-4 data-[state=closed]:slide-out-to-bottom-4 data-[state=closed]:fade-out-0',
+              dragY === 0 && 'transition-transform')}
+            style={dragY ? { transform: `translateY(${dragY}px)` } : undefined}
+          >
+            <DialogPrimitive.Title className="sr-only">{t('more')}</DialogPrimitive.Title>
+            <div className="px-4 pb-2">
+              <div
+                className="-mx-4 flex h-8 cursor-grab touch-none items-center justify-center active:cursor-grabbing"
+                onPointerDown={onDragStart} onPointerMove={onDragMove} onPointerUp={onDragEnd} onPointerCancel={onDragEnd}
+                data-testid="more-handle" aria-hidden
+              >
+                <div className="h-1 w-10 rounded-full bg-border" />
+              </div>
 
               <div className="grid grid-cols-4 gap-1">
                 {moreItems.map((item) => {
@@ -246,9 +272,9 @@ export function BottomNav({ locale, role, onSignOut, signingOut = false, userEma
             </div>
             {/* Safe area padding */}
             <div className="h-2" />
-          </div>
-        </>
-      )}
+          </DialogPrimitive.Content>
+        </DialogPrimitive.Portal>
+      </DialogPrimitive.Root>
     </>
   )
 }
