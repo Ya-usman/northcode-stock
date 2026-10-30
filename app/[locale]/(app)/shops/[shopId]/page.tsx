@@ -45,6 +45,7 @@ import dynamic from 'next/dynamic'
 import { presetPersistedFilters } from '@/lib/hooks/use-persisted-filters'
 import { canView } from '@/lib/permissions'
 import type { UserRole } from '@/lib/types/database'
+import { SegmentedTabs } from '@/components/ui/segmented-tabs'
 
 // Onglets Stock / Caisse / Historique chargés à l'ouverture : la vue d'ensemble reste légère
 const tabFallback = () => <div className="space-y-3"><Skeleton className="h-32 rounded-xl" /><Skeleton className="h-32 rounded-xl" /></div>
@@ -279,28 +280,12 @@ export default function ShopDetailPage({ params: { shopId } }: { params: { shopI
         </div>
       </div>
 
-      {/* Sous-onglets : défilent horizontalement sur téléphone */}
-      <div className="-mx-1 overflow-x-auto px-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-        {/* Clavier : ← → Début Fin (onglets à focus itinérant, motif ARIA « tabs ») */}
-        <div className="flex w-max min-w-full gap-1 rounded-lg border bg-muted/30 p-1 sm:min-w-0" role="tablist" aria-label={shop.name}
-          onKeyDown={e => {
-            const i = tabs.findIndex(x => x.key === tab)
-            const next = e.key === 'ArrowRight' ? (i + 1) % tabs.length : e.key === 'ArrowLeft' ? (i - 1 + tabs.length) % tabs.length
-              : e.key === 'Home' ? 0 : e.key === 'End' ? tabs.length - 1 : -1
-            if (next < 0) return
-            e.preventDefault()
-            setTab(tabs[next].key)
-            document.getElementById(`shop-tab-btn-${tabs[next].key}`)?.focus()
-          }}>
-          {tabs.map(({ key, Icon, label }) => (
-            <button key={key} type="button" role="tab" id={`shop-tab-btn-${key}`} aria-selected={tab === key} aria-controls={`shop-panel-${key}`} tabIndex={tab === key ? 0 : -1}
-              onClick={() => setTab(key)} data-testid={`shop-tab-${key}`}
-              className={cn('flex flex-1 items-center justify-center gap-1.5 whitespace-nowrap rounded-md px-3.5 py-1.5 text-sm font-medium transition-colors sm:flex-none', tab === key ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground')}>
-              <Icon className="h-3.5 w-3.5" />{label}{key === 'team' && <span className="text-xs text-muted-foreground">{nonOwnerCount}</span>}
-            </button>
-          ))}
-        </div>
-      </div>
+      {/* Sous-onglets : barre commune (défile sur téléphone, bords estompés, fond qui glisse, clavier ← → Début Fin) */}
+      <SegmentedTabs fill value={tab} onChange={k => setTab(k as Tab)} ariaLabel={shop.name} testId="shop-tabs" items={tabs.map(({ key, Icon, label }) => ({
+        key, icon: Icon,
+        label: <>{label}{key === 'team' && <span className="text-xs text-muted-foreground">{nonOwnerCount}</span>}</>,
+        attrs: { id: `shop-tab-btn-${key}`, 'aria-controls': `shop-panel-${key}`, 'data-testid': `shop-tab-${key}` },
+      }))} />
 
       <div role="tabpanel" id={`shop-panel-${tab}`} aria-labelledby={`shop-tab-btn-${tab}`} className="focus-visible:outline-none">
       {tab === 'overview' && (

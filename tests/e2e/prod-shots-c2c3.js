@@ -30,7 +30,7 @@ const shot = async (s, name, opts = {}) => { const f = path.join(OUT, name); awa
 
   // 2. Crédits « Je dois » (propriétaire)
   s = await open('ghislainx123@gmail.com', AKWA, 'payments')
-  await s.page.getByRole('button', { name: fr.payments.side_payable, exact: true }).first().click().catch(() => {}); await wait(4000)
+  await s.page.getByRole('tab', { name: fr.payments.side_payable, exact: true }).first().click().catch(() => {}); await wait(4000)
   await shot(s, '2-proprietaire-credits-je-dois.png')
   await s.browser.close()
 

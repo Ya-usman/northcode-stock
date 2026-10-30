@@ -32,6 +32,7 @@ import { useTeamQuota } from '@/lib/team/use-team-quota'
 import { PersonAvatar, PresenceText, RoleBadge } from '@/components/team/team-ui'
 import { MemberSheet } from '@/components/team/member-sheet'
 import { InviteDialog } from '@/components/team/invite-dialog'
+import { SegmentedTabs } from '@/components/ui/segmented-tabs'
 
 const supabase = createClient() as any
 
@@ -223,14 +224,10 @@ export default function TeamPage() {
       </div>
 
       {isOwner && (
-        <div className="flex w-fit gap-1 rounded-lg border bg-muted/30 p-1">
-          <button onClick={() => setView('team')} className={cn('rounded-md px-4 py-1.5 text-sm font-medium transition-colors', view === 'team' ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground')}>
-            {t('team.tab_team')}
-          </button>
-          <button onClick={() => setView('journal')} className={cn('flex items-center gap-1.5 rounded-md px-4 py-1.5 text-sm font-medium transition-colors', view === 'journal' ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground')}>
-            <Clock className="h-3.5 w-3.5" /> {t('team.tab_journal')}
-          </button>
-        </div>
+        <SegmentedTabs value={view} onChange={v => setView(v as typeof view)} testId="team-tabs" items={[
+          { key: 'team', label: t('team.tab_team') },
+          { key: 'journal', label: t('team.tab_journal'), icon: Clock },
+        ]} />
       )}
 
       {/* Filtre boutique : commun à la liste et au journal */}

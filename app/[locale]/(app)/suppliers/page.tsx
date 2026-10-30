@@ -61,6 +61,7 @@ import { LoadErrorFallback } from '@/components/ui/load-error-fallback'
 import { generatePurchaseOrderPDF } from '@/lib/utils/pdf'
 import { withTimeout } from '@/lib/utils/with-timeout'
 import { DEFAULT_REPLENISH_HORIZON, LEAD_TIME_MAX_DAYS, suggestedQty } from '@/lib/stock/replenishment'
+import { SegmentedTabs } from '@/components/ui/segmented-tabs'
 
 // Carte d'un fournisseur : un clic ouvre la fiche en panneau latéral ;
 // crayon et corbeille restent accessibles directement. Le solde dû est
@@ -1137,29 +1138,11 @@ export default function SuppliersPage() {
     <div className="space-y-4">
       {/* View toggle + contexte (« Toutes les boutiques » ; rien pour un compte à une seule boutique) */}
       <div className="flex flex-wrap items-center gap-2">
-      <div className="flex gap-1 rounded-lg border bg-muted/30 p-1 w-fit">
-        <button
-          onClick={() => setView('suppliers')}
-          className={`rounded-md px-4 py-1.5 text-sm font-medium transition-colors ${view === 'suppliers' ? 'bg-background shadow-sm text-foreground' : 'text-muted-foreground hover:text-foreground'}`}
-        >
-          {t('suppliers.tab_suppliers')}
-        </button>
-        {showCost && (
-        <button
-          onClick={() => setView('by_product')}
-          data-testid="suppliers-tab-prices"
-          className={`rounded-md px-4 py-1.5 text-sm font-medium transition-colors flex items-center gap-1.5 ${view === 'by_product' ? 'bg-background shadow-sm text-foreground' : 'text-muted-foreground hover:text-foreground'}`}
-        >
-          <ArrowRightLeft className="h-3.5 w-3.5" /> {t('suppliers.tab_by_product')}
-        </button>
-        )}
-        <button
-          onClick={() => setView('purchase_orders')}
-          className={`rounded-md px-4 py-1.5 text-sm font-medium transition-colors flex items-center gap-1.5 ${view === 'purchase_orders' ? 'bg-background shadow-sm text-foreground' : 'text-muted-foreground hover:text-foreground'}`}
-        >
-          <FileText className="h-3.5 w-3.5" /> {t('suppliers.tab_purchase_orders')}
-        </button>
-      </div>
+      <SegmentedTabs value={view} onChange={v => setView(v as typeof view)} testId="suppliers-tabs" items={[
+        { key: 'suppliers', label: t('suppliers.tab_suppliers') },
+        ...(showCost ? [{ key: 'by_product', label: t('suppliers.tab_by_product'), icon: ArrowRightLeft, attrs: { 'data-testid': 'suppliers-tab-prices' } }] : []),
+        { key: 'purchase_orders', label: t('suppliers.tab_purchase_orders'), icon: FileText },
+      ]} />
       <ShopScopeBadge />
       </div>
 

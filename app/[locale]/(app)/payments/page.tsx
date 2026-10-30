@@ -48,6 +48,7 @@ import { useRefetchOnReconnect } from '@/lib/hooks/use-refetch-on-reconnect'
 import { useRefetchOnVisible } from '@/lib/hooks/use-refetch-on-visible'
 import { useShopLoadTimeout } from '@/lib/hooks/use-shop-load-timeout'
 import { LoadErrorFallback } from '@/components/ui/load-error-fallback'
+import { SegmentedTabs } from '@/components/ui/segmented-tabs'
 
 interface UnpaidSale {
   id: string
@@ -1519,24 +1520,10 @@ export default function CreditsPage() {
 
       {/* Bascule créances / dettes — seulement pour qui voit aussi les dettes fournisseurs */}
       {canSeeSupplierDebts && (
-      <div className="flex gap-1 p-1 bg-muted rounded-xl" data-testid="debt-side-toggle">
-        <button
-          onClick={() => setDebtSide('receivable')}
-          className={`flex-1 py-2 px-3 rounded-lg text-sm font-semibold transition-all duration-200 ${
-            debtSide === 'receivable' ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'
-          }`}
-        >
-          {t('payments.side_receivable')}
-        </button>
-        <button
-          onClick={() => setDebtSide('payable')}
-          className={`flex-1 py-2 px-3 rounded-lg text-sm font-semibold transition-all duration-200 ${
-            debtSide === 'payable' ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'
-          }`}
-        >
-          {t('payments.side_payable')}
-        </button>
-      </div>
+      <SegmentedTabs fill value={debtSide} onChange={v => setDebtSide(v as typeof debtSide)} testId="debt-side-toggle" items={[
+        { key: 'receivable', label: t('payments.side_receivable') },
+        { key: 'payable', label: t('payments.side_payable') },
+      ]} />
       )}
 
       {(debtSide === 'receivable' ? canWritePayments : canPaySuppliers) && (
@@ -1565,51 +1552,12 @@ export default function CreditsPage() {
         </CardContent>
       </Card>
 
-      {/* Tab switcher */}
-      <div className="flex gap-1 p-1 bg-muted rounded-xl">
-        <button
-          onClick={() => setActiveTab('en-cours')}
-          className={`flex-1 py-2 px-3 rounded-lg text-sm font-semibold transition-all duration-200 ${
-            activeTab === 'en-cours'
-              ? 'bg-card text-foreground shadow-sm'
-              : 'text-muted-foreground hover:text-foreground'
-          }`}
-        >
-          {t('payments.outstanding_debts')}
-          {debtors.length > 0 && (
-            <span className={`ml-1.5 text-xs px-1.5 py-0.5 rounded-full ${activeTab === 'en-cours' ? 'bg-red-100 dark:bg-red-900/40 text-red-600 dark:text-red-400' : 'bg-muted-foreground/20 text-muted-foreground'}`}>
-              {debtors.length}
-            </span>
-          )}
-        </button>
-        <button
-          onClick={() => setActiveTab('historique')}
-          className={`flex-1 py-2 px-3 rounded-lg text-sm font-semibold transition-all duration-200 ${
-            activeTab === 'historique'
-              ? 'bg-card text-foreground shadow-sm'
-              : 'text-muted-foreground hover:text-foreground'
-          }`}
-        >
-          {t('payments.tab_historique')}
-          {histAllFetched && histAll.length > 0 && (
-            <span className={`ml-1.5 text-xs px-1.5 py-0.5 rounded-full ${activeTab === 'historique' ? 'bg-stockshop-blue-muted text-stockshop-blue dark:bg-blue-900/40 dark:text-blue-400' : 'bg-muted-foreground/20 text-muted-foreground'}`}>
-              {histAll.length}
-            </span>
-          )}
-        </button>
-        {canSeeJournal && (
-          <button
-            onClick={() => setActiveTab('journal')}
-            className={`flex-1 py-2 px-3 rounded-lg text-sm font-semibold transition-all duration-200 ${
-              activeTab === 'journal'
-                ? 'bg-card text-foreground shadow-sm'
-                : 'text-muted-foreground hover:text-foreground'
-            }`}
-          >
-            {t('payments.tab_journal')}
-          </button>
-        )}
-      </div>
+      {/* Onglets des créances (barre commune) */}
+      <SegmentedTabs fill value={activeTab} onChange={v => setActiveTab(v as typeof activeTab)} testId="payments-tabs" items={[
+        { key: 'en-cours', label: <>{t('payments.outstanding_debts')}{debtors.length > 0 && <span className={cn('ml-1.5 rounded-full px-1.5 py-0.5 text-xs', activeTab === 'en-cours' ? 'bg-red-100 text-red-600 dark:bg-red-900/40 dark:text-red-400' : 'bg-muted-foreground/20 text-muted-foreground')}>{debtors.length}</span>}</> },
+        { key: 'historique', label: <>{t('payments.tab_historique')}{histAllFetched && histAll.length > 0 && <span className={cn('ml-1.5 rounded-full px-1.5 py-0.5 text-xs', activeTab === 'historique' ? 'bg-stockshop-blue-muted text-stockshop-blue dark:bg-blue-900/40 dark:text-blue-400' : 'bg-muted-foreground/20 text-muted-foreground')}>{histAll.length}</span>}</> },
+        ...(canSeeJournal ? [{ key: 'journal', label: t('payments.tab_journal') }] : []),
+      ]} />
 
       {activeTab === 'journal' && (
         <div className="space-y-1.5">
@@ -1954,35 +1902,11 @@ export default function CreditsPage() {
         </CardContent>
       </Card>
 
-      {/* Tab switcher */}
-      <div className="flex gap-1 p-1 bg-muted rounded-xl">
-        <button
-          onClick={() => setSupplierActiveTab('en-cours')}
-          className={`flex-1 py-2 px-3 rounded-lg text-sm font-semibold transition-all duration-200 ${
-            supplierActiveTab === 'en-cours' ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'
-          }`}
-        >
-          {t('payments.tab_en_cours')}
-          {supplierDebtors.length > 0 && (
-            <span className={`ml-1.5 text-xs px-1.5 py-0.5 rounded-full ${supplierActiveTab === 'en-cours' ? 'bg-amber-100 dark:bg-amber-900/40 text-amber-600 dark:text-amber-400' : 'bg-muted-foreground/20 text-muted-foreground'}`}>
-              {supplierDebtors.length}
-            </span>
-          )}
-        </button>
-        <button
-          onClick={() => setSupplierActiveTab('historique')}
-          className={`flex-1 py-2 px-3 rounded-lg text-sm font-semibold transition-all duration-200 ${
-            supplierActiveTab === 'historique' ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'
-          }`}
-        >
-          {t('payments.tab_historique')}
-          {supplierHistAllFetched && supplierHistAll.length > 0 && (
-            <span className={`ml-1.5 text-xs px-1.5 py-0.5 rounded-full ${supplierActiveTab === 'historique' ? 'bg-stockshop-blue-muted text-stockshop-blue dark:bg-blue-900/40 dark:text-blue-400' : 'bg-muted-foreground/20 text-muted-foreground'}`}>
-              {supplierHistAll.length}
-            </span>
-          )}
-        </button>
-      </div>
+      {/* Onglets des dettes fournisseurs (barre commune) */}
+      <SegmentedTabs fill value={supplierActiveTab} onChange={v => setSupplierActiveTab(v as typeof supplierActiveTab)} testId="supplier-debts-tabs" items={[
+        { key: 'en-cours', label: <>{t('payments.tab_en_cours')}{supplierDebtors.length > 0 && <span className={cn('ml-1.5 rounded-full px-1.5 py-0.5 text-xs', supplierActiveTab === 'en-cours' ? 'bg-amber-100 text-amber-600 dark:bg-amber-900/40 dark:text-amber-400' : 'bg-muted-foreground/20 text-muted-foreground')}>{supplierDebtors.length}</span>}</> },
+        { key: 'historique', label: <>{t('payments.tab_historique')}{supplierHistAllFetched && supplierHistAll.length > 0 && <span className={cn('ml-1.5 rounded-full px-1.5 py-0.5 text-xs', supplierActiveTab === 'historique' ? 'bg-stockshop-blue-muted text-stockshop-blue dark:bg-blue-900/40 dark:text-blue-400' : 'bg-muted-foreground/20 text-muted-foreground')}>{supplierHistAll.length}</span>}</> },
+      ]} />
 
       {supplierActiveTab === 'en-cours' && (
         <>

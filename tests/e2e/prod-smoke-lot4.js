@@ -59,7 +59,7 @@ async function open(path, email = OWNER) {
   const n = await page.getByTestId('shop-picker').locator('[data-shop-option]').count().catch(() => 0)
   await page.getByRole('dialog').getByRole('button', { name: 'Annuler' }).click(); await page.waitForTimeout(600)
   ok(n === 3 && await page.getByTestId('opening-drawer').count() === 0, `reprise de dette → « Dans quelle boutique ? » (${n}), annulé sans rien ouvrir`)
-  await page.getByRole('button', { name: /^Journal/ }).click(); await page.waitForTimeout(3000)
+  await page.getByRole('tab', { name: /^Journal/ }).click(); await page.waitForTimeout(3000)
   const audit = s.requests.find(u => u.includes('/api/payments/audit'))
   ok(!!audit && SHOPS.every(id => new URL(audit).searchParams.get('shop_ids')?.includes(id)), 'journal des crédits : les 3 boutiques')
   ok(s.errors.length === 0, `aucune erreur JavaScript${s.errors.length ? ' : ' + s.errors.join(' | ') : ''}`)

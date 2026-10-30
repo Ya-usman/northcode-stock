@@ -81,7 +81,7 @@ process.on('uncaughtException', e => { if (!/Target page, context or browser has
     for (const p of PAGES) {
       await s.page.goto(`${BASE}/fr/${p}`, { waitUntil: 'domcontentloaded', timeout: 120000 }).catch(() => {})
       await wait(5500)
-      if (p === 'payments') { await s.page.getByRole('button', { name: 'Je dois', exact: true }).first().click({ timeout: 2000 }).catch(() => {}); await wait(3000) }
+      if (p === 'payments') { await s.page.getByRole('tab', { name: 'Je dois', exact: true }).first().click({ timeout: 2000 }).catch(() => {}); await wait(3000) }
       if (p === 'stock/products') await s.page.screenshot({ path: path.join(OUT, `${label.replace(/[^\p{L}0-9]+/gu, '-')}-produits.png`) })
     }
 

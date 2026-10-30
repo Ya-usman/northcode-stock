@@ -31,6 +31,7 @@ import { DetailDrawer } from '@/components/ui/detail-drawer'
 import { DrawerSection } from '@/components/ui/app-drawer'
 import { ExpiryDateField, usePastExpiryConfirm } from '@/components/stock/expiry-date-field'
 import { useRefetchOnVisible } from '@/lib/hooks/use-refetch-on-visible'
+import { SegmentedTabs } from '@/components/ui/segmented-tabs'
 
 const BarcodeScanner = dynamic(
   () => import('@/components/stock/barcode-scanner').then(m => ({ default: m.BarcodeScanner })),
@@ -436,15 +437,8 @@ export default function InventoryCountPage({ params: { locale } }: { params: { l
             </div>
             {showScanner && <BarcodeScanner onDetected={onScan} onClose={() => setShowScanner(false)} />}
             <div className="flex flex-wrap items-center gap-2">
-              <div className="flex gap-1 overflow-x-auto rounded-lg border bg-muted/30 p-1" role="tablist">
-                {filterChips.map(f => (
-                  <button key={f.key} type="button" role="tab" aria-selected={filter === f.key} onClick={() => setFilter(f.key)} data-filter={f.key}
-                    className={cn('min-h-9 whitespace-nowrap rounded-md px-3 text-sm font-medium transition-colors',
-                      filter === f.key ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground')}>
-                    {f.label}
-                  </button>
-                ))}
-              </div>
+              <SegmentedTabs value={filter} onChange={k => setFilter(k as Filter)} testId="inventory-filters"
+                items={filterChips.map(f => ({ key: f.key, label: f.label, attrs: { 'data-filter': f.key } }))} />
               {(data.categories.length > 0) && (
                 <Select value={categoryFilter} onValueChange={setCategoryFilter}>
                   <SelectTrigger className="h-10 w-[170px]" aria-label={tProducts('category')}><SelectValue /></SelectTrigger>

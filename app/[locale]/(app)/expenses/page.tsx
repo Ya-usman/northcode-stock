@@ -49,6 +49,7 @@ import { useRestoredPhoto } from '@/lib/photo/use-restored-photo'
 import { generateExpensesReportPDF } from '@/lib/utils/pdf'
 import { useTableExport } from '@/lib/export/use-table-export'
 import { receiptSrc } from '@/lib/expenses/receipts'
+import { SegmentedTabs } from '@/components/ui/segmented-tabs'
 
 const supabase = createClient() as any
 
@@ -903,20 +904,10 @@ export default function ExpensesPage() {
 
       {/* View toggle */}
       {canWriteExpenses && (
-        <div className="flex gap-1 rounded-lg border bg-muted/30 p-1 w-fit">
-          <button
-            onClick={() => setView('expenses')}
-            className={`rounded-md px-4 py-1.5 text-sm font-medium transition-colors ${view === 'expenses' ? 'bg-background shadow-sm text-foreground' : 'text-muted-foreground hover:text-foreground'}`}
-          >
-            {t('tab_expenses')}
-          </button>
-          <button
-            onClick={() => setView('journal')}
-            className={`rounded-md px-4 py-1.5 text-sm font-medium transition-colors flex items-center gap-1.5 ${view === 'journal' ? 'bg-background shadow-sm text-foreground' : 'text-muted-foreground hover:text-foreground'}`}
-          >
-            <AlertTriangle className="h-3.5 w-3.5" /> {t('tab_journal')} {deleteLogs.length > 0 && `(${deleteLogs.length})`}
-          </button>
-        </div>
+        <SegmentedTabs value={view} onChange={v => setView(v as typeof view)} testId="expenses-tabs" items={[
+          { key: 'expenses', label: t('tab_expenses') },
+          { key: 'journal', label: <>{t('tab_journal')}{deleteLogs.length > 0 && ` (${deleteLogs.length})`}</>, icon: AlertTriangle },
+        ]} />
       )}
 
       {view === 'expenses' && (

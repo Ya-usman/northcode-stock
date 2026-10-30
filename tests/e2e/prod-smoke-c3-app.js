@@ -47,7 +47,7 @@ const poList = s => { const b = s.bodies.find(x => /\/api\/purchase-orders\?/.te
   console.log("\nPropriétaire — Crédits « Je dois »")
   let s = await open('ghislainx123@gmail.com', AKWA, 'payments')
   // L'écran s'ouvre sur « On me doit » : les dettes fournisseurs ne sont demandées qu'en basculant sur « Je dois »
-  await s.page.getByRole('button', { name: fr.payments?.side_payable || 'Je dois', exact: true }).first().click().catch(() => {})
+  await s.page.getByRole('tab', { name: fr.payments?.side_payable || 'Je dois', exact: true }).first().click().catch(() => {})
   await s.page.waitForTimeout(4000)
   ok(s.bodies.some(b => /\/api\/supplier-payments\/debts/.test(b.u) && b.status === 200) || s.bodies.some(b => /\/api\/supplier-payments/.test(b.u) && b.status === 200), 'dettes fournisseurs servies par la route serveur')
   ok(s.errors.length === 0 && s.denied.length === 0, `aucune erreur JavaScript ni refus de lecture${s.denied.length ? ' — ' + s.denied.join(', ') : ''}`)

@@ -77,11 +77,11 @@ const xlsxText = async (page, trigger, name) => {
     'panneau de reprise : « Boutique : Marché Soleil Bonapriso » rappelée, plus de boutons de boutique présélectionnés')
   await page.keyboard.press('Escape'); await page.waitForTimeout(800)
   // Journal : toutes les boutiques du contexte
-  await page.getByRole('button', { name: /^Journal/ }).click(); await page.waitForTimeout(2500)
+  await page.getByRole('tab', { name: /^Journal/ }).click(); await page.waitForTimeout(2500)
   const auditReq = s.requests.find(u => u.includes('/api/payments/audit'))
   const auditShops = auditReq ? (new URL(auditReq).searchParams.get('shop_ids') || '').split(',') : []
   ok(auditShops.length === 3 && SHOPS.every(id => auditShops.includes(id)), `journal des crédits : les 3 boutiques demandées (avant : boutique cachée seule) (${auditShops.length})`)
-  await page.getByRole('button', { name: /^Crédits en cours|^En cours/ }).first().click().catch(() => {}); await page.waitForTimeout(800)
+  await page.getByRole('tab', { name: /^Crédits en cours|^En cours/ }).first().click().catch(() => {}); await page.waitForTimeout(800)
   // Export Excel : colonne Boutique, intitulé « Toutes les boutiques »
   const txt = await xlsxText(page, async () => { await page.getByRole('button', { name: /Exporter en PDF|Export/ }).first().click(); await page.getByTestId('export-xlsx').click() }, 'lot4-debts')
   ok(/Boutique/.test(txt) && /Toutes les boutiques/.test(txt), 'Excel des créances : colonne « Boutique », intitulé « Toutes les boutiques »')
@@ -100,7 +100,7 @@ const xlsxText = async (page, trigger, name) => {
   console.log('\n2. Caissière d’Akwa (une seule boutique) : pas de badge, pas de journal')
   s = await open('payments', { email: FATOU }); page = s.page
   ok(await page.getByTestId('shop-scope-badge').count() === 0, 'aucun badge de contexte')
-  ok(await page.getByRole('button', { name: /^Journal/ }).count() === 0, 'onglet « Journal » absent (rôle hors direction)')
+  ok(await page.getByRole('tab', { name: /^Journal/ }).count() === 0, 'onglet « Journal » absent (rôle hors direction)')
   const fShops = await page.locator('[data-debtor-shop]').evaluateAll(els => [...new Set(els.map(e => e.getAttribute('data-debtor-shop')))])
   ok(fShops.every(id => id === AKWA), `dettes d’Akwa seulement (${fShops.length} boutique)`)
   await s.browser.close()
@@ -139,11 +139,11 @@ const xlsxText = async (page, trigger, name) => {
     await page.keyboard.press('Escape'); await page.keyboard.press('Escape'); await page.waitForTimeout(500)
   } else ok(true, 'aucune vente à encaisser dans la période : contrôle sans objet')
   // Journal : toutes les boutiques du contexte
-  await page.getByRole('button', { name: /Journal/ }).first().click(); await page.waitForTimeout(3000)
+  await page.getByRole('tab', { name: /Journal/ }).first().click(); await page.waitForTimeout(3000)
   const logsReq = s.requests.find(u => u.includes('/api/sales/logs'))
   const logShops = logsReq ? (new URL(logsReq).searchParams.get('shop_ids') || '').split(',') : []
   ok(SHOPS.every(id => logShops.includes(id)), 'journal des ventes : les 3 boutiques demandées')
-  await page.getByRole('button', { name: /^Ventes$/ }).first().click(); await page.waitForTimeout(3000)
+  await page.getByRole('tab', { name: /^Ventes$/ }).first().click(); await page.waitForTimeout(3000)
   const htxt = await xlsxText(page, async () => { await page.getByRole('button', { name: /Exporter en PDF/ }).first().click(); await page.getByTestId('export-xlsx').click() }, 'lot4-sales').catch(e => 'ERREUR ' + e.message)
   ok(/Toutes les boutiques/.test(htxt) && /Boutique/.test(htxt), 'Excel des ventes : intitulé « Toutes les boutiques », colonne Boutique')
   ok(userWrites(s).length === 0, `aucune écriture de l’écran (${userWrites(s).map(w => w.method + ' ' + w.path).join(', ') || '0'}) — toutes interceptées de toute façon`)
@@ -155,7 +155,7 @@ const xlsxText = async (page, trigger, name) => {
   // Liste et statistiques (le simple comptage « la boutique a-t-elle déjà vendu ? » n'est pas concerné)
   const salesReq = s.requests.filter(u => u.includes('/rest/v1/sales?') && !/select=id(&|$)/.test(u))
   ok(salesReq.length > 0 && salesReq.every(u => u.includes(`cashier_id=eq.${fatouId}`)), 'requêtes des ventes filtrées sur ses propres ventes (boutique où elle est caissière)')
-  ok(await page.getByRole('button', { name: /Journal/ }).count() === 0, 'onglet « Journal » absent')
+  ok(await page.getByRole('tab', { name: /Journal/ }).count() === 0, 'onglet « Journal » absent')
   await s.browser.close()
 
   console.log(`\n${pass} réussis, ${fail} échec(s)`); process.exit(fail ? 1 : 0)

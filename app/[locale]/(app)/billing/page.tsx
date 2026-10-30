@@ -21,6 +21,7 @@ import { useSearchParams, useRouter } from 'next/navigation'
 import { useOffline } from '@/lib/offline/use-offline'
 import { useRefetchOnReconnect } from '@/lib/hooks/use-refetch-on-reconnect'
 import { useRefetchOnVisible } from '@/lib/hooks/use-refetch-on-visible'
+import { SegmentedTabs } from '@/components/ui/segmented-tabs'
 
 type PlanId = 'starter' | 'pro' | 'business'
 
@@ -360,36 +361,16 @@ export default function BillingPage({ params: { locale } }: { params: { locale: 
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-5">
             <h2 className="font-semibold">{isSubscribed ? t('change_plan') : t('choose_plan')}</h2>
 
-            {/* Period toggle */}
-            <div className="flex items-center gap-1 bg-muted rounded-xl p-1 self-start sm:self-auto">
-              {(Object.keys(BILLING_PERIODS) as BillingPeriod[]).map(p => {
-                const cfg = BILLING_PERIODS[p]
-                return (
-                  <button
-                    key={p}
-                    onClick={() => setPeriod(p)}
-                    className={cn(
-                      'relative flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-all',
-                      period === p
-                        ? 'bg-background text-foreground shadow-sm'
-                        : 'text-muted-foreground hover:text-foreground'
-                    )}
-                  >
-                    {cfg.label}
-                    {cfg.badge && (
-                      <span className={cn(
-                        'text-xs font-bold px-1.5 py-0.5 rounded-full',
-                        p === 'annual'
-                          ? 'bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-400'
-                          : 'bg-stockshop-blue-muted dark:bg-blue-900/40 text-stockshop-blue dark:text-blue-400'
-                      )}>
-                        {cfg.badge}
-                      </span>
-                    )}
-                  </button>
-                )
-              })}
-            </div>
+            {/* Période : barre commune (fond qui glisse) */}
+            <SegmentedTabs className="self-start sm:self-auto" value={period} onChange={v => setPeriod(v as BillingPeriod)} testId="billing-period" items={(Object.keys(BILLING_PERIODS) as BillingPeriod[]).map(p => {
+              const cfg = BILLING_PERIODS[p]
+              return {
+                key: p,
+                label: <>{cfg.label}{cfg.badge && <span className={cn('rounded-full px-1.5 py-0.5 text-xs font-bold', p === 'annual'
+                  ? 'bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-400'
+                  : 'bg-stockshop-blue-muted text-stockshop-blue dark:bg-blue-900/40 dark:text-blue-400')}>{cfg.badge}</span>}</>,
+              }
+            })} />
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">

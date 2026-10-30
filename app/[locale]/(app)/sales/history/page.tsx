@@ -55,6 +55,7 @@ import { getPendingSales, type PendingSale } from '@/lib/offline/db'
 import { invalidateSalesData } from '@/lib/query-keys'
 import { queryClient } from '@/lib/query-client'
 import { onSalesDataChanged } from '@/lib/data-refresh'
+import { SegmentedTabs } from '@/components/ui/segmented-tabs'
 
 
 const supabase = createClient() as any
@@ -1071,28 +1072,11 @@ export default function SalesHistoryPage() {
     <div className="space-y-4">
       {scope.isAllShops && scope.multiShop && <div><ShopScopeBadge /></div>}
       {/* View toggle */}
-      <div className="flex gap-1 rounded-lg border bg-muted/30 p-1 w-fit">
-        <button
-          onClick={() => setView('sales')}
-          className={`rounded-md px-4 py-1.5 text-sm font-medium transition-colors ${view === 'sales' ? 'bg-background shadow-sm text-foreground' : 'text-muted-foreground hover:text-foreground'}`}
-        >
-          {t('sales.sales_tab')}
-        </button>
-        <button
-          onClick={() => setView('repayments')}
-          className={`rounded-md px-4 py-1.5 text-sm font-medium transition-colors flex items-center gap-1.5 ${view === 'repayments' ? 'bg-background shadow-sm text-foreground' : 'text-muted-foreground hover:text-foreground'}`}
-        >
-          <CornerDownLeft className="h-3.5 w-3.5" /> {t('sales.repayments_tab')}
-        </button>
-        {canSeeLogs && (
-          <button
-            onClick={() => setView('logs')}
-            className={`rounded-md px-4 py-1.5 text-sm font-medium transition-colors flex items-center gap-1.5 ${view === 'logs' ? 'bg-background shadow-sm text-foreground' : 'text-muted-foreground hover:text-foreground'}`}
-          >
-            <Activity className="h-3.5 w-3.5" /> {t('sales.logs_tab')}
-          </button>
-        )}
-      </div>
+      <SegmentedTabs value={view} onChange={v => setView(v as typeof view)} testId="sales-history-tabs" items={[
+        { key: 'sales', label: t('sales.sales_tab') },
+        { key: 'repayments', label: t('sales.repayments_tab'), icon: CornerDownLeft },
+        ...(canSeeLogs ? [{ key: 'logs', label: t('sales.logs_tab'), icon: Activity }] : []),
+      ]} />
 
       {/* Filters row */}
       <div className="flex flex-wrap items-end gap-2">
