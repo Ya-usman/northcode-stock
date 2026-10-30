@@ -42,7 +42,7 @@ export async function GET(request: Request) {
         : Promise.resolve({ data: [] }),
     ])
     const rows = [...(inc.data || []), ...(out.data || [])] as any[]
-    const shopNames: Record<string, string> = {}, people: Record<string, string> = {}, refs: Record<string, string> = {}, units: Record<string, string | null> = {}
+    const shopNames: Record<string, string> = {}, people: Record<string, string> = {}, refs: Record<string, { reference: string; status: string }> = {}, units: Record<string, string | null> = {}
     const sIds = Array.from(new Set(rows.flatMap(r => [r.requesting_shop_id, r.source_shop_id])))
     const pIds = Array.from(new Set(rows.flatMap(r => [r.requested_by, r.decided_by]).filter(Boolean)))
     const tIds = Array.from(new Set(rows.map(r => r.transfer_id).filter(Boolean)))
@@ -50,14 +50,16 @@ export async function GET(request: Request) {
     await Promise.all([
       sIds.length ? admin.from('shops').select('id, name').in('id', sIds).then((r: any) => { for (const s of r.data || []) shopNames[s.id] = s.name }) : null,
       pIds.length ? admin.from('profiles').select('id, full_name').in('id', pIds).then((r: any) => { for (const p of r.data || []) people[p.id] = p.full_name }) : null,
-      tIds.length ? admin.from('stock_transfers').select('id, reference').in('id', tIds).then((r: any) => { for (const x of r.data || []) refs[x.id] = x.reference }) : null,
+      tIds.length ? admin.from('stock_transfers').select('id, reference, status').in('id', tIds).then((r: any) => { for (const x of r.data || []) refs[x.id] = { reference: x.reference, status: x.status } }) : null,
       prodIds.length ? admin.from('products').select('id, unit').in('id', prodIds).then((r: any) => { for (const x of r.data || []) units[x.id] = x.unit ?? null }) : null,
     ])
     const view = (r: any) => ({
       ...r,
       requesting_shop_name: shopNames[r.requesting_shop_id] ?? null, source_shop_name: shopNames[r.source_shop_id] ?? null,
       requested_by_name: r.requested_by ? people[r.requested_by] ?? null : null, decided_by_name: r.decided_by ? people[r.decided_by] ?? null : null,
-      transfer_reference: r.transfer_id ? refs[r.transfer_id] ?? null : null, unit: units[r.source_product_id] ?? null,
+      // État RÉEL du transfert rattaché (une demande acceptée dont le transfert est annulé ne doit pas paraître aboutie)
+      transfer_reference: r.transfer_id ? refs[r.transfer_id]?.reference ?? null : null,
+      transfer_status: r.transfer_id ? refs[r.transfer_id]?.status ?? null : null, unit: units[r.source_product_id] ?? null,
       can_decide: r.status === 'pending' && decideShops.has(r.source_shop_id),
       can_cancel: r.status === 'pending' && cancelShops.has(r.requesting_shop_id),
     })

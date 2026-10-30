@@ -169,7 +169,7 @@ const BANANE = 'Banane'
   ok(acc2.status === 409 && ((await db.from('stock_transfers').select('id').eq('notes', NOTE + ' bis')).data || []).length === 0, `seconde acceptation : 409, aucun second transfert`, acc2)
   const list2 = await api('GET', `/api/stock-transfers/requests?shop_ids=${ALPHA},${YZ}`)
   const out3 = (list2.body.outgoing || []).find(r => r.id === R3.id)
-  ok(!(list2.body.incoming || []).some(r => r.id === R3.id) && out3?.status === 'accepted' && out3.transfer_reference === T.reference, `plus dans les demandes reçues ; côté demandeur « acceptée » avec ${out3?.transfer_reference}`)
+  ok(!(list2.body.incoming || []).some(r => r.id === R3.id) && out3?.status === 'accepted' && out3.transfer_reference === T.reference && out3.transfer_status === 'sent', `plus dans les demandes reçues ; côté demandeur « acceptée » avec ${out3?.transfer_reference} en route (${out3?.transfer_status})`)
 
   // Le transfert d'essai est annulé : lots d'Alpha rendus à l'identique
   const cxT = await api('POST', '/api/stock-transfers/cancel', { transfer_id: T.id })
@@ -178,6 +178,8 @@ const BANANE = 'Banane'
   ok(cxT.status === 200 && (await db.from('stock_transfers').select('status').eq('id', T.id).single()).data.status === 'cancelled' && (await prod(ALPHA, BANANE))[0].quantity === aBan.quantity && sameLots,
     `transfert d’essai ${T.reference} annulé : stock Alpha ${aBan.quantity} rendu, lots à l’identique`, cxT)
   ok((await prod(YZ, BANANE))[0].quantity === yBan.quantity, `${Y.name} Banane inchangée (${yBan.quantity})`)
+  const out4 = ((await api('GET', `/api/stock-transfers/requests?shop_ids=${YZ}`)).body.outgoing || []).find(r => r.id === R3.id)
+  ok(out4?.status === 'accepted' && out4.transfer_status === 'cancelled', `demande acceptée dont le transfert est annulé : état réel « ${out4?.transfer_status} » renvoyé`)
 
   // ── E. Écrans côté demandeur (lecture) ───────────────────────────────────────────────────────────────────────
   for (const [dev, w, h] of [['tel', 390, 844], ['pc', 1366, 900]]) {
@@ -186,7 +188,7 @@ const BANANE = 'Banane'
     await s.page.goto(`${BASE}/fr/stock/transfers`, { waitUntil: 'domcontentloaded', timeout: 120000 }); await wait(9000)
     const outs = (await s.page.getByTestId('transfer-request-out').allInnerTexts().catch(() => [])).map(t => t.replace(/\s+/g, ' '))
     const st = outs.join(' | ')
-    ok(/Refusée/i.test(st) && /Annulée/i.test(st) && /Acceptée/i.test(st) && st.includes(`TEST motif ${W.RUN}`) && st.includes(T.reference), `${dev} : demandes envoyées (refusée avec motif, annulée, acceptée avec ${T.reference})`, st.slice(0, 400))
+    ok(/Refusée/i.test(st) && /Annulée/i.test(st) && /Transfert annulé/i.test(st) && st.includes(`TEST motif ${W.RUN}`) && st.includes(T.reference), `${dev} : demandes envoyées (refusée avec motif, annulée, « Transfert annulé » ${T.reference})`, st.slice(0, 400))
     await s.page.getByTestId('transfer-requests').scrollIntoViewIfNeeded().catch(() => {})
     await s.page.screenshot({ path: path.join(OUT, `rt190-${dev}-3-demandes-envoyees.png`) })
     await s.browser.close().catch(() => {})

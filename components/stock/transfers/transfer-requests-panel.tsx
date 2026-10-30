@@ -29,6 +29,8 @@ export interface TransferRequestRow {
   decline_reason: string | null
   transfer_id: string | null
   transfer_reference: string | null
+  /** État réel du transfert créé en acceptant (brouillon, en route, reçu, annulé) */
+  transfer_status: 'draft' | 'sent' | 'received' | 'cancelled' | null
   requesting_shop_name: string | null
   source_shop_name: string | null
   requested_by_name: string | null
@@ -45,6 +47,9 @@ const STATUS_CLS: Record<TransferRequestRow['status'], string> = {
   declined: 'bg-red-50 text-red-700 dark:bg-red-950/40 dark:text-red-400',
   cancelled: 'bg-muted text-muted-foreground',
 }
+
+/** Acceptée, mais le transfert créé a été annulé ensuite : rien n'arrivera */
+const transferCancelled = (r: TransferRequestRow) => r.status === 'accepted' && r.transfer_status === 'cancelled'
 
 export function TransferRequestsPanel({ shopIds, refreshKey, onAccept }: {
   shopIds: string[]
@@ -125,11 +130,17 @@ export function TransferRequestsPanel({ shopIds, refreshKey, onAccept }: {
               <div className="min-w-0 flex-1">
                 <p className="text-sm"><span className="font-semibold tabular-nums">{qtyText(r)}</span> · {r.product_name}</p>
                 <p className="mt-0.5 text-xs text-muted-foreground">{t('asked_to', { shop: r.source_shop_name ?? '' })} · {when(r.created_at)}</p>
-                {r.status === 'accepted' && r.transfer_reference && <p className="mt-1 text-xs font-medium text-green-700 dark:text-green-400">{t('accepted_ref', { reference: r.transfer_reference })}</p>}
+                {r.status === 'accepted' && r.transfer_reference && (
+                  <p className={cn('mt-1 text-xs font-medium', transferCancelled(r) ? 'text-muted-foreground' : 'text-green-700 dark:text-green-400')} data-testid="transfer-request-transfer">
+                    {r.transfer_status ? t(`transfer_state_${r.transfer_status}`, { reference: r.transfer_reference }) : t('accepted_ref', { reference: r.transfer_reference })}
+                  </p>
+                )}
                 {r.status === 'declined' && r.decline_reason && <p className="mt-1 text-xs text-red-700 dark:text-red-400">{r.decline_reason}</p>}
               </div>
               <div className="flex shrink-0 items-center gap-2">
-                <span className={cn('rounded-full px-2.5 py-0.5 text-xs font-semibold', STATUS_CLS[r.status])} data-testid="transfer-request-status">{t(`status_${r.status}`)}</span>
+                <span className={cn('rounded-full px-2.5 py-0.5 text-xs font-semibold', transferCancelled(r) ? STATUS_CLS.cancelled : STATUS_CLS[r.status])} data-testid="transfer-request-status">
+                  {transferCancelled(r) ? t('status_transfer_cancelled') : t(`status_${r.status}`)}
+                </span>
                 {r.can_cancel && (
                   <Button variant="ghost" className="h-9 px-2 text-sm text-red-600 hover:bg-red-50 hover:text-red-700 dark:text-red-400 dark:hover:bg-red-950/40"
                     disabled={!!busy} onClick={() => patch(r, 'cancel')} data-testid="transfer-request-cancel">{t('cancel_request')}</Button>
