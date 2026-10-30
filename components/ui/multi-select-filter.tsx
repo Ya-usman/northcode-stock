@@ -1,12 +1,12 @@
 'use client'
 
 import * as React from 'react'
-import * as DialogPrimitive from '@radix-ui/react-dialog'
-import { Check, ChevronDown, Search, X } from 'lucide-react'
+import { Check, ChevronDown, Search } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 import { cn } from '@/lib/utils/cn'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
-import { refocusTopModal, useModalStack } from '@/components/ui/modal-stack'
+import { useModalStack } from '@/components/ui/modal-stack'
+import { AppDrawer } from '@/components/ui/app-drawer'
 import {
   compactLabel, flatOptions, searchGroups, toggleValue,
   type FilterGroup,
@@ -219,7 +219,8 @@ export function MultiSelectFilter({
 
   const contentRef = React.useRef<HTMLDivElement>(null)
   // Pile commune : Échap ferme ce niveau même si un message (toast) est affiché
-  useModalStack(open, () => setOpen(false), contentRef)
+  // (ordinateur seulement : sur téléphone, la feuille commune s'inscrit elle-même dans la pile)
+  useModalStack(open && !phone, () => setOpen(false), contentRef)
 
   const c = compactLabel(label, selected, groups)
   const text = c.kind === 'many' ? t('compact', { label, count: c.count }) : c.text
@@ -289,33 +290,16 @@ export function MultiSelectFilter({
     />
   )
 
+  // Téléphone : feuille basse commune (AppDrawer) : même en-tête que les autres panneaux, croix, retour Android et
+  // Échap ; pas de clavier qui surgit à l'ouverture (le panneau prend le focus, pas la recherche)
   if (phone) {
     return (
       <>
         {trigger}
-        <DialogPrimitive.Root open={open} onOpenChange={setOpen}>
-          <DialogPrimitive.Portal>
-            <DialogPrimitive.Overlay className="fixed inset-0 z-50 bg-black/40 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0" />
-            <DialogPrimitive.Content
-              ref={contentRef}
-              aria-describedby={undefined}
-              onCloseAutoFocus={refocusTopModal}
-              onOpenAutoFocus={e => { e.preventDefault(); contentRef.current?.focus({ preventScroll: true }) }}
-              tabIndex={-1}
-              className="fixed inset-x-0 bottom-0 z-50 flex max-h-[85dvh] flex-col rounded-t-2xl bg-background shadow-2xl outline-none data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=open]:slide-in-from-bottom data-[state=closed]:slide-out-to-bottom"
-              data-testid={testId ? `${testId}-sheet` : undefined}
-            >
-              <div className="flex items-center justify-between gap-2 border-b px-4 py-2">
-                <DialogPrimitive.Title className="text-base font-semibold">{label}</DialogPrimitive.Title>
-                <DialogPrimitive.Close className="flex h-12 w-12 items-center justify-center rounded-md text-muted-foreground hover:bg-muted" aria-label={t('close')}>
-                  <X className="h-5 w-5" />
-                </DialogPrimitive.Close>
-              </div>
-              <div className="min-h-0 flex-1 px-3 pt-3">{list(true)}</div>
-              <div className="border-t px-4 pt-3 pb-[calc(0.75rem_+_env(safe-area-inset-bottom,0px))]">{footer}</div>
-            </DialogPrimitive.Content>
-          </DialogPrimitive.Portal>
-        </DialogPrimitive.Root>
+        <AppDrawer open={open} onOpenChange={setOpen} title={label} mobile="sheet" width="sm"
+          testId={testId ? `${testId}-sheet` : undefined} footer={footer} bodyClassName="bg-background px-3 py-3">
+          {list(true)}
+        </AppDrawer>
       </>
     )
   }

@@ -34,7 +34,17 @@ const BASE = 'http://localhost:3000'
   const found = []
   for (const l of cardLabels) if (await kpis.locator('button').filter({ hasText: new RegExp(`\\d+\\s*${l}`) }).count()) found.push(l)
   ok(found.length === cardLabels.length, `KPI cliquables : ${found.join(', ')}`)
-  const outCount = num((await kpis.locator('button').filter({ hasText: /\d+\s*Ruptures/ }).innerText()).split('\n')[0])
+  // La carte Ruptures se recalcule quand les quantités périmées arrivent (un produit dont tout le stock est périmé
+  // passe en rupture) : en « Toutes les boutiques », 2 puis 3 au bout de ~3 s (constaté le 30 oct. 2026). On lit le
+  // chiffre une fois STABLE (inchangé pendant 2 s, 20 s au plus) ; la comparaison avec la liste filtrée ne change pas.
+  const outCard = kpis.locator('button').filter({ hasText: /\d+\s*Ruptures/ })
+  let outCount = num((await outCard.innerText()).split('\n')[0])
+  for (let stable = 0, i = 0; stable < 4 && i < 40; i++) {
+    await page.waitForTimeout(500)
+    const v = num((await outCard.innerText()).split('\n')[0])
+    stable = v === outCount ? stable + 1 : 0
+    outCount = v
+  }
   await page.screenshot({ path: SCR + '/stock-overview-desktop.png' })
 
   // ── Carte → Produits filtrés ──────────────────────────────────────────────
