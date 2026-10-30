@@ -77,6 +77,23 @@ export function suggestedQty(f: ReplenishFacts, opts: { horizon: number; leadDay
   return Math.max(1, target - projectedStock(f))
 }
 
+/**
+ * Base de la quantité suggérée, pour l'expliquer à l'écran (30 oct. 2026 : « la durée ne change rien » sans
+ * explication semblait être une panne) :
+ *  - few_sales : moins de REPLENISH_MIN_SALES ventes en 30 jours, pas de rythme fiable → seuil d'alerte × 2, la durée
+ *    choisie n'a aucun effet ;
+ *  - threshold : le rythme existe, mais le seuil × 2 dépasse les ventes prévues sur la période (durée + délai) ;
+ *  - rhythm : ventes prévues sur la période (days = durée + délai fournisseur, lead = délai).
+ */
+export type SuggestionBasis = { kind: 'few_sales' } | { kind: 'threshold'; days: number } | { kind: 'rhythm'; days: number; lead: number }
+export function suggestionBasis(f: Pick<ReplenishFacts, 'threshold' | 'sold30'>, opts: { horizon: number; leadDays?: number | null }): SuggestionBasis {
+  const daily = dailySales(f.sold30)
+  if (!daily) return { kind: 'few_sales' }
+  const lead = cleanLead(opts.leadDays)
+  const days = lead + Math.max(1, Math.round(opts.horizon))
+  return 2 * Math.max(0, f.threshold) >= Math.ceil(daily * days) ? { kind: 'threshold', days } : { kind: 'rhythm', days, lead }
+}
+
 // ── Fournisseurs : délai et meilleures offres ─────────────────────────────────────────────────────────────────
 
 export interface LeadTime { days: number; source: 'declared' | 'observed' }

@@ -25,7 +25,7 @@ import { formatLocaleDate } from '@/lib/i18n/date-format'
 import { useUnitLabel } from '@/lib/products/use-unit-label'
 import { cn } from '@/lib/utils/cn'
 import {
-  REPLENISH_HORIZONS, bestOffers, cheapestChoice, expectedDeliveryDate, normalizeHorizon, suggestedQty,
+  REPLENISH_HORIZONS, bestOffers, cheapestChoice, expectedDeliveryDate, normalizeHorizon, suggestedQty, suggestionBasis,
   type ReplenishFacts, type SupplierOffer,
 } from '@/lib/stock/replenishment'
 import type { ReplenishItem, ReplenishSupplier } from '@/lib/stock/replenishment-load'
@@ -93,6 +93,7 @@ export function ReplenishmentTab() {
 
   const supplierOf = (it: ReplenishItem) => (it.product_id in choice ? choice[it.product_id] : it.supplier_id ?? NO_SUPPLIER)
   const suggestionOf = (it: ReplenishItem, supplierId: string) => suggestedQty({ ...factsOf(it), available: it.projected }, { horizon, leadDays: leadOf(supplierId) })
+  const basisOf = (it: ReplenishItem, supplierId: string) => suggestionBasis(factsOf(it), { horizon, leadDays: leadOf(supplierId) })
   const qtyOf = (it: ReplenishItem) => qty[it.product_id] ?? suggestionOf(it, supplierOf(it))
   const priceOf = (it: ReplenishItem, supplierId: string) => it.offers.find(o => o.supplier_id === supplierId)?.price ?? null
 
@@ -311,6 +312,10 @@ export function ReplenishmentTab() {
                         it.drafted ? t('fact_drafted', { n: fmtNum(it.drafted) }) : null,
                         it.in_transit ? t('fact_in_transit', { n: fmtNum(it.in_transit) }) : null,
                       ].filter(Boolean).join(' · ')
+                      const basis = basisOf(it, sid)
+                      const basisText = basis.kind === 'few_sales' ? t('basis_few_sales')
+                        : basis.kind === 'threshold' ? t('basis_threshold', { days: basis.days })
+                          : basis.lead > 0 ? t('basis_rhythm_lead', { days: basis.days, lead: basis.lead }) : t('basis_rhythm', { days: basis.days })
                       const rate = it.daily != null ? t('sales_rate', { n: fmtNum(it.daily, 1) }) : t('sales_low')
                       return (
                         <li key={it.product_id} ref={it.product_id === focusProduct ? focusRef : undefined}
@@ -356,6 +361,10 @@ export function ReplenishmentTab() {
                               <Button type="button" variant="outline" size="icon" className="h-11 w-11" disabled={!shop?.can_order} onClick={() => setLineQty(it, q + 1)} aria-label={t('increase', { name: it.name })}><Plus className="h-4 w-4" /></Button>
                             </div>
                           </div>
+
+                          <p className="mt-2 flex items-start gap-1.5 text-xs text-muted-foreground" data-testid="replenishment-basis" data-basis={basis.kind}>
+                            <Info className="mt-px h-3.5 w-3.5 shrink-0" />{basisText}
+                          </p>
 
                           {(cheaper || faster || switched) && (
                             <div className="mt-3 space-y-1.5">
