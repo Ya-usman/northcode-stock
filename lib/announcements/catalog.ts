@@ -17,6 +17,7 @@ export const ANNOUNCEMENT_PAGES: { path: string; label: string }[] = [
   { path: 'stock/expiry', label: 'Stock — lots et péremptions' },
   { path: 'stock/inventory-count', label: 'Stock — inventaires' },
   { path: 'stock/transfers', label: 'Stock — transferts' },
+  { path: 'stock/replenishment', label: 'Stock — réapprovisionnement' },
   { path: 'categories', label: 'Catégories' },
   { path: 'suppliers', label: 'Fournisseurs' },
   { path: 'caisse', label: 'Contrôle de caisse' },

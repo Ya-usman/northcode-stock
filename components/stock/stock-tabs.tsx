@@ -4,7 +4,7 @@ import { useEffect, useRef } from 'react'
 import { usePathname } from 'next/navigation'
 import { OfflineLink as Link } from '@/components/ui/offline-link'
 import { useTranslations } from 'next-intl'
-import { LayoutDashboard, Package, ArrowRightLeft, ArrowLeftRight, ClipboardCheck, CalendarClock } from 'lucide-react'
+import { LayoutDashboard, Package, PackagePlus, ArrowRightLeft, ArrowLeftRight, ClipboardCheck, CalendarClock } from 'lucide-react'
 import { useRolePermissions, type PermFeature } from '@/lib/hooks/use-role-permissions'
 import { useAuthContext as useAuth } from '@/lib/contexts/auth-context'
 import { useOffline } from '@/lib/offline/use-offline'
@@ -38,6 +38,8 @@ export function StockTabs({ locale }: { locale: string }) {
       icon: ArrowRightLeft,
       show: canAccess('transfers' as PermFeature) && userShops.length > 1,
     },
+    // Produits à commander, regroupés par fournisseur (étape 12) : mêmes droits que le Stock pour consulter
+    { href: `/${locale}/stock/replenishment`, label: t('replenishment'), icon: PackagePlus, show: canAccess('stock' as PermFeature) },
   ].filter(tab => tab.show)
 
   // Onglet actif visible, sans faire défiler la page elle-même

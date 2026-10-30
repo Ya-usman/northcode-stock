@@ -226,6 +226,12 @@ export default function StockOverviewPage({ params: { locale } }: { params: { lo
     startNavigationProgress(href)
     router.push(href)
   }
+  // Ruptures et stock bas : la liste des produits À COMMANDER, regroupée par fournisseur (étape 12)
+  const goToReplenishment = () => {
+    const href = `/${locale}/stock/replenishment`
+    startNavigationProgress(href)
+    router.push(href)
+  }
   const goToLots = (status: string) => {
     const ok = presetPersistedFilters('expiry', shop?.id, { statusFilter: status })
     const href = `/${locale}/stock/expiry${ok ? '' : `?status=${status}`}`
@@ -259,13 +265,13 @@ export default function StockOverviewPage({ params: { locale } }: { params: { lo
       key: 'out', tone: 'red' as Tone, icon: PackageX,
       title: t('stock_overview.opp_out', { count: kpis.out }),
       desc: t('stock_overview.opp_out_desc'),
-      action: t('stock_overview.act_reorder'), onClick: () => goToProducts('out'),
+      action: t('stock_overview.act_reorder'), onClick: goToReplenishment,
     },
     kpis.low > 0 && {
       key: 'low', tone: 'amber' as Tone, icon: ShoppingCart,
       title: t('stock_overview.opp_low', { count: kpis.low }),
       desc: t('stock_overview.opp_low_desc'),
-      action: t('stock_overview.act_reorder'), onClick: () => goToProducts('low'),
+      action: t('stock_overview.act_reorder'), onClick: goToReplenishment,
     },
     lots.expiring > 0 && {
       key: 'expiring', tone: 'orange' as Tone, icon: CalendarClock,

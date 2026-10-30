@@ -60,12 +60,14 @@ import { useShopLoadTimeout } from '@/lib/hooks/use-shop-load-timeout'
 import { LoadErrorFallback } from '@/components/ui/load-error-fallback'
 import { generatePurchaseOrderPDF } from '@/lib/utils/pdf'
 import { withTimeout } from '@/lib/utils/with-timeout'
+import { DEFAULT_REPLENISH_HORIZON, LEAD_TIME_MAX_DAYS, suggestedQty } from '@/lib/stock/replenishment'
 
 // Carte d'un fournisseur : un clic ouvre la fiche en panneau latéral ;
 // crayon et corbeille restent accessibles directement. Le solde dû est
 // visible sur la carte, comme pour les clients.
-function SupplierCard({ supplier, productCount, canManage, onOpen, onEdit, onDelete, t, fmt }: {
+function SupplierCard({ supplier, productCount, canManage, onOpen, onEdit, onDelete, t, fmt, lead }: {
   supplier: Supplier; productCount: number; canManage: boolean
+  lead?: { days: number | null; source: 'declared' | 'observed' | null } | null
   onOpen: (s: Supplier) => void; onEdit: (s: Supplier) => void; onDelete: (s: Supplier) => void
   t: (key: any, values?: any) => string; fmt: (n: number) => string
 }) {
@@ -100,6 +102,11 @@ function SupplierCard({ supplier, productCount, canManage, onOpen, onEdit, onDel
             <span className="flex items-center gap-1 text-xs text-muted-foreground">
               <Package className="h-3 w-3" />{t('suppliers.products_count', { count: productCount })}
             </span>
+            {lead?.days != null && (
+              <span className="flex items-center gap-1 text-xs text-muted-foreground" data-testid="supplier-lead">
+                <Clock className="h-3 w-3" />{t(lead.source === 'observed' ? 'suppliers.lead_card_observed' : 'suppliers.lead_card', { days: lead.days })}
+              </span>
+            )}
           </div>
         </button>
         <div className="flex items-center gap-1 shrink-0">
@@ -241,6 +248,15 @@ export default function SuppliersPage() {
   // moins cher que son fournisseur habituel), donc poSupplierProducts doit
   // les inclure explicitement en plus de son filtre normal par supplier_id.
   const [poExtraProductIds, setPoExtraProductIds] = useState<Set<string>>(new Set())
+  // Produit demandé explicitement (comparateur, lien « Commander ») : reste dans le bon même si le fournisseur change
+  const [poPinnedId, setPoPinnedId] = useState<string | null>(null)
+  // Réapprovisionnement (lib/stock/replenishment, règle unique) : produits à commander et délais des fournisseurs.
+  // null = indisponible (pas le droit Stock, hors ligne…) : l'ancienne règle du seuil sert de repli.
+  const [poSuggest, setPoSuggest] = useState<{ items: Record<string, any>; lead: Record<string, number | null> } | null>(null)
+  // Délai de livraison des fournisseurs (189) : déclaré / constaté ; saisie seulement quand la colonne existe
+  const [leadTimes, setLeadTimes] = useState<Record<string, { days: number | null; source: 'declared' | 'observed' | null; declared: number | null }>>({})
+  const [leadSupported, setLeadSupported] = useState(false)
+  const [leadInput, setLeadInput] = useState('')
   // Override manuel du prix catalogue pour cette commande précise (prix
   // négocié ponctuellement) — vide = on garde priceFor(p, poSupplierId).
   const [poPriceOverrides, setPoPriceOverrides] = useState<Record<string, string>>({})
@@ -295,6 +311,7 @@ export default function SuppliersPage() {
     } else setCreateShop(null)
     setEditingSupplier(s)
     form.reset(s ? { name: s.name, phone: s.phone || '', city: s.city || '', email: s.email || '' } : { name: '', phone: '', city: '', email: '' })
+    setLeadInput(s && leadTimes[s.id]?.declared != null ? String(leadTimes[s.id].declared) : '')
     setShowModal(true)
   }
   const closeSupplierForm = () => {
@@ -326,6 +343,17 @@ export default function SuppliersPage() {
       setSuppliers(fetchedSuppliers)
       setProducts(fetchedProducts)
       setPageCache(cacheKey, { suppliers: fetchedSuppliers, products: fetchedProducts })
+      fetch(`/api/suppliers/lead-times?shop_ids=${effectiveShopIds.join(',')}`)
+        .then(r => (r.ok ? r.json() : null))
+        .then(j => { if (j) { setLeadTimes(j.data || {}); setLeadSupported(!!j.supported) } })
+        .catch(() => {})
+      fetch(`/api/stock/replenishment?shop_ids=${effectiveShopIds.join(',')}`)
+        .then(r => (r.ok ? r.json() : null))
+        .then(j => setPoSuggest(j ? {
+          items: Object.fromEntries((j.items || []).map((it: any) => [it.product_id, it])),
+          lead: Object.fromEntries((j.suppliers || []).map((x: any) => [x.id, x.lead_days ?? null])),
+        } : null))
+        .catch(() => setPoSuggest(null))
       if (showCost) fetchCosts(effectiveShopIds).then(c => setCosts(c ? c.products : null)).catch(() => {})
       else setCosts(null)
       if (showDebt) {
@@ -450,13 +478,17 @@ export default function SuppliersPage() {
   const onSubmit = async (data: SupplierFormData) => {
     const targetShopId = editingSupplier ? editingSupplier.shop_id : createShop?.id
     if (!targetShopId) return
+    if (leadSupported && leadInput.trim() !== '') {
+      const d = Number(leadInput)
+      if (!Number.isInteger(d) || d < 0 || d > LEAD_TIME_MAX_DAYS) { toast({ title: t('suppliers.lead_invalid'), variant: 'destructive' }); return }
+    }
     setSaving(true)
     try {
       const res = await withTimeout(fetch('/api/suppliers', {
         method: editingSupplier ? 'PATCH' : 'POST',
         headers: { 'Content-Type': 'application/json' },
         // Modification : la boutique DU fournisseur (en « Toutes les boutiques », elle peut différer de la boutique active)
-        body: JSON.stringify({ ...data, id: editingSupplier?.id, shop_id: targetShopId }),
+        body: JSON.stringify({ ...data, id: editingSupplier?.id, shop_id: targetShopId, ...(leadSupported ? { lead_time_days: leadInput.trim() === '' ? null : Number(leadInput) } : {}) }),
       }))
       const json = await res.json()
       if (!res.ok) { toast({ title: json.error || t('toast.error'), variant: 'destructive' }); return }
@@ -604,8 +636,17 @@ export default function SuppliersPage() {
   }
 
   // ── Bons de commande ─────────────────────────────────────────────────────
+  // Repli (suggestions indisponibles) : l'ancienne règle du seuil de la boutique sur la quantité physique
   const lowStockThreshold = (p: any) => p.low_stock_threshold || shopById[p.shop_id]?.low_stock_threshold || 10
-  const isLowOrOut = (p: any) => p.quantity === 0 || p.quantity <= lowStockThreshold(p)
+  // Règle du réapprovisionnement (lib/stock/replenishment) : disponible + en commande + en transit + brouillons,
+  // seuil du produit, ventes ; repli sur le seuil seulement si les suggestions n'ont pas pu être lues
+  const isLowOrOut = (p: any) => poSuggest ? !!poSuggest.items[p.id] : (p.quantity === 0 || p.quantity <= lowStockThreshold(p))
+  const suggestQty = (p: any, supplierId: string): number => {
+    const it = poSuggest?.items[p.id]
+    if (it) return suggestedQty({ available: it.projected, onOrder: 0, inTransit: 0, drafted: 0, threshold: it.threshold, sold30: it.sold30 }, { horizon: DEFAULT_REPLENISH_HORIZON, leadDays: poSuggest?.lead[supplierId] ?? null })
+    const threshold = lowStockThreshold(p)
+    return Math.max(threshold * 2 - (p.quantity || 0), threshold, 1)
+  }
   const priceFor = (product: any, supplierId: string) =>
     productPrices.find(e => e.product_id === product.id && e.supplier_id === supplierId)?.price ?? Number(product.buying_price || 0)
 
@@ -637,6 +678,7 @@ export default function SuppliersPage() {
     setPoChecked({})
     setPoQuantities({})
     setPoExtraProductIds(new Set())
+    setPoPinnedId(null)
     setPoPriceOverrides({})
     setPoNotes('')
     setPoDeliveryDate('')
@@ -645,16 +687,18 @@ export default function SuppliersPage() {
 
   const onPoSupplierChange = (supplierId: string) => {
     setPoSupplierId(supplierId)
-    setPoExtraProductIds(new Set())
+    // Le produit demandé (lien « Commander », comparateur) reste dans le bon quel que soit le fournisseur choisi
+    setPoExtraProductIds(new Set(poPinnedId ? [poPinnedId] : []))
     setPoPriceOverrides({})
-    const supplierProducts = products.filter((p: any) => p.supplier_id === supplierId)
+    const supplierProducts = products.filter((p: any) => p.supplier_id === supplierId && p.shop_id === poShop?.id)
     const checked: Record<string, boolean> = {}
     const quantities: Record<string, string> = {}
     supplierProducts.filter(isLowOrOut).forEach((p: any) => {
       checked[p.id] = true
-      const threshold = lowStockThreshold(p)
-      quantities[p.id] = String(Math.max(threshold * 2 - p.quantity, threshold))
+      quantities[p.id] = String(suggestQty(p, supplierId))
     })
+    const pinned = poPinnedId ? products.find((p: any) => p.id === poPinnedId) : null
+    if (pinned) { checked[pinned.id] = true; if (!quantities[pinned.id]) quantities[pinned.id] = String(suggestQty(pinned, supplierId)) }
     setPoChecked(checked)
     setPoQuantities(quantities)
   }
@@ -666,22 +710,19 @@ export default function SuppliersPage() {
     setPoShop(shopById[product.shop_id] ?? null)
     setPoSupplierId(supplierId)
     setPoExtraProductIds(new Set([product.id]))
+    setPoPinnedId(product.id)
     setPoPriceOverrides({})
     setPoNotes('')
     setPoDeliveryDate('')
-    const supplierProducts = products.filter((p: any) => p.supplier_id === supplierId)
+    const supplierProducts = products.filter((p: any) => p.supplier_id === supplierId && p.shop_id === product.shop_id)
     const checked: Record<string, boolean> = {}
     const quantities: Record<string, string> = {}
     supplierProducts.filter(isLowOrOut).forEach((p: any) => {
       checked[p.id] = true
-      const threshold = lowStockThreshold(p)
-      quantities[p.id] = String(Math.max(threshold * 2 - p.quantity, threshold))
+      quantities[p.id] = String(suggestQty(p, supplierId))
     })
     checked[product.id] = true
-    if (!quantities[product.id]) {
-      const threshold = lowStockThreshold(product)
-      quantities[product.id] = String(Math.max(threshold * 2 - (product.quantity || 0), threshold, 1))
-    }
+    if (!quantities[product.id]) quantities[product.id] = String(suggestQty(product, supplierId))
     setPoChecked(checked)
     setPoQuantities(quantities)
     setPoShowAll(true)
@@ -1195,7 +1236,7 @@ export default function SuppliersPage() {
                 </div>
                 {shopSuppliers.map(supplier => (
                   <SupplierCard key={supplier.id} supplier={supplier} productCount={productCounts[supplier.id] || 0} canManage={canManageIn(supplier.shop_id)}
-                    onOpen={setSheetSupplier} onEdit={openSupplierForm} onDelete={deleteSupplier} t={t} fmt={fmtIn(supplier.shop_id)} />
+                    onOpen={setSheetSupplier} onEdit={openSupplierForm} onDelete={deleteSupplier} t={t} fmt={fmtIn(supplier.shop_id)} lead={leadTimes[supplier.id]} />
                 ))}
               </div>
             )
@@ -1205,7 +1246,7 @@ export default function SuppliersPage() {
         <div className="space-y-2">
           {filtered.map(supplier => (
             <SupplierCard key={supplier.id} supplier={supplier} productCount={productCounts[supplier.id] || 0} canManage={canManageIn(supplier.shop_id)}
-              onOpen={setSheetSupplier} onEdit={openSupplierForm} onDelete={deleteSupplier} t={t} fmt={fmtIn(supplier.shop_id)} />
+              onOpen={setSheetSupplier} onEdit={openSupplierForm} onDelete={deleteSupplier} t={t} fmt={fmtIn(supplier.shop_id)} lead={leadTimes[supplier.id]} />
           ))}
         </div>
       )}
@@ -1526,6 +1567,17 @@ export default function SuppliersPage() {
               <Input id="supplier-email" {...form.register('email')} placeholder="fournisseur@example.com" type="email" aria-invalid={!!form.formState.errors.email} />
               {form.formState.errors.email && <p className="text-xs text-destructive">{form.formState.errors.email.message}</p>}
             </div>
+            {leadSupported && (
+              <div className="space-y-1.5">
+                <Label htmlFor="supplier-lead">{t('suppliers.lead_label')}</Label>
+                <Input id="supplier-lead" type="number" inputMode="numeric" min={0} max={LEAD_TIME_MAX_DAYS} value={leadInput} onChange={e => setLeadInput(e.target.value)} placeholder={t('suppliers.lead_placeholder')} data-testid="supplier-lead-input" />
+                <p className="text-xs text-muted-foreground">
+                  {editingSupplier && leadTimes[editingSupplier.id]?.source === 'observed' && leadTimes[editingSupplier.id]?.days != null
+                    ? t('suppliers.lead_hint_observed', { days: leadTimes[editingSupplier.id].days as number })
+                    : t('suppliers.lead_hint')}
+                </p>
+              </div>
+            )}
           </PremiumDialogBody>
           <PremiumDialogFooter onCancel={closeSupplierForm} cancelLabel={t('actions.cancel')}>
             <Button type="submit" variant="stockshop" className={FOOTER_PRIMARY_CLASS} loading={saving} data-testid="dialog-submit">

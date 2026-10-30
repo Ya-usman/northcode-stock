@@ -699,6 +699,12 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
     }
   }
 
+  // Réapprovisionner : fournisseur habituel du produit proposé d'office (s'il existe encore dans sa boutique)
+  const restockDefaults = (p: Product): RestockFormData => {
+    const usual = (p as any).supplier_id && suppliers.some(s => s.id === (p as any).supplier_id && s.shop_id === p.shop_id) ? (p as any).supplier_id as string : undefined
+    return { product_id: p.id, quantity: 1, ...(usual ? { supplier_id: usual } : {}) } as RestockFormData
+  }
+
   const onRestock = async (data: RestockFormData) => {
     if (!restockProduct || !shop?.id) return
     if (!(await pastExpiry.confirm([data.expiry_date]))) return
@@ -1226,7 +1232,7 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
                       variant="outline" size="sm" className="h-8 px-2.5 text-xs"
                       disabled={saving}
                       data-card-restock
-                      onClick={() => { setEditingProduct(null); setShowAddModal(false); setRestockProduct(product); restockForm.reset({ product_id: product.id, quantity: 1 }); setShowRestockModal(true) }}
+                      onClick={() => { setEditingProduct(null); setShowAddModal(false); setRestockProduct(product); restockForm.reset(restockDefaults(product)); setShowRestockModal(true) }}
                     >
                       <ArrowDown className="h-3.5 w-3.5 mr-1" />
                       {t('actions.restock')}
@@ -1241,7 +1247,7 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end" className="min-w-[200px]">
                       {canOrderStock && low && (
-                        <DropdownMenuItem onClick={() => { const href = `/${locale}/suppliers?order_product=${product.id}`; startNavigationProgress(href); router.push(href) }}>
+                        <DropdownMenuItem onClick={() => { const href = `/${locale}/stock/replenishment?product=${product.id}`; startNavigationProgress(href); router.push(href) }}>
                           <ShoppingCart className="mr-2 h-4 w-4" /> {t('actions.order')}
                         </DropdownMenuItem>
                       )}
@@ -1369,8 +1375,8 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
     onSortChange: setTableSort,
     // Colonnes financières (coût, valeur) : seulement avec le droit de voir les prix d'achat (canViewCost)
     columns: tableColumns.filter(k => canViewCost || !OPTIONAL_COLUMNS.find(c => c.key === k)?.fullRightsOnly),
-    onOrder: (p: Product) => { const href = `/${locale}/suppliers?order_product=${p.id}`; startNavigationProgress(href); router.push(href) },
-    onRestock: (p: Product) => { setEditingProduct(null); setShowAddModal(false); setRestockProduct(p); restockForm.reset({ product_id: p.id, quantity: 1 }); setShowRestockModal(true) },
+    onOrder: (p: Product) => { const href = `/${locale}/stock/replenishment?product=${p.id}`; startNavigationProgress(href); router.push(href) },
+    onRestock: (p: Product) => { setEditingProduct(null); setShowAddModal(false); setRestockProduct(p); restockForm.reset(restockDefaults(p)); setShowRestockModal(true) },
     onEdit: (p: Product) => { setShowAddModal(false); setShowRestockModal(false); setEditingProduct(p) },
     onPromo: openPromoDialog,
     onBatches: openProductBatches,
@@ -1979,7 +1985,7 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
             </div>
             <div className="space-y-1.5">
               <Label>{t('products.supplier')}</Label>
-              <Select onValueChange={v => restockForm.setValue('supplier_id', v)}>
+              <Select value={restockForm.watch('supplier_id') || undefined} onValueChange={v => restockForm.setValue('supplier_id', v, { shouldDirty: true })}>
                 <SelectTrigger data-testid="restock-supplier"><SelectValue placeholder={t('form.select_placeholder')} /></SelectTrigger>
                 {/* Seulement les fournisseurs de la boutique du produit — même en « Toutes les boutiques » */}
                 <SelectContent>{suppliers.filter(s => s.shop_id === restockProduct?.shop_id).map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}</SelectContent>

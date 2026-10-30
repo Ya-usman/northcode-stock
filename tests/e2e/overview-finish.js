@@ -122,10 +122,14 @@ const rows = page => page.locator('[data-testid=stock-priorities] [data-priority
   }
   await page.locator('[data-priority=out]').waitFor({ timeout: 30000 })
   await page.locator('[data-priority=out]').click()
-  await page.waitForURL(/\/fr\/stock\/products/, { timeout: 20000 })
-  const trigR = page.getByTestId('filter-status').filter({ hasText: /Rupture/ })
-  await trigR.first().waitFor({ timeout: 15000 }).catch(() => {})
-  ok(await trigR.count() === 1, 'priorité « ruptures » → Produits, exactement un filtre « Rupture »')
+  // Étape 12 (30 oct. 2026) : les priorités « ruptures » / « stock bas » ouvrent le Réapprovisionnement (produits à
+  // commander par fournisseur) ; les CARTES Ruptures / Stock bas ouvrent toujours Produits filtré (vérifié plus bas)
+  await page.waitForURL(/\/fr\/stock\/replenishment$/, { timeout: 20000 })
+  // Attente sur les éléments (résiste au changement de page, contrairement à waitForFunction) : liste OU écran vide
+  await page.locator('[data-testid=replenishment-line], [data-testid=replenishment-empty]').first().waitFor({ timeout: 30000 }).catch(() => {})
+  const reLines = await page.getByTestId('replenishment-line').count()
+  const reState = reLines ? 'liste' : (await page.getByTestId('replenishment-empty').count()) ? 'écran vide' : (await page.getByText('Impossible de charger les suggestions.').count()) ? 'erreur de chargement' : 'chargement en cours'
+  ok(reLines > 0 && !new URL(page.url()).search, `priorité « ruptures » → Réapprovisionnement, ${reLines} produit(s) à commander (${reState}), URL sans paramètre`)
   await page.goBack({ waitUntil: 'domcontentloaded' })
   await page.locator('[data-kpi=low]').waitFor({ timeout: 30000 })
   await page.locator('[data-kpi=low]').click()

@@ -5,6 +5,19 @@ import { writeAuditLog, getClientIp } from '@/lib/api/audit'
 import { canWriteFeature } from '@/lib/api/role-permissions'
 import { SUPPLIER_PUBLIC_COLUMNS } from '@/lib/suppliers/columns'
 import { getApiTranslator } from '@/lib/api/i18n'
+import { LEAD_TIME_MAX_DAYS } from '@/lib/stock/replenishment'
+
+// Délai de livraison habituel (migration 189) : facultatif, entier de 0 à 180 jours, vide = inconnu. Écrit seulement
+// s'il est envoyé ; avant la 189 (colonne absente), l'envoyer est refusé avec un message clair.
+function parseLeadTime(body: any): { set: boolean; value: number | null; bad: boolean } {
+  if (!body || !('lead_time_days' in body)) return { set: false, value: null, bad: false }
+  const v = body.lead_time_days
+  if (v === null || v === '') return { set: true, value: null, bad: false }
+  const n = Number(v)
+  if (!Number.isInteger(n) || n < 0 || n > LEAD_TIME_MAX_DAYS) return { set: true, value: null, bad: true }
+  return { set: true, value: n, bad: false }
+}
+const missingColumn = (e: any) => e?.code === '42703' || /lead_time_days/.test(String(e?.message || ''))
 
 // POST /api/suppliers — create a supplier
 export async function POST(request: Request) {
@@ -13,8 +26,11 @@ export async function POST(request: Request) {
     const { user, supabase } = await getAuthedUser()
     if (!user) return NextResponse.json({ error: t('not_authenticated') }, { status: 401 })
 
-    const { shop_id, name, phone, city } = await request.json()
+    const body = await request.json()
+    const { shop_id, name, phone, city } = body
     if (!shop_id || !name) return NextResponse.json({ error: t('shop_name_required') }, { status: 400 })
+    const lead = parseLeadTime(body)
+    if (lead.bad) return NextResponse.json({ error: t('supplier_lead_time_invalid'), field: 'lead_time_days' }, { status: 400 })
 
     const role = await checkShopRole(supabase, user.id, shop_id)
     if (!role || !(await canWriteFeature(supabase, role, shop_id, 'suppliers')))
@@ -23,7 +39,8 @@ export async function POST(request: Request) {
     const admin = await createAdminClient()
     const { data, error } = await (admin as any)
       // Fiche sans le solde dû (total_owed = dette : jamais renvoyée ici, voir /api/suppliers/balances)
-      .from('suppliers').insert({ shop_id, name, phone: phone || null, city: city || null }).select(SUPPLIER_PUBLIC_COLUMNS).single()
+      .from('suppliers').insert({ shop_id, name, phone: phone || null, city: city || null, ...(lead.set ? { lead_time_days: lead.value } : {}) }).select(SUPPLIER_PUBLIC_COLUMNS).single()
+    if (error && lead.set && missingColumn(error)) return NextResponse.json({ error: t('supplier_lead_time_unavailable') }, { status: 400 })
     if (error) return NextResponse.json({ error: error.message }, { status: 400 })
 
     return NextResponse.json({ data })
@@ -39,8 +56,11 @@ export async function PATCH(request: Request) {
     const { user, supabase } = await getAuthedUser()
     if (!user) return NextResponse.json({ error: t('not_authenticated') }, { status: 401 })
 
-    const { id, shop_id, name, phone, city } = await request.json()
+    const body = await request.json()
+    const { id, shop_id, name, phone, city } = body
     if (!id || !shop_id) return NextResponse.json({ error: t('id_shop_id_required') }, { status: 400 })
+    const lead = parseLeadTime(body)
+    if (lead.bad) return NextResponse.json({ error: t('supplier_lead_time_invalid'), field: 'lead_time_days' }, { status: 400 })
 
     const role = await checkShopRole(supabase, user.id, shop_id)
     if (!role || !(await canWriteFeature(supabase, role, shop_id, 'suppliers')))
@@ -49,9 +69,10 @@ export async function PATCH(request: Request) {
     const admin = await createAdminClient()
     const { data, error } = await (admin as any)
       .from('suppliers')
-      .update({ name, phone: phone || null, city: city || null })
+      .update({ name, phone: phone || null, city: city || null, ...(lead.set ? { lead_time_days: lead.value } : {}) })
       .eq('id', id).eq('shop_id', shop_id)
       .select(SUPPLIER_PUBLIC_COLUMNS).single() // sans le solde dû
+    if (error && lead.set && missingColumn(error)) return NextResponse.json({ error: t('supplier_lead_time_unavailable') }, { status: 400 })
     if (error) return NextResponse.json({ error: error.message }, { status: 400 })
     if (!data) return NextResponse.json({ error: t('supplier_not_found_in_shop') }, { status: 404 })
 
