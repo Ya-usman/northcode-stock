@@ -63,6 +63,8 @@ export async function GET(request: Request) {
       owner_name: owner?.full_name ?? null,
       consolidation_currency: e.consolidation_currency,
       shop_currencies: shopCurrencies,
+      // Stock des autres boutiques visible par les vendeurs (migration 190) ; null = réglage pas encore disponible
+      share_stock_with_sellers: 'share_stock_with_sellers' in e ? e.share_stock_with_sellers !== false : null,
       ...(owner_view ? {
         billing_contact_name: e.billing_contact_name, billing_email: e.billing_email, billing_phone: e.billing_phone,
         billing_address: e.billing_address, billing_city: e.billing_city, billing_country: e.billing_country, tax_id: e.tax_id,
@@ -96,6 +98,10 @@ export async function PATCH(request: Request) {
     if ((f === 'email' || f === 'billing_email') && clean && (clean.length > 254 || !EMAIL_RE.test(clean))) return NextResponse.json({ error: t('shop_email_invalid'), field: f }, { status: 400 })
     if ((f === 'phone' || f === 'billing_phone') && clean && (clean.length > 30 || !isValidPhone(clean))) return NextResponse.json({ error: t('shop_phone_invalid'), field: f }, { status: 400 })
     updates[f] = clean ? ((f === 'email' || f === 'billing_email') ? clean.toLowerCase() : clean) : null
+  }
+  if ('share_stock_with_sellers' in body) {
+    if (typeof body.share_stock_with_sellers !== 'boolean') return NextResponse.json({ error: t('invalid_data'), field: 'share_stock_with_sellers' }, { status: 400 })
+    updates.share_stock_with_sellers = body.share_stock_with_sellers
   }
   if ('consolidation_currency' in body) {
     const c = body.consolidation_currency

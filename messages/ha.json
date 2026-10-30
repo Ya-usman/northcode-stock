@@ -4789,7 +4789,9 @@
     "cancel": "Soke",
     "already_requested": "An riga an nemi {count} daga wannan shagon",
     "badge": "Akwai a wani wuri",
-    "badge_count": "{count} a wani wuri"
+    "badge_count": "{count} a wani wuri",
+    "out_here_title": "Ya ƙare a wannan shago",
+    "out_here_hint": "Akwai shi a wani shagon kamfanin."
   },
   "transfer_requests": {
     "incoming_title": "Buƙatu {count} da za a amsa",

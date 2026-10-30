@@ -1,7 +1,7 @@
 'use client'
 
 import { memo, type KeyboardEvent, type MouseEvent } from 'react'
-import { Star } from 'lucide-react'
+import { Star, Store } from 'lucide-react'
 import { useUnitLabel } from '@/lib/products/use-unit-label'
 import { Badge } from '@/components/ui/badge'
 import { ProductThumbnail } from '@/components/stock/product-thumbnail'
@@ -27,6 +27,9 @@ interface ProductCardProps {
   reservedLabel?: string
   onAdd: (product: Product) => void
   onToggleFavorite: (product: Product, e: MouseEvent) => void
+  /** « 12 ailleurs » : stock dans les autres boutiques de l'entreprise (produit en rupture ou stock faible) */
+  elsewhereLabel?: string
+  onElsewhere?: (product: Product) => void
   /** Rangée Favoris : tuile compacte à largeur fixe, étoile toujours pleine. */
   compact?: boolean
 }
@@ -38,7 +41,7 @@ interface ProductCardProps {
 // figeait l'écran ~360 ms (mesuré, CPU ralenti ×6).
 function ProductCardImpl({
   product, price, stockVariant, isExpired, sellableQty, currencyCode, favoriteLabel, expiredLabel, reservedLabel,
-  onAdd, onToggleFavorite, compact = false,
+  elsewhereLabel, onElsewhere, onAdd, onToggleFavorite, compact = false,
 }: ProductCardProps) {
   const unitLabel = useUnitLabel()
   const onKeyDown = (e: KeyboardEvent<HTMLDivElement>) => {
@@ -110,6 +113,19 @@ function ProductCardImpl({
           <span className="mt-0.5 inline-flex w-fit items-center text-[9px] md:text-[10px] font-semibold rounded-full px-1.5 py-0.5 bg-stockshop-blue-muted dark:bg-blue-950/40 text-stockshop-blue dark:text-blue-400">
             {reservedLabel}
           </span>
+        )}
+        {elsewhereLabel && onElsewhere && (
+          // Ne déclenche pas l'ajout au panier : ouvre « Disponible ailleurs »
+          <button
+            type="button"
+            data-testid="pos-elsewhere"
+            onClick={e => { e.stopPropagation(); onElsewhere(product) }}
+            onKeyDown={e => e.stopPropagation()}
+            className="mt-1 inline-flex h-7 w-full items-center justify-center gap-1 rounded-md border border-stockshop-blue/30 bg-stockshop-blue-muted px-1.5 text-[10px] md:text-[11px] font-semibold text-stockshop-blue hover:bg-stockshop-blue hover:text-white dark:border-blue-500/40 dark:bg-blue-950/40 dark:text-blue-400 dark:hover:bg-blue-500 dark:hover:text-white transition-colors"
+          >
+            <Store className="h-3 w-3 shrink-0" />
+            <span className="truncate">{elsewhereLabel}</span>
+          </button>
         )}
         <div className="flex items-center justify-between w-full mt-1">
           {price !== product.selling_price ? (

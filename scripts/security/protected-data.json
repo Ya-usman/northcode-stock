@@ -21,7 +21,8 @@
     "purchase_orders",
     "supplier_payments",
     "stock_transfer_allocations",
-    "stock_transfer_tokens"
+    "stock_transfer_tokens",
+    "stock_transfer_requests"
   ],
   "sourceRoots": [
     "app",
@@ -35,6 +36,8 @@
   ],
   "serverFiles": {
     "lib/stock/pipeline-load.ts": "lecture serveur partagée : le client (rôle de service) est fourni par la route appelante",
+    "lib/stock/elsewhere-load.ts": "lecture serveur du stock des autres boutiques et des demandes : appelée par /api/stock/elsewhere et les routes des demandes, avec le client de service fourni par la route",
+    "lib/api/transfer-requests.ts": "règles serveur des demandes de transfert (client de service fourni par les routes)",
     "lib/stock/replenishment-load.ts": "lecture serveur du réapprovisionnement : appelée seulement par /api/stock/replenishment, avec le client de service fourni par la route",
     "lib/reports/evening-report.ts": "résumé du soir : appelé par la tâche planifiée, avec le client de service fourni par la route"
   }

@@ -3,17 +3,17 @@
 import { useTranslations } from 'next-intl'
 import { ArrowRightLeft } from 'lucide-react'
 import { StockTransfersTab } from '@/components/stock/stock-transfers-tab'
-import { useAuthContext as useAuth } from '@/lib/contexts/auth-context'
 import { useRolePermissions } from '@/lib/hooks/use-role-permissions'
+import { useEntityMultiShop } from '@/lib/hooks/use-entity-multi-shop'
 
 export default function StockTransfersPage({ params: { locale } }: { params: { locale: string } }) {
   const t = useTranslations('nav')
-  const { userShops } = useAuth()
   const { canAccess } = useRolePermissions()
 
-  // Sans intérêt pour un compte à une seule boutique — rien à transférer.
+  // Entreprise à une seule boutique : rien à transférer ; plusieurs (même si la personne n'en gère qu'une) : demandes reçues.
   // Mêmes rôles que les bons de commande fournisseurs (PermFeature 'transfers').
-  const isAuthorized = canAccess('transfers') && userShops.length > 1
+  const entityMultiShop = useEntityMultiShop()
+  const isAuthorized = canAccess('transfers') && entityMultiShop
 
   if (!isAuthorized) {
     return (

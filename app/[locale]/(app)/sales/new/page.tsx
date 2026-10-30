@@ -73,6 +73,8 @@ import { formatInputValue, formatCurrency } from '@/lib/utils/currency'
 import { checkAndNotifyLowStock, notifyNewSale } from '@/lib/push'
 import { samePhone, resolveStoredPhone } from '@/lib/phone/compare'
 import { emitOnboarding } from '@/lib/onboarding/events'
+import { useEntityMultiShop } from '@/lib/hooks/use-entity-multi-shop'
+import { ElsewhereSheet, useElsewhere } from '@/components/stock/elsewhere/elsewhere-sheet'
 
 // Champ téléphone international (indicatif dans une liste) : chargé à l'usage,
 // seulement quand le vendeur ouvre la saisie d'un nouveau client
@@ -542,6 +544,11 @@ function PosScreen({ params: { locale: _locale } }: { params: { locale: string }
   const toggleFavoriteRef = useRef<(p: Product, e: React.MouseEvent) => void>(() => {})
   const handleAddProduct = useCallback((p: Product) => addToCartRef.current(p), [])
   const handleToggleFavorite = useCallback((p: Product, e: React.MouseEvent) => toggleFavoriteRef.current(p, e), [])
+  // « Disponible ailleurs » : fiche du produit en rupture ou en stock faible (callback stable pour les cartes)
+  // (le produit reste le temps de l'animation de fermeture)
+  const [elsewhereFor, setElsewhereFor] = useState<Product | null>(null)
+  const [elsewhereOpen, setElsewhereOpen] = useState(false)
+  const handleElsewhere = useCallback((p: Product) => { setElsewhereFor(p); setElsewhereOpen(true) }, [])
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -970,6 +977,35 @@ function PosScreen({ params: { locale: _locale } }: { params: { locale: string }
   // Section client dépliée (téléphone) dès qu'elle contient quelque chose.
   const customerOpen = showCustomer || !!selectedCustomer || !!customerName.trim() || !!customerPhone.trim()
   const showFavoritesRow = favoriteProducts.length > 0 && !searchQuery.trim()
+
+  // « Disponible ailleurs » (30 oct. 2026) : entreprise à plusieurs boutiques, en ligne. Demandé seulement pour les
+  // cartes affichées en rupture ou en stock faible ; la pastille n'apparaît que si une autre boutique en a.
+  const entityMultiShop = useEntityMultiShop()
+  const elsewhereIds = filteredProducts.slice(0, visibleCount).filter(p => stockVariantOf(p) !== 'success').map(p => p.id)
+  const { data: elsewhere, reload: reloadElsewhere } = useElsewhere(shop?.id, elsewhereIds, entityMultiShop && isOnline)
+  // La caisse ne charge que les produits en stock : ceux en RUPTURE ici sont lus à part (une fois par boutique) et
+  // proposés sous la recherche quand une autre boutique en a.
+  const [outHere, setOutHere] = useState<Product[]>([])
+  useEffect(() => {
+    if (!entityMultiShop || !isOnline || !shop?.id) { setOutHere([]); return }
+    let cancelled = false
+    supabase.from('products').select(PRODUCT_PUBLIC_COLUMNS)
+      .eq('shop_id', shop.id).eq('is_active', true).lte('quantity', 0).order('name').limit(500)
+      .then(({ data }: { data: Product[] | null }) => { if (!cancelled) setOutHere(data || []) })
+    return () => { cancelled = true }
+  }, [entityMultiShop, isOnline, shop?.id, supabase])
+  const outHereQuery = normalize(deferredQuery.trim())
+  // (un produit réapprovisionné entre-temps est déjà dans la grille : pas en double)
+  const outHereMatches = useMemo(() => outHereQuery.length < 2 ? [] : outHere
+    .filter(p => !searchIndex.has(p.id))
+    .filter(p => `${normalize(p.name)}
+${normalize(p.sku ?? '')}`.includes(outHereQuery)).slice(0, 20), [outHere, outHereQuery, searchIndex])
+  const { data: elsewhereOut, reload: reloadElsewhereOut } = useElsewhere(shop?.id, outHereMatches.map(p => p.id), entityMultiShop && isOnline)
+  const outHereShown = outHereMatches.filter(p => elsewhereOut?.enabled && (elsewhereOut.items[p.id]?.total ?? 0) > 0)
+  const elsewhereLabelOf = (p: Product) => {
+    const total = elsewhere?.enabled ? elsewhere.items[p.id]?.total ?? 0 : 0
+    return total > 0 && stockVariantOf(p) !== 'success' ? t('elsewhere.badge_count', { count: total }) : undefined
+  }
 
   // ── TOTALS ─────────────────────────────────────────────
   const subtotal = cart.reduce((s, i) => s + i.subtotal, 0)
@@ -1962,14 +1998,42 @@ function PosScreen({ params: { locale: _locale } }: { params: { locale: string }
                   favoriteLabel={favoriteLabel}
                   expiredLabel={expiredLabel}
                   reservedLabel={reservedQtyByProduct[product.id] ? t('products.reserved_qty', { count: reservedQtyByProduct[product.id] }) : undefined}
+                  elsewhereLabel={elsewhereLabelOf(product)}
+                  onElsewhere={handleElsewhere}
                   onAdd={handleAddProduct}
                   onToggleFavorite={handleToggleFavorite}
                 />
               ))}
-              {filteredProducts.length === 0 && (
+              {filteredProducts.length === 0 && outHereShown.length === 0 && (
                 <p className="col-span-full text-sm text-muted-foreground text-center py-4">{t('sales.no_products_found')}</p>
               )}
             </div>
+            {/* En rupture ici, disponible ailleurs : la caisse oriente le client ou demande un transfert */}
+            {outHereShown.length > 0 && (
+              <div className="mt-3 rounded-xl border bg-card p-2.5" data-testid="pos-out-here">
+                <p className="px-0.5 text-xs font-semibold text-foreground">{t('elsewhere.out_here_title')}</p>
+                <p className="px-0.5 text-[11px] text-muted-foreground">{t('elsewhere.out_here_hint')}</p>
+                <div className="mt-2 divide-y">
+                  {outHereShown.map(p => (
+                    <div key={p.id} className="flex items-center justify-between gap-2 py-2" data-testid="pos-out-here-item">
+                      <div className="min-w-0">
+                        <p className="truncate text-sm font-medium">{p.name}</p>
+                        {p.sku && <p className="truncate text-[10px] font-mono text-muted-foreground">{p.sku}</p>}
+                      </div>
+                      <Button
+                        variant="outline"
+                        className="h-10 shrink-0 gap-1.5 border-stockshop-blue/30 text-stockshop-blue dark:border-blue-500/40 dark:text-blue-400"
+                        onClick={() => { setElsewhereFor(p); setElsewhereOpen(true) }}
+                        data-testid="pos-elsewhere"
+                      >
+                        <Store className="h-4 w-4" />
+                        {t('elsewhere.badge_count', { count: elsewhereOut!.items[p.id].total })}
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
             {/* Sentinel : le lot suivant se charge tout seul en approchant du
                 bas (plus de bouton « Afficher plus » à presser). */}
             {hasMoreProducts && (
@@ -2779,6 +2843,21 @@ function PosScreen({ params: { locale: _locale } }: { params: { locale: string }
           )
         })()}
       </PremiumDialog>
+
+      {/* Disponible ailleurs : autres boutiques de l'entreprise qui ont le produit, demande de transfert */}
+      {shop?.id && (
+        <ElsewhereSheet
+          open={elsewhereOpen && !!elsewhereFor}
+          onOpenChange={setElsewhereOpen}
+          shopId={shop.id}
+          product={elsewhereFor
+            ? { id: elsewhereFor.id, name: elsewhereFor.name, unit: elsewhereFor.unit, threshold: (elsewhereFor as any).low_stock_threshold || lowStockThreshold, available: sellableOf(elsewhereFor).sellable }
+            : { id: '', name: '' }}
+          entry={elsewhereFor ? (elsewhere?.items[elsewhereFor.id] ?? elsewhereOut?.items[elsewhereFor.id]) : null}
+          canRequest={!!(elsewhere?.canRequest || elsewhereOut?.canRequest)}
+          onRequested={() => { reloadElsewhere(); reloadElsewhereOut() }}
+        />
+      )}
 
       {/* Factures en attente : une LISTE, donc un panneau (plein écran sur téléphone, flèche retour) */}
       <AppDrawer

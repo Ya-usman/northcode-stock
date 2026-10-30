@@ -4789,7 +4789,9 @@
     "cancel": "Annuler",
     "already_requested": "{count, plural, one {# déjà demandé à cette boutique} other {# déjà demandés à cette boutique}}",
     "badge": "Disponible ailleurs",
-    "badge_count": "{count} ailleurs"
+    "badge_count": "{count} ailleurs",
+    "out_here_title": "En rupture dans cette boutique",
+    "out_here_hint": "Disponible dans une autre boutique de l'entreprise."
   },
   "transfer_requests": {
     "incoming_title": "{count, plural, one {# demande à traiter} other {# demandes à traiter}}",

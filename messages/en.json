@@ -4789,7 +4789,9 @@
     "cancel": "Cancel",
     "already_requested": "{count} already requested from this shop",
     "badge": "Available elsewhere",
-    "badge_count": "{count} elsewhere"
+    "badge_count": "{count} elsewhere",
+    "out_here_title": "Out of stock in this shop",
+    "out_here_hint": "Available in another shop of the company."
   },
   "transfer_requests": {
     "incoming_title": "{count, plural, one {# request to handle} other {# requests to handle}}",

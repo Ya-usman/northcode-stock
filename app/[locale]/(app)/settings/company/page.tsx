@@ -11,6 +11,7 @@ import dynamic from 'next/dynamic'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useTranslations, useLocale } from 'next-intl'
+import { Switch } from '@/components/ui/switch'
 import { ArrowLeft, Building2, Save, UserRound, Receipt, CreditCard, CheckCircle2, AlertTriangle, Store, Users, Coins } from 'lucide-react'
 import { useAuthContext } from '@/lib/contexts/auth-context'
 import { Button } from '@/components/ui/button'
@@ -42,6 +43,8 @@ interface EntityView {
   establishment_count: number; owner_name: string | null
   /** Devise de consolidation des rapports multi-devises (migration 177) et devises des boutiques */
   consolidation_currency: string; shop_currencies: string[]
+  /** Stock des autres boutiques visible par les vendeurs (190) ; null = pas encore disponible */
+  share_stock_with_sellers?: boolean | null
   billing_contact_name?: string | null; billing_email?: string | null; billing_phone?: string | null
   billing_address?: string | null; billing_city?: string | null; billing_country?: string | null; tax_id?: string | null
   plan?: string; plan_expires_at?: string | null; trial_ends_at?: string | null
@@ -65,6 +68,19 @@ export default function CompanySettingsPage() {
   const [initial, setInitial] = useState<Record<Field, string>>({} as any)
   const [errors, setErrors] = useState<Partial<Record<Field, string>>>({})
   const [saving, setSaving] = useState(false)
+  const [sharing, setSharing] = useState(false)
+  // Réglage enregistré tout de suite (interrupteur), indépendamment de la barre d'enregistrement du formulaire
+  const toggleShare = async (next: boolean) => {
+    if (!shop?.id || !entity) return
+    setSharing(true)
+    try {
+      const res = await withTimeout(fetch(`/api/entity?shop_id=${shop.id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ share_stock_with_sellers: next }) }))
+      const json = await res.json().catch(() => ({}))
+      if (!res.ok) { toast({ title: json.error || t('toast.retry_error'), variant: 'destructive' }); return }
+      setEntity(e => (e ? { ...e, share_stock_with_sellers: next } : e))
+      toast({ title: next ? t('entity.share_stock_on_toast') : t('entity.share_stock_off_toast'), variant: 'success' })
+    } finally { setSharing(false) }
+  }
 
   const load = async () => {
     if (!shop?.id) return
@@ -243,6 +259,16 @@ export default function CompanySettingsPage() {
           </p>
         </div>
       ), undefined, 'company-consolidation')}
+
+      {entity.establishment_count > 1 && entity.share_stock_with_sellers != null && section(Store, t('entity.share_stock_title'), (
+        <label className="flex items-start justify-between gap-4" htmlFor="entity-share-stock">
+          <span className="min-w-0">
+            <span className="block text-sm font-medium">{t('entity.share_stock_label')}</span>
+            <span className="mt-0.5 block text-xs text-muted-foreground">{t('entity.share_stock_hint')}</span>
+          </span>
+          <Switch id="entity-share-stock" checked={!!entity.share_stock_with_sellers} disabled={!canEdit || sharing} onCheckedChange={toggleShare} data-testid="company-share-stock" />
+        </label>
+      ), undefined, 'company-share-stock-section')}
 
       {section(UserRound, t('roles.owner'), (
         <div className="flex items-center gap-3">

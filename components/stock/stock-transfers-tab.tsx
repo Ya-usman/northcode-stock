@@ -37,7 +37,8 @@ import { activeFilterCount, filterTransfers, searchTransfers, transferKpis, type
 import { MoreButton, TransferCard, type TransferListRow } from './transfers/transfer-card'
 import { TransferFilterChips, TransferFiltersButton, TransferFiltersDrawer, useTransferFilterOptions } from './transfers/transfer-filters'
 import { TransferDetailDrawer } from './transfers/transfer-detail-drawer'
-import { TransferCreateDrawer, type TransferDraftInput } from './transfers/transfer-create-drawer'
+import { TransferCreateDrawer, type TransferDraftInput, type TransferPrefill } from './transfers/transfer-create-drawer'
+import { TransferRequestsPanel, type TransferRequestRow } from './transfers/transfer-requests-panel'
 import { TransferQrDialog, TransferScanDialog, fetchTransferQrUrl, qrDataUrl } from './transfers/transfer-qr'
 
 type Kpi = 'all' | 'sent' | 'received'
@@ -69,7 +70,17 @@ export function StockTransfersTab() {
   const [detailId, setDetailId] = useState<string | null>(null)
   const [qrFor, setQrFor] = useState<{ id: string; reference: string } | null>(null)
   const [emailFor, setEmailFor] = useState<TransferListRow | null>(null)
-  const [create, setCreate] = useState<{ source: any; draft: TransferDraftInput | null } | null>(null)
+  const [create, setCreate] = useState<{ source: any; draft: TransferDraftInput | null; prefill?: TransferPrefill | null } | null>(null)
+  // Demandes de transfert (190) : relues après une décision ou un transfert créé depuis une demande
+  const [requestsKey, setRequestsKey] = useState(0)
+  const acceptRequest = (req: TransferRequestRow) => {
+    const source = userShops.find(s => s.id === req.source_shop_id)
+    if (!source) return
+    setCreate({ source, draft: null, prefill: {
+      request_id: req.id, destination_shop_id: req.requesting_shop_id, destination_name: req.requesting_shop_name, notes: req.note,
+      items: [{ source_product_id: req.source_product_id, product_name: req.product_name, unit: req.unit, quantity_sent: req.quantity }],
+    } })
+  }
   const [busy, setBusy] = useState<string | null>(null)
 
   const fetchRows = async () => {
@@ -203,10 +214,18 @@ export function StockTransfersTab() {
   }
 
   if (!shop) return null
-  const destShops = userShops.filter(s => s.id !== create?.source?.id)
+  // Destinations : mes boutiques ; pour une demande acceptée, aussi la boutique qui demande (même si je n'en suis pas membre)
+  const destShops = [
+    ...userShops.filter(s => s.id !== create?.source?.id),
+    ...(create?.prefill && !userShops.some(s => s.id === create.prefill!.destination_shop_id)
+      ? [{ id: create.prefill.destination_shop_id, name: create.prefill.destination_name ?? '' } as any] : []),
+  ]
 
   return (
     <div className="space-y-4">
+      {/* Demandes de transfert reçues / envoyées (absent s'il n'y en a pas) */}
+      <TransferRequestsPanel shopIds={scope.shopIds} refreshKey={requestsKey} onAccept={acceptRequest} />
+
       {/* Compteurs : filtres rapides par statut */}
       <div className="grid grid-cols-3 gap-2 sm:gap-3" role="group" aria-label={t('filter_status')}>
         {([['all', kpis.all, Truck, 'text-stockshop-blue bg-stockshop-blue-muted dark:bg-blue-950/40 dark:text-blue-400', 'border-stockshop-blue/40'],
@@ -267,10 +286,11 @@ export function StockTransfersTab() {
       />
       <TransferCreateDrawer
         open={!!create} onOpenChange={open => { if (!open) setCreate(null) }}
-        source={create?.source ?? null} shops={destShops} workflow={workflow} draft={create?.draft ?? null}
+        source={create?.source ?? null} shops={destShops} workflow={workflow} draft={create?.draft ?? null} prefill={create?.prefill ?? null}
         onDone={({ reference, sent }) => {
           toast({ title: sent ? tRoot('transfers.created_toast', { reference }) : tRoot('transfers.draft_saved_toast', { reference }), variant: 'success' })
           fetchRows()
+          setRequestsKey(k => k + 1)
         }}
       />
 

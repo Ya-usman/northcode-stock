@@ -35,7 +35,17 @@ export interface TransferDraftInput {
   items: { source_product_id: string; product_name: string; unit: string | null; quantity_sent: number }[]
 }
 
-export function TransferCreateDrawer({ open, onOpenChange, source, shops, workflow, draft, onDone }: {
+/** Transfert préparé depuis une DEMANDE (migration 190) : destination, produit et quantité déjà remplis */
+export interface TransferPrefill {
+  request_id: string
+  destination_shop_id: string
+  /** Nom de la boutique qui demande (si la personne n'en est pas membre) */
+  destination_name?: string | null
+  notes: string | null
+  items: TransferDraftInput['items']
+}
+
+export function TransferCreateDrawer({ open, onOpenChange, source, shops, workflow, draft, prefill, onDone }: {
   open: boolean
   onOpenChange: (open: boolean) => void
   source: ShopLite | null
@@ -45,6 +55,8 @@ export function TransferCreateDrawer({ open, onOpenChange, source, shops, workfl
   workflow: boolean
   /** Brouillon à modifier (sinon : nouveau transfert) */
   draft?: TransferDraftInput | null
+  /** Demande acceptée : nouveau transfert prérempli, rattaché à la demande à l'envoi */
+  prefill?: TransferPrefill | null
   onDone: (result: { reference: string; sent: boolean }) => void
 }) {
   const t = useTranslations('transfers')
@@ -83,14 +95,15 @@ export function TransferCreateDrawer({ open, onOpenChange, source, shops, workfl
     return () => { cancelled = true }
   }, [open, source])
 
-  // Ouverture : vide, ou le brouillon à modifier
+  // Ouverture : vide, le brouillon à modifier, ou une demande acceptée
   useEffect(() => {
     if (!open) return
+    const from = draft ?? prefill ?? null
     setSearch(''); setScanning(false); setBusy(null)
-    setDest(draft?.destination_shop_id ?? '')
-    setNotes(draft?.notes ?? '')
-    setLines((draft?.items || []).map(it => ({ product_id: it.source_product_id, name: it.product_name, unit: it.unit || '', sku: null, available: it.quantity_sent, quantity: it.quantity_sent })))
-  }, [open, draft])
+    setDest(from?.destination_shop_id ?? '')
+    setNotes(from?.notes ?? '')
+    setLines((from?.items || []).map(it => ({ product_id: it.source_product_id, name: it.product_name, unit: it.unit || '', sku: null, available: it.quantity_sent, quantity: it.quantity_sent })))
+  }, [open, draft, prefill])
   // Quantités transférables connues une fois les produits chargés (brouillon rouvert)
   useEffect(() => {
     if (!products.length) return
@@ -140,7 +153,7 @@ export function TransferCreateDrawer({ open, onOpenChange, source, shops, workfl
         }
       } else {
         const res = await withTimeout(fetch('/api/stock-transfers', { method: 'POST', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ source_shop_id: source.id, destination_shop_id: dest, notes: notes.trim() || null, items, send }) }))
+          body: JSON.stringify({ source_shop_id: source.id, destination_shop_id: dest, notes: notes.trim() || null, items, send, ...(prefill ? { request_id: prefill.request_id } : {}) }) }))
         const json = await res.json()
         if (!res.ok) { toast({ title: json.error || tRoot('toast.error'), variant: 'destructive' }); return }
         reference = json.data?.reference || ''

@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useLocale, useTranslations } from 'next-intl'
-import { Archive, ArrowDown, ChevronRight, Edit2, Unlock, Package, ShoppingCart, Tag, WifiOff } from 'lucide-react'
+import { Archive, ArrowDown, ChevronRight, Edit2, Unlock, Package, ShoppingCart, Store, Tag, WifiOff } from 'lucide-react'
 import type { Product } from '@/lib/types/database'
 import { DetailDrawer } from '@/components/ui/detail-drawer'
 import { DrawerSection } from '@/components/ui/app-drawer'
@@ -21,6 +21,8 @@ import { withTimeout } from '@/lib/utils/with-timeout'
 import { useOffline } from '@/lib/offline/use-offline'
 import { type CoverageInfo, type StockQuantities } from '@/lib/stock/signals'
 import { cn } from '@/lib/utils/cn'
+import { useAuthContext as useAuth } from '@/lib/contexts/auth-context'
+import { ElsewhereSheet, useElsewhere } from '@/components/stock/elsewhere/elsewhere-sheet'
 
 // Fiche détail d'un produit (étape 6 de la refonte Stock) : panneau latéral
 // sur ordinateur et tablette, plein écran sur téléphone. Consultation avant
@@ -108,6 +110,11 @@ export function ProductDetailDrawer({
   const batchesRef = useRef<HTMLDivElement>(null)
   const requestRef = useRef(0)
   const productId = product?.id, shopId = product?.shop_id
+  // Disponible ailleurs (30 oct. 2026) : seulement pour un compte à plusieurs boutiques, en ligne
+  const { userShops } = useAuth()
+  const elsewhere = useElsewhere(shopId, productId ? [productId] : [], !!productId && isOnline && userShops.length > 1)
+  const [elsewhereOpen, setElsewhereOpen] = useState(false)
+  const elsewhereEntry = productId ? elsewhere.data?.items[productId] : undefined
 
   const load = useCallback(async () => {
     if (!productId || !shopId) return
@@ -298,6 +305,37 @@ export function ProductDetailDrawer({
                 </>
               )}
             </DrawerSection>
+
+            {/* ── Dans vos autres boutiques ───────────────────────────────── */}
+            {elsewhere.data?.enabled && (
+              <DrawerSection title={td('elsewhere_title')} description={td('elsewhere_hint')}>
+                {!elsewhereEntry ? (
+                  <p className="text-sm text-muted-foreground" data-testid="product-detail-elsewhere-none">{td('elsewhere_none')}</p>
+                ) : (
+                  <div className="space-y-2" data-testid="product-detail-elsewhere">
+                    <ul className="divide-y rounded-xl border bg-card">
+                      {elsewhereEntry.shops.slice(0, 4).map(s => (
+                        <li key={s.shop_id} className="flex items-center justify-between gap-3 px-3 py-2.5 text-sm">
+                          <span className="min-w-0">
+                            <span className="block truncate font-medium">{s.name}</span>
+                            <span className="block truncate text-xs text-muted-foreground">{[s.city, s.open ? td('elsewhere_open') : td('elsewhere_closed')].filter(Boolean).join(' · ')}</span>
+                          </span>
+                          <span className="shrink-0 font-bold tabular-nums">{s.available} <span className="text-xs font-normal text-muted-foreground">{unit(s.available)}</span></span>
+                        </li>
+                      ))}
+                    </ul>
+                    <Button variant="outline" className="h-10 w-full gap-1.5" onClick={() => setElsewhereOpen(true)} data-testid="product-detail-elsewhere-open">
+                      <Store className="h-4 w-4" />{elsewhere.data.canRequest ? td('elsewhere_open_request') : td('elsewhere_open_details')}
+                    </Button>
+                  </div>
+                )}
+              </DrawerSection>
+            )}
+            {product && shopId && (
+              <ElsewhereSheet open={elsewhereOpen} onOpenChange={setElsewhereOpen} shopId={shopId}
+                product={{ id: product.id, name: product.name, unit: product.unit, threshold: product.low_stock_threshold ?? 0, available: q?.available ?? 0 }}
+                entry={elsewhereEntry} canRequest={!!elsewhere.data?.canRequest} onRequested={elsewhere.reload} />
+            )}
 
             {/* ── Réservations ──────────────────────────────────────────── */}
             <DrawerSection title={td('reservations')} description={td('reservations_hint')}>

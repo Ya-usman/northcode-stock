@@ -4,6 +4,7 @@ import { createAdminClient } from '@/lib/supabase/server'
 import { getAuthedUser, checkShopRole } from '@/lib/api/shop-auth'
 import { writeAuditLog, getClientIp } from '@/lib/api/audit'
 import { getApiTranslator } from '@/lib/api/i18n'
+import { notifyRequester } from '@/lib/api/transfer-requests'
 import { loadNames, transferError, transferWorkflowAvailable } from '@/lib/api/transfers'
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
@@ -85,14 +86,16 @@ export async function GET(request: Request) {
 
 // POST /api/stock-transfers — crée un transfert : envoyé tout de suite (par défaut) ou gardé en BROUILLON
 // (send: false, migration 188 : aucun stock touché). Droit « Transferts » en modification dans la boutique SOURCE.
-// body: { source_shop_id, destination_shop_id, notes?, items: [{product_id, quantity}], send?: boolean }
+// body: { source_shop_id, destination_shop_id, notes?, items: [{product_id, quantity}], send?: boolean, request_id? }
+// request_id (migration 190) : transfert créé en ACCEPTANT une demande ; elle doit être en attente et viser exactement
+// ces deux boutiques ; elle passe à « acceptée » et pointe vers le transfert, la personne qui a demandé est prévenue.
 export async function POST(request: Request) {
   const t = getApiTranslator(request)
   try {
     const { user, supabase } = await getAuthedUser()
     if (!user) return NextResponse.json({ error: t('not_authenticated') }, { status: 401 })
 
-    const { source_shop_id, destination_shop_id, notes, items, send } = await request.json()
+    const { source_shop_id, destination_shop_id, notes, items, send, request_id } = await request.json()
     if (!UUID.test(String(source_shop_id || '')) || !UUID.test(String(destination_shop_id || '')))
       return NextResponse.json({ error: t('source_destination_required') }, { status: 400 })
     if (!Array.isArray(items) || items.length === 0)
@@ -106,6 +109,16 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: t('permission_denied') }, { status: 403 })
 
     const admin = await createAdminClient() as any
+    let linked: any = null
+    if (request_id != null) {
+      if (!UUID.test(String(request_id))) return NextResponse.json({ error: t('invalid_data') }, { status: 400 })
+      const { data: req } = await admin.from('stock_transfer_requests').select('*').eq('id', request_id).maybeSingle()
+      if (!req) return NextResponse.json({ error: t('transfer_request_not_found') }, { status: 404 })
+      if (req.status !== 'pending') return NextResponse.json({ error: t('transfer_request_already_decided'), code: 'not_pending' }, { status: 409 })
+      if (req.source_shop_id !== source_shop_id || req.requesting_shop_id !== destination_shop_id)
+        return NextResponse.json({ error: t('transfer_request_mismatch') }, { status: 400 })
+      linked = req
+    }
     const workflow = await transferWorkflowAvailable(admin)
     const asDraft = send === false
     if (asDraft && !workflow) return NextResponse.json({ error: t('transfer_draft_unavailable') }, { status: 503 })
@@ -128,6 +141,23 @@ export async function POST(request: Request) {
         action: 'stock_transfer.send', shop_id: source_shop_id, actor_id: user.id, actor_email: user.email,
         target_id: data?.id, target_type: 'stock_transfer', ip: getClientIp(request),
         metadata: { actor_name: actorProfile?.full_name || user.email, reference: data?.reference, destination_shop_id },
+      })
+    }
+    // Demande acceptée : rattachée au transfert créé (écriture conditionnée : encore en attente)
+    if (linked && data?.id) {
+      const now = new Date().toISOString()
+      await admin.from('stock_transfer_requests')
+        .update({ status: 'accepted', transfer_id: data.id, decided_by: user.id, decided_at: now, updated_at: now })
+        .eq('id', linked.id).eq('status', 'pending')
+      await writeAuditLog({
+        action: 'stock_transfer.request_accept', shop_id: source_shop_id, actor_id: user.id, actor_email: user.email,
+        target_id: linked.id, target_type: 'stock_transfer_request', ip: getClientIp(request),
+        metadata: { product_name: linked.product_name, quantity: linked.quantity, reference: data?.reference, transfer_id: data.id },
+      })
+      const { data: src } = await admin.from('shops').select('name').eq('id', source_shop_id).maybeSingle()
+      await notifyRequester(admin, linked.requesting_shop_id, linked.requested_by, {
+        title: t('push_transfer_request_accepted_title', { shop: src?.name ?? '' }),
+        body: asDraft ? t('push_transfer_request_prepared_body', { reference: data?.reference ?? '' }) : t('push_transfer_request_sent_body', { reference: data?.reference ?? '' }),
       })
     }
     return NextResponse.json({ data })

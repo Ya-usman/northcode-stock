@@ -4,8 +4,8 @@ import { usePathname } from 'next/navigation'
 import { useTranslations } from 'next-intl'
 import { LayoutDashboard, Package, PackagePlus, ArrowRightLeft, ArrowLeftRight, ClipboardCheck, CalendarClock } from 'lucide-react'
 import { useRolePermissions, type PermFeature } from '@/lib/hooks/use-role-permissions'
-import { useAuthContext as useAuth } from '@/lib/contexts/auth-context'
 import { SegmentedTabs } from '@/components/ui/segmented-tabs'
+import { useEntityMultiShop } from '@/lib/hooks/use-entity-multi-shop'
 
 // Barre d'onglets du module Stock. Chaque onglet reste une route à part (code simple, URL stables et partageables) ;
 // la barre latérale et la barre du bas n'ont qu'une entrée « Stock », qui mène à la Vue d'ensemble. Chaque onglet
@@ -18,7 +18,7 @@ export function StockTabs({ locale }: { locale: string }) {
   const t = useTranslations('nav')
   const pathname = usePathname()
   const { canAccess } = useRolePermissions()
-  const { userShops } = useAuth()
+  const entityMultiShop = useEntityMultiShop()
 
   const tabs = [
     { href: `/${locale}/stock`, label: t('overview'), icon: LayoutDashboard, show: canAccess('stock' as PermFeature) },
@@ -27,11 +27,12 @@ export function StockTabs({ locale }: { locale: string }) {
     { href: `/${locale}/stock/expiry`, label: t('expiry'), icon: CalendarClock, show: canAccess('expiry_list' as PermFeature) },
     { href: `/${locale}/stock/inventory-count`, label: t('inventory_count'), icon: ClipboardCheck, show: canAccess('inventory_count' as PermFeature) },
     {
-      // Sans intérêt pour un compte à une seule boutique — rien à transférer.
+      // Entreprise à une seule boutique : rien à transférer. Plusieurs boutiques (même si la personne n'en gère
+      // qu'une) : l'onglet reste utile pour les demandes de transfert reçues (30 oct. 2026).
       href: `/${locale}/stock/transfers`,
       label: t('transfers'),
       icon: ArrowRightLeft,
-      show: canAccess('transfers' as PermFeature) && userShops.length > 1,
+      show: canAccess('transfers' as PermFeature) && entityMultiShop,
     },
     // Produits à commander, regroupés par fournisseur (étape 12) : mêmes droits que le Stock pour consulter
     { href: `/${locale}/stock/replenishment`, label: t('replenishment'), icon: PackagePlus, show: canAccess('stock' as PermFeature) },
