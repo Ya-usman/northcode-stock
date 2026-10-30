@@ -7,7 +7,7 @@ import { useTranslations } from 'next-intl'
 import { cn } from '@/lib/utils/cn'
 import { PremiumHeader } from '@/components/ui/premium-header'
 import { UnsavedChangesDialog, useCloseGuard } from '@/components/ui/unsaved-changes'
-import { refocusTopModal, useModalStack } from '@/components/ui/modal-stack'
+import { refocusTopModal, useModalStack, openDrawerCount } from '@/components/ui/modal-stack'
 
 // ── AppDrawer ────────────────────────────────────────────────────────────────
 // Panneau latéral droit (420 à 720 px) sur ordinateur, plein écran ou feuille
@@ -56,8 +56,17 @@ export function AppDrawer({
   const contentRef = React.useRef<HTMLDivElement>(null)
   const close = React.useCallback(() => onOpenChange(false), [onOpenChange])
   const guard = useCloseGuard({ open, dirty, onClose: close })
+  // Panneau ouvert par-dessus un autre panneau : figé à l'ouverture (avant de s'inscrire dans la pile)
+  const stackedRef = React.useRef<boolean | null>(null)
+  if (!open) stackedRef.current = null
+  else if (stackedRef.current === null) stackedRef.current = openDrawerCount() > 0
+  const stacked = !!stackedRef.current
+  // Flèche retour (← à gauche) ou croix (✕ à droite), validé le 30 oct. 2026 :
+  //   ouvert par-dessus un autre panneau → flèche partout (revient au panneau précédent) ;
+  //   plein écran sur téléphone → flèche sur téléphone, croix sur ordinateur ; feuille basse → croix.
+  const nav: 'back' | 'back-mobile' | 'close' = stacked ? 'back' : mobile === 'fullscreen' ? 'back-mobile' : 'close'
   // Pile commune : Échap ferme le niveau du dessus même quand un message est affiché
-  useModalStack(open, guard.requestClose, contentRef)
+  useModalStack(open, guard.requestClose, contentRef, 'drawer')
 
   // Ordinateur : focus sur le premier champ. Téléphone : focus sur le panneau
   // lui-même, pour ne pas faire surgir le clavier à l'ouverture. Un contenu
@@ -109,8 +118,12 @@ export function AppDrawer({
             title={title}
             description={description}
             icon={icon}
-            onClose={guard.requestClose}
+            onClose={nav === 'back' ? undefined : guard.requestClose}
             closeLabel={tActions('close')}
+            closeOn={nav === 'back-mobile' ? 'desktop' : 'all'}
+            onBack={nav === 'close' ? undefined : guard.requestClose}
+            backOn={nav === 'back-mobile' ? 'mobile' : 'all'}
+            backLabel={tActions('back')}
             // Téléphone plein écran : 20 px au-dessus du titre, plus la zone
             // sûre de l'appareil (encoche, barre d'état) s'il en a une
             className={cn(

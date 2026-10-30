@@ -43,6 +43,7 @@ import { CustomerPicker } from '@/components/sales/customer-picker'
 import { BookUser as BookUserIcon, UploadCloud as CloudUpload, Loader2, ExternalLink as ExternalLinkIcon } from 'lucide-react'
 import { receiptLabelsFromT } from '@/lib/receipt/receipt-labels'
 import { sharePDFNative, isCapacitor } from '@/lib/utils/native-share'
+import { registerBackHandler } from '@/lib/navigation/back-handlers'
 import type { Product, Customer, CartItem, Sale, SaleItem, Category } from '@/lib/types/database'
 import dynamic from 'next/dynamic'
 import { sellableStock, availableAfterReservations, isLotExpired, shopToday, type LotQty } from '@/lib/stock/sellable'
@@ -942,19 +943,12 @@ function PosScreen({ params: { locale: _locale } }: { params: { locale: string }
   }, [mobileStep])
 
   // Bouton retour Android (app Capacitor) : recule d'une étape au lieu de
-  // quitter la page — et donc de perdre le panier en cours. Pas de
-  // history.pushState côté navigateur : NavigationProgress l'intercepte
-  // pour sa barre de chargement, qui ne se terminerait jamais (même URL).
+  // quitter la page — et donc de perdre le panier en cours. Inscrit dans
+  // l'écouteur global (components/layout/android-back-handler) : une fenêtre
+  // ouverte par-dessus le panier se ferme d'abord, puis le panier recule.
   useEffect(() => {
-    if (!mobileCartOpen || !isCapacitor()) return
-    let cancelled = false
-    let remove: (() => void) | undefined
-    import('@capacitor/app').then(({ App }) =>
-      App.addListener('backButton', mobileBack).then(h => {
-        if (cancelled) h.remove(); else remove = () => { h.remove() }
-      }),
-    ).catch(() => {})
-    return () => { cancelled = true; remove?.() }
+    if (!mobileCartOpen) return
+    return registerBackHandler(() => { mobileBack(); return true })
   }, [mobileCartOpen, mobileBack])
 
   // Rangée "Favoris" : curation manuelle (migration 148), indépendante du

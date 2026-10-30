@@ -16,6 +16,8 @@ import { useEffect, useRef, type RefObject } from 'react'
 interface Entry {
   close: () => void
   element: () => HTMLElement | null
+  /** Panneau latéral (AppDrawer) ou fenêtre / liste */
+  kind: 'drawer' | 'other'
 }
 
 const stack: Entry[] = []
@@ -26,6 +28,11 @@ export function closeTopModal(): boolean {
   if (!top) return false
   top.close()
   return true
+}
+
+/** Nombre de panneaux latéraux ouverts (un panneau qui s'ouvre par-dessus un autre affiche la flèche retour) */
+export function openDrawerCount(): number {
+  return stack.filter(e => e.kind === 'drawer').length
 }
 
 /** Remet le focus dans le panneau ou la fenêtre du dessus s'il est tombé en dehors */
@@ -41,16 +48,16 @@ export function refocusTopModal(): void {
 }
 
 /** Inscrit un panneau ou une fenêtre dans la pile tant qu'il est ouvert */
-export function useModalStack(open: boolean, requestClose: () => void, contentRef: RefObject<HTMLElement>): void {
+export function useModalStack(open: boolean, requestClose: () => void, contentRef: RefObject<HTMLElement>, kind: Entry['kind'] = 'other'): void {
   const closeRef = useRef(requestClose)
   closeRef.current = requestClose
   useEffect(() => {
     if (!open) return
-    const entry: Entry = { close: () => closeRef.current(), element: () => contentRef.current }
+    const entry: Entry = { close: () => closeRef.current(), element: () => contentRef.current, kind }
     stack.push(entry)
     return () => {
       const i = stack.lastIndexOf(entry)
       if (i >= 0) stack.splice(i, 1)
     }
-  }, [open, contentRef])
+  }, [open, contentRef, kind])
 }

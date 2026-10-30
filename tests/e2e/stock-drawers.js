@@ -259,8 +259,10 @@ async function openAddDrawer(page) {
   ok(mName && mName.y > 60 && mName.y < 400, 'mobile : corps défilant sous l’en-tête')
   // p.text-lg = titre visible de l'en-tête (le titre lu par les lecteurs d'écran est hors écran)
   const mTitle = await md.locator('p.text-lg').first().boundingBox()
-  const mClose = await md.getByRole('button', { name: 'Fermer' }).boundingBox()
-  ok(mTitle && mTitle.y >= 18 && mClose && mClose.y >= 18, `mobile : marge au-dessus du titre ${mTitle && Math.round(mTitle.y)} px et du X ${mClose && Math.round(mClose.y)} px (≥ 18)`)
+  // Téléphone plein écran (30 oct. 2026) : flèche « Retour » en haut à gauche à la place du X
+  const mBack = await md.getByRole('button', { name: 'Retour' }).boundingBox()
+  ok(mTitle && mTitle.y >= 18 && mBack && mBack.y >= 12 && mBack.x < 30 && !(await md.getByRole('button', { name: 'Fermer' }).isVisible()),
+    `mobile : marge au-dessus du titre ${mTitle && Math.round(mTitle.y)} px (≥ 18), flèche « Retour » à gauche (x ${mBack && Math.round(mBack.x)}, y ${mBack && Math.round(mBack.y)}), pas de X`)
   await m.page.screenshot({ path: SCR + '/drawer-add-mobile.png' }).catch(() => {})
   await md.getByRole('button', { name: 'Annuler' }).click()
   await md.waitFor({ state: 'hidden', timeout: 5000 })
