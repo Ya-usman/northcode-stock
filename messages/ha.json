@@ -243,6 +243,9 @@
     "viewer": "Mai Kallo"
   },
   "products": {
+    "status_near_rupture": "Kusa da ƙarewa",
+    "near_rupture_badge": "Kusa da ƙarewa",
+    "near_rupture_incoming_badge": "Kusa da ƙarewa · ana jiran kaya",
     "title": "Kaya",
     "tab_products": "Jerin Kaya",
     "tab_archived": "Da aka ajiye",
@@ -4143,6 +4146,10 @@
     "restored_no_photo": "An mayar da abin da ka shigar (an soke ɗaukar hoto)."
   },
   "stock_overview": {
+    "opp_near_rupture": "{count, plural, other {Kaya # na iya ƙarewa cikin kwanaki 7}}",
+    "opp_near_rupture_incoming_only": "{count, plural, other {Kaya # na kusa da ƙarewa, ana jiran isowa}}",
+    "opp_near_rupture_desc": "Ƙiyasi bisa sayarwar kwanaki 30 da suka gabata.",
+    "opp_near_rupture_desc_incoming": "Bisa sayarwar kwanaki 30 da suka gabata. {count, plural, other {Wasu kaya # na da kaya mai zuwa.}}",
     "title": "Taƙaitawa",
     "subtitle": "Halin kayanka a kallo ɗaya. Kowane kati yana buɗe kayan da abin ya shafa.",
     "products_count": "Kaya",
@@ -4684,6 +4691,10 @@
     "box": "akwati"
   },
   "product_detail": {
+    "rupture_probable": "Mai yiwuwa kayan su ƙare kusan {date}, bisa saurin sayarwar kwanaki 30 da suka gabata.",
+    "rupture_probable_today": "Mai yiwuwa kayan su ƙare yau, bisa saurin sayarwar kwanaki 30 da suka gabata.",
+    "coverage_with_incoming": "Tare da kayan da ake jira (+{qty}), kayan za su ɗore kusan {count, plural, other {kwanaki #}}.",
+    "coverage_with_incoming_year": "Tare da kayan da ake jira (+{qty}), kayan za su ɗore fiye da shekara ɗaya.",
     "elsewhere_title": "A sauran shagunanka",
     "elsewhere_hint": "Ainihin abin da yake akwai (ba tare da wanda ya lalace ko aka ajiye ba) don jagorantar abokin ciniki.",
     "elsewhere_none": "Babu wani shago da yake da shi.",

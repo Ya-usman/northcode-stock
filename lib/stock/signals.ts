@@ -188,6 +188,39 @@ export function coverageInfo(sellable: number, sold30d: number | null | undefine
   return { kind: 'days', days: Math.max(0, days), lowVolume: sold < COVERAGE_LOW_VOLUME }
 }
 
+/**
+ * Rupture proche (étape 13, décisions du 31 oct. 2026) : le stock vendable couvre au plus 7 jours au rythme des
+ * ventes des 30 derniers jours, avec un rythme FIABLE (au moins 3 ventes), et le produit n'est pas déjà en rupture
+ * (il a sa propre carte). Un arrivage attendu (bon envoyé, transfert en route) qui porterait la couverture au-delà
+ * de 7 jours ne retire pas le produit de la liste : il est marqué « arrivage prévu » et compté à part (D2).
+ */
+export const NEAR_RUPTURE_DAYS = 7
+
+export interface NearRupture {
+  near: boolean
+  /** L'arrivage attendu suffit à dépasser les 7 jours */
+  coveredByIncoming: boolean
+}
+
+export function nearRuptureOf(input: { sellable: number; available: number; sold30d: number | null | undefined; incoming?: number | null }): NearRupture {
+  const none = { near: false, coveredByIncoming: false }
+  if (!(input.available > 0)) return none
+  const cov = coverageInfo(input.sellable, input.sold30d)
+  if (cov.kind !== 'days' || cov.lowVolume || cov.days > NEAR_RUPTURE_DAYS) return none
+  const incoming = Math.max(0, Number(input.incoming) || 0)
+  if (!incoming) return { near: true, coveredByIncoming: false }
+  const withIncoming = coverageInfo(input.sellable + incoming, input.sold30d)
+  return { near: true, coveredByIncoming: withIncoming.kind === 'over_year' || (withIncoming.kind === 'days' && withIncoming.days > NEAR_RUPTURE_DAYS) }
+}
+
+/**
+ * Date de rupture probable (AAAA-MM-JJ) : seulement pour une couverture chiffrée et fiable ; jamais pour une
+ * estimation fragile, sans ventes ou au-delà d'un an. Formulation côté écran : « probable », « vers le ».
+ */
+export function ruptureDateOf(cov: CoverageInfo, today: string): string | null {
+  return cov.kind === 'days' && !cov.lowVolume ? addDays(today, cov.days) : null
+}
+
 /** Quantité vendue par produit sur les 30 derniers jours (ventes actives) ; `productId` limite la lecture à un produit. */
 export async function fetchSoldQty30d(supabase: Db, shopIds: string[], productId?: string): Promise<Record<string, number>> {
   const thirtyDaysAgo = new Date(Date.now() - 30 * 86_400_000).toISOString()
@@ -274,6 +307,8 @@ export interface StockRulesContext {
   expiredQtyByProduct?: Record<string, number>
   /** Quantité réservée par produit (absent = aucune) : elle sort aussi du disponible */
   reservedQtyByProduct?: Record<string, number>
+  /** Arrivages attendus par produit (en commande + en transit visibles) : marque une rupture proche « arrivage prévu » */
+  incomingByProduct?: Record<string, number>
   /** AAAA-MM-JJ, par défaut aujourd'hui */
   today?: string
 }
@@ -343,6 +378,18 @@ export function isDormant(p: { id: string; quantity: number }, ctx: StockRulesCo
   return ctx.soldQtyLoaded && p.quantity > 0 && !(ctx.soldQtyByProduct[p.id] > 0)
 }
 
+/** Rupture proche d'un produit (règle nearRuptureOf), tant que les ventes 30 j sont chargées */
+export function isNearRupture(p: { id: string; quantity: number }, ctx: StockRulesContext): NearRupture {
+  if (!ctx.soldQtyLoaded) return { near: false, coveredByIncoming: false }
+  const expired = Math.min(Number(p.quantity) || 0, ctx.expiredQtyByProduct?.[p.id] || 0)
+  return nearRuptureOf({
+    sellable: (Number(p.quantity) || 0) - expired,
+    available: availableQty(p.quantity, ctx.expiredQtyByProduct?.[p.id], ctx.reservedQtyByProduct?.[p.id]),
+    sold30d: ctx.soldQtyByProduct[p.id] || 0,
+    incoming: ctx.incomingByProduct?.[p.id] || 0,
+  })
+}
+
 export function isPromoActive(o: { promo_price?: number | null; promo_until?: string | null; promo_start?: string | null }): boolean {
   const now = new Date().toISOString()
   return !!o.promo_price && !!o.promo_until && o.promo_until >= now && (!o.promo_start || o.promo_start <= now)
@@ -365,6 +412,10 @@ export interface StockKpis {
   low: number
   expiring: number
   dormant: number
+  /** Rupture proche sans arrivage suffisant (chiffre de la carte) */
+  nearRupture: number
+  /** Rupture proche, mais un arrivage attendu suffit (« arrivage prévu », compté à part) */
+  nearRuptureIncoming: number
   /** Σ quantité × prix d'achat des produits dormants : valeur immobilisée */
   dormantValue: number
   promo: number
@@ -394,7 +445,7 @@ export function stockLevelOf(
 }
 
 export function computeStockKpis(products: StockProductLike[], ctx: StockRulesContext): StockKpis {
-  const kpis: StockKpis = { total: products.length, out: 0, low: 0, expiring: 0, dormant: 0, dormantValue: 0, promo: 0, promoStale: 0, stockValue: 0, retailValue: 0 }
+  const kpis: StockKpis = { total: products.length, out: 0, low: 0, expiring: 0, dormant: 0, nearRupture: 0, nearRuptureIncoming: 0, dormantValue: 0, promo: 0, promoStale: 0, stockValue: 0, retailValue: 0 }
   for (const p of products) {
     const cost = Number(p.quantity) * Number(p.buying_price || 0)
     const level = stockLevelOf(p, ctx)
@@ -402,6 +453,8 @@ export function computeStockKpis(products: StockProductLike[], ctx: StockRulesCo
     else if (level === 'low') kpis.low++
     if (isExpired(p, ctx) || isExpiringSoon(p, ctx)) kpis.expiring++
     if (isDormant(p, ctx)) { kpis.dormant++; kpis.dormantValue += cost }
+    const nr = isNearRupture(p, ctx)
+    if (nr.near) { if (nr.coveredByIncoming) kpis.nearRuptureIncoming++; else kpis.nearRupture++ }
     if (isPromoActive(p)) kpis.promo++
     if (isPromoStale(p, ctx)) kpis.promoStale++
     kpis.stockValue += cost

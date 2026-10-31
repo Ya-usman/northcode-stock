@@ -8,6 +8,7 @@ import { useTranslations } from 'next-intl'
 import {
   CalendarClock, CheckCircle2, ChevronDown, ChevronRight, Layers, ListChecks, Package, PackageMinus, PackageX,
   ShoppingCart, Store, Tag, TrendingDown, Wallet, AlertTriangle, Truck, ClipboardList,
+  Hourglass,
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { useAuthContext as useAuth } from '@/lib/contexts/auth-context'
@@ -208,6 +209,16 @@ export default function StockOverviewPage({ params: { locale } }: { params: { lo
   useRefetchOnReconnect(() => fetchAll(), isOnline)
   const shopLoadTimedOut = useShopLoadTimeout(effectiveShopIds.length)
 
+  // Arrivages attendus visibles (en commande + en transit) : une rupture proche couverte par un arrivage est « arrivage prévu »
+  const incomingByProduct = useMemo(() => {
+    if (!pipeline) return undefined
+    const out: Record<string, number> = {}
+    for (const [id, x] of Object.entries(pipeline.byProduct)) {
+      out[id] = (pipeline.visible?.inTransit === false ? 0 : x.inTransit || 0) + (pipeline.visible?.onOrder === false ? 0 : x.onOrder || 0)
+    }
+    return out
+  }, [pipeline])
+
   const kpis = useMemo(() => computeStockKpis(withCosts(products as any[], costs) as StockProductLike[], {
     // Seuils de la boutique DE CHAQUE PRODUIT (en « Toutes les boutiques », jamais ceux d'une seule boutique)
     shopRules: shopRulesOf(userShops),
@@ -219,7 +230,8 @@ export default function StockOverviewPage({ params: { locale } }: { params: { lo
     soldQtyLoaded,
     expiredQtyByProduct,
     reservedQtyByProduct,
-  }), [products, categories, shop?.low_stock_threshold, shop?.expiry_alert_days, expiryByProduct, soldQtyByProduct, soldQtyLoaded, expiredQtyByProduct, reservedQtyByProduct, costs, userShops])
+    incomingByProduct,
+  }), [products, categories, shop?.low_stock_threshold, shop?.expiry_alert_days, expiryByProduct, soldQtyByProduct, soldQtyLoaded, expiredQtyByProduct, reservedQtyByProduct, incomingByProduct, costs, userShops])
 
   // Les coûts sont des données financières : pas pour la caisse ni la lecture seule
   // Valeur du stock : règle unique canViewCost (lib/permissions), et seulement une fois les coûts reçus du serveur
@@ -262,7 +274,7 @@ export default function StockOverviewPage({ params: { locale } }: { params: { lo
   }), [datedLots, userShops, shop?.expiry_alert_days, categories])
 
   // Priorités stock : seulement celles qui ont quelque chose à montrer, par ordre d'importance —
-  // 1. lots périmés à traiter, 2. ruptures, 3. stock bas, 4. lots qui expirent bientôt, 5. stock dormant,
+  // 1. lots périmés à traiter, 2. ruptures, 3. stock bas, 4. rupture proche, 5. lots qui expirent bientôt, 6. stock dormant,
   // puis les promotions à revoir / en cours. Jamais « vendre » ni « promotion » pour un lot déjà périmé.
   const priorities = [
     lots.expired > 0 && {
@@ -282,6 +294,18 @@ export default function StockOverviewPage({ params: { locale } }: { params: { lo
       title: t('stock_overview.opp_low', { count: kpis.low }),
       desc: t('stock_overview.opp_low_desc'),
       action: t('stock_overview.act_reorder'), onClick: goToReplenishment,
+    },
+    // Rupture proche (étape 13) : sous 7 jours au rythme des 30 derniers jours ; le chiffre ne compte que les produits
+    // sans arrivage suffisant, les autres sont signalés à part (« arrivage prévu »)
+    levelReady && (kpis.nearRupture > 0 || kpis.nearRuptureIncoming > 0) && {
+      key: 'near_rupture', tone: (kpis.nearRupture > 0 ? 'amber' : 'blue') as Tone, icon: Hourglass,
+      title: kpis.nearRupture > 0
+        ? t('stock_overview.opp_near_rupture', { count: kpis.nearRupture })
+        : t('stock_overview.opp_near_rupture_incoming_only', { count: kpis.nearRuptureIncoming }),
+      desc: kpis.nearRupture > 0 && kpis.nearRuptureIncoming > 0
+        ? t('stock_overview.opp_near_rupture_desc_incoming', { count: kpis.nearRuptureIncoming })
+        : t('stock_overview.opp_near_rupture_desc'),
+      action: t('stock_overview.act_products'), onClick: () => goToProducts('near_rupture'),
     },
     lots.expiring > 0 && {
       key: 'expiring', tone: 'orange' as Tone, icon: CalendarClock,

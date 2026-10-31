@@ -48,7 +48,8 @@ interface ProductDetail {
   status: ProductStatus
   quantities: StockQuantities
   reservations: Reservation[]
-  sales: { sold30d: number; coverage: CoverageInfo }
+  /** Étape 13 : date de rupture probable (estimation fiable seulement) et couverture avec les arrivages visibles */
+  sales: { sold30d: number; coverage: CoverageInfo; rupture_date?: string | null; incoming?: number; coverage_with_incoming?: CoverageInfo | null }
   purchase: null | {
     buying_price: number
     stock_value: number
@@ -182,6 +183,14 @@ export function ProductDetailDrawer({
   const status = detail?.status ?? listStatus
   const unit = (n: number) => unitLabel(product?.unit || 'piece', n)
   const invoiceName = (r: Reservation) => r.label || td('reservation_unnamed')
+  // Couverture avec l'arrivage attendu (bon envoyé, transfert en route) : seulement quand il y a un arrivage et un rythme
+  const incomingCoverText = (s: NonNullable<typeof detail>['sales']): string | null => {
+    const c = s.coverage_with_incoming
+    if (!c || !s.incoming) return null
+    if (c.kind === 'days') return td('coverage_with_incoming', { qty: s.incoming, count: c.days })
+    if (c.kind === 'over_year') return td('coverage_with_incoming_year', { qty: s.incoming })
+    return null
+  }
   const coverageText = (c: CoverageInfo): string => {
     switch (c.kind) {
       case 'out': return td('coverage_out')
@@ -388,6 +397,19 @@ export function ProductDetailDrawer({
                     <p className={cn('mt-0.5 text-sm font-bold', detail.sales.coverage.kind === 'days' && detail.sales.coverage.days <= 7 && 'text-amber-600 dark:text-amber-400')} data-coverage={detail.sales.coverage.kind}>{coverageText(detail.sales.coverage)}</p>
                     {detail.sales.coverage.kind === 'days' && detail.sales.coverage.lowVolume && <p className="mt-0.5 text-[11px] leading-tight text-muted-foreground">{td('coverage_low_volume')}</p>}
                   </div>
+                  {/* Rupture probable (formulation prudente) et effet des arrivages attendus */}
+                  {(detail.sales.rupture_date || incomingCoverText(detail.sales)) && (
+                    <div className="col-span-2 space-y-1 text-xs leading-relaxed text-muted-foreground">
+                      {detail.sales.rupture_date && (
+                        <p data-testid="product-detail-rupture" className={cn(detail.sales.coverage.kind === 'days' && detail.sales.coverage.days <= 7 && 'font-medium text-amber-700 dark:text-amber-400')}>
+                          {detail.sales.coverage.kind === 'days' && detail.sales.coverage.days === 0
+                            ? td('rupture_probable_today')
+                            : td('rupture_probable', { date: new Date(detail.sales.rupture_date + 'T12:00:00').toLocaleDateString(dateLocaleTag(locale), { day: 'numeric', month: 'long' }) })}
+                        </p>
+                      )}
+                      {incomingCoverText(detail.sales) && <p data-testid="product-detail-incoming-cover">{incomingCoverText(detail.sales)}</p>}
+                    </div>
+                  )}
                 </div>
               )}
             </DrawerSection>

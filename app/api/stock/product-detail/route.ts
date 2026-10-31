@@ -4,7 +4,7 @@ import { createAdminClient } from '@/lib/supabase/server'
 import { getAuthedUser, checkShopRole } from '@/lib/api/shop-auth'
 import { canViewFeature, canWriteFeature, canViewCost } from '@/lib/api/role-permissions'
 import { getApiTranslator } from '@/lib/api/i18n'
-import { coverageInfo, fetchSoldQty30d, stockLevelOf, stockQuantities } from '@/lib/stock/signals'
+import { coverageInfo, fetchSoldQty30d, ruptureDateOf, stockLevelOf, stockQuantities } from '@/lib/stock/signals'
 import { loadStockPipeline } from '@/lib/stock/pipeline-load'
 
 // GET /api/stock/product-detail?shop_id=…&product_id=…[&today=AAAA-MM-JJ]
@@ -23,6 +23,21 @@ import { loadStockPipeline } from '@/lib/stock/pipeline-load'
 //     règle de /api/stock/reservations — rien n'est élargi ici.
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+
+// Ventes et couverture (étape 13) : couverture du stock vendable, date de rupture PROBABLE (estimation fiable
+// seulement), et couverture avec les arrivages visibles (en commande + en transit) quand il y en a
+function salesBlock(q: { physical: number; expired: number; inTransit: number | null; onOrder: number | null }, sold30d: number, today: string) {
+  const sellable = q.physical - q.expired
+  const coverage = coverageInfo(sellable, sold30d)
+  const incoming = Math.max(0, q.inTransit ?? 0) + Math.max(0, q.onOrder ?? 0)
+  return {
+    sold30d,
+    coverage,
+    rupture_date: ruptureDateOf(coverage, today),
+    incoming,
+    coverage_with_incoming: incoming > 0 ? coverageInfo(sellable + incoming, sold30d) : null,
+  }
+}
 
 export async function GET(request: Request) {
   const t = getApiTranslator(request)
@@ -120,7 +135,7 @@ export async function GET(request: Request) {
         id: r.id, source_ref: r.source_ref, label: r.label, quantity: Number(r.quantity),
         created_at: r.created_at, expires_at: r.expires_at, created_by_name: r.created_by ? authors[r.created_by] || null : null,
       })),
-      sales: { sold30d, coverage: coverageInfo(quantities.physical - quantities.expired, sold30d) },
+      sales: salesBlock(quantities, sold30d, shopToday(shopRes.data)),
       purchase,
       permissions: { cost: canCost, release: canRelease },
       today: shopToday(shopRes.data),

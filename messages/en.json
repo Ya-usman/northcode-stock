@@ -243,6 +243,9 @@
     "viewer": "Viewer"
   },
   "products": {
+    "status_near_rupture": "Running out soon",
+    "near_rupture_badge": "Running out soon",
+    "near_rupture_incoming_badge": "Running out soon · delivery expected",
     "title": "Stock",
     "tab_products": "List",
     "tab_archived": "Archived",
@@ -4143,6 +4146,10 @@
     "restored_no_photo": "Your entry has been restored (photo cancelled)."
   },
   "stock_overview": {
+    "opp_near_rupture": "{count, plural, one {# product may run out within 7 days} other {# products may run out within 7 days}}",
+    "opp_near_rupture_incoming_only": "{count, plural, one {# product close to running out, delivery expected} other {# products close to running out, delivery expected}}",
+    "opp_near_rupture_desc": "Estimate based on sales over the last 30 days.",
+    "opp_near_rupture_desc_incoming": "Based on the last 30 days of sales. {count, plural, one {# other product has a delivery expected.} other {# other products have a delivery expected.}}",
     "title": "Overview",
     "subtitle": "Your stock at a glance. Each card opens the products concerned.",
     "products_count": "Products",
@@ -4684,6 +4691,10 @@
     "box": "{count, plural, one {box} other {boxes}}"
   },
   "product_detail": {
+    "rupture_probable": "Likely to run out around {date}, at the pace of the last 30 days.",
+    "rupture_probable_today": "Likely to run out today, at the pace of the last 30 days.",
+    "coverage_with_incoming": "With the expected delivery (+{qty}), stock would last about {count, plural, one {# day} other {# days}}.",
+    "coverage_with_incoming_year": "With the expected delivery (+{qty}), stock would last more than a year.",
     "elsewhere_title": "In your other shops",
     "elsewhere_hint": "Real available stock (expired and reserved removed) to guide a customer.",
     "elsewhere_none": "No other shop has it in stock.",

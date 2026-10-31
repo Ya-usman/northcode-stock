@@ -49,7 +49,7 @@ import { isNeutralClick } from '@/lib/utils/open-on-click'
 import { PRODUCT_PUBLIC_COLUMNS } from '@/lib/products/columns'
 import { SUPPLIER_PUBLIC_COLUMNS } from '@/lib/suppliers/columns'
 import { fetchCosts, withCosts } from '@/lib/costs/client'
-import { fetchExpiryByProduct, fetchExpiredQtyByProduct, availableQty, stockLevelOf, stockQuantities, fetchSoldQty30dForShops, readSignalsCache, shopRulesOf, writeSignalsCache } from '@/lib/stock/signals'
+import { fetchExpiryByProduct, fetchExpiredQtyByProduct, availableQty, isNearRupture, stockLevelOf, stockQuantities, fetchSoldQty30dForShops, readSignalsCache, shopRulesOf, writeSignalsCache } from '@/lib/stock/signals'
 import { shopToday } from '@/lib/stock/sellable'
 import { addDays } from '@/lib/stock/batch-status'
 import { fetchStockPipeline, type StockPipeline } from '@/lib/stock/pipeline'
@@ -88,7 +88,7 @@ const BulkAddModal = dynamic(() => import('@/components/stock/bulk-add-modal').t
 
 
 // Ordre MÉTIER du filtre Statut (jamais alphabétique) ; « Archivé » s'ajoute pour qui gère le stock
-const STATUS_ORDER = ['ok', 'low', 'out', 'expiry', 'dormant', 'promo']
+const STATUS_ORDER = ['ok', 'low', 'out', 'near_rupture', 'expiry', 'dormant', 'promo']
 
 function StockBadge({ quantity, threshold }: { quantity: number; threshold: number }) {
   const t = useTranslations('status')
@@ -439,6 +439,14 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
     inTransit: !pipeline || pipeline.visible?.inTransit === false ? null : pipeline.byProduct[p.id]?.inTransit ?? 0,
     onOrder: !pipeline || pipeline.visible?.onOrder === false ? null : pipeline.byProduct[p.id]?.onOrder ?? 0,
   })
+  // Rupture proche (étape 13) : règle unique lib/stock/signals ; un arrivage visible suffisant la marque « arrivage prévu »
+  const nearRuptureFor = (p: Product) => {
+    const pl = pipelineFor(p)
+    return isNearRupture(p, {
+      expiryByProduct: {}, soldQtyByProduct, soldQtyLoaded, expiredQtyByProduct, reservedQtyByProduct,
+      incomingByProduct: { [p.id]: (pl.inTransit ?? 0) + (pl.onOrder ?? 0) },
+    })
+  }
 
   const loadProductBatches = async (product: Product, quiet = false) => {
     // quiet : relecture après une action, sans vider la liste affichée
@@ -594,6 +602,7 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
         if (v === 'ok' || v === 'low' || v === 'out') return level === v
         if (v === 'expiry') return isExpired(p) || isExpiringSoon(p)
         if (v === 'dormant') return isDormant(p)
+        if (v === 'near_rupture') return nearRuptureFor(p).near
         if (v === 'promo') return isPromoActive(p)
         return false
       })) return false
@@ -1115,6 +1124,7 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
     const expiry = expiryByProduct[product.id]
     const expired = expiry ? expiry < todayOf(product) : false
     const expiringSoonBadge = expiry && !expired ? expiry <= getExpiryCutoffFor(product) : false
+    const nearRupture = nearRuptureFor(product)
     return (
       <div
         key={product.id}
@@ -1182,6 +1192,11 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
                   >
                     {t('products.expiring_badge', { date: new Date(expiry!).toLocaleDateString(dateLocaleTag(locale), { day: 'numeric', month: 'short' }) })}
                   </button>
+                )}
+                {nearRupture.near && (
+                  <span data-near-rupture={nearRupture.coveredByIncoming ? 'incoming' : 'yes'} className={`text-[10px] font-semibold rounded-full px-1.5 py-0.5 ${nearRupture.coveredByIncoming ? 'bg-stockshop-blue-muted dark:bg-blue-950/40 text-stockshop-blue dark:text-blue-400' : 'bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-400'}`}>
+                    {nearRupture.coveredByIncoming ? t('products.near_rupture_incoming_badge') : t('products.near_rupture_badge')}
+                  </span>
                 )}
               </div>
             </div>
@@ -1355,6 +1370,7 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
       levelOf(p) !== 'ok' ? (levelOf(p) as ProductStatus) : isDormant(p) ? 'dormant' : 'ok',
     soldQty: (p: Product) => (soldQtyLoaded ? soldQtyByProduct[p.id] || 0 : null),
     pipelineFor,
+    nearRuptureFor,
     expiredQty: (p: Product) => expiredQtyByProduct[p.id] || 0,
     reservedQty: (p: Product) => reservedQtyByProduct[p.id] || 0,
     expiryFor: (p: Product) => {
@@ -1402,6 +1418,7 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
   )
   const statusLabels: Record<string, string> = {
     ok: t('status.in_stock'), low: t('status.low_stock'), out: t('status.out_of_stock'),
+    near_rupture: t('products.status_near_rupture'),
     expiry: t('products.card_expiry'), dormant: t('products.card_dormant'), promo: t('products.promo_badge'),
     archived: t('products.tab_archived'),
   }

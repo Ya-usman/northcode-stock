@@ -243,6 +243,9 @@
     "viewer": "Observateur"
   },
   "products": {
+    "status_near_rupture": "Rupture proche",
+    "near_rupture_badge": "Rupture proche",
+    "near_rupture_incoming_badge": "Rupture proche · arrivage prévu",
     "title": "Stock",
     "tab_products": "Liste",
     "tab_archived": "Archivés",
@@ -4143,6 +4146,10 @@
     "restored_no_photo": "Votre saisie a été restaurée (prise de vue annulée)."
   },
   "stock_overview": {
+    "opp_near_rupture": "{count, plural, one {# produit risque la rupture sous 7 jours} other {# produits risquent la rupture sous 7 jours}}",
+    "opp_near_rupture_incoming_only": "{count, plural, one {# produit proche de la rupture, arrivage prévu} other {# produits proches de la rupture, arrivage prévu}}",
+    "opp_near_rupture_desc": "Estimation au rythme des ventes des 30 derniers jours.",
+    "opp_near_rupture_desc_incoming": "Au rythme des 30 derniers jours. {count, plural, one {# autre produit a un arrivage prévu.} other {# autres produits ont un arrivage prévu.}}",
     "title": "Vue d’ensemble",
     "subtitle": "L’état de votre stock en un coup d’œil. Chaque carte ouvre les produits concernés.",
     "products_count": "Produits",
@@ -4684,6 +4691,10 @@
     "box": "{count, plural, one {boîte} other {boîtes}}"
   },
   "product_detail": {
+    "rupture_probable": "Rupture probable vers le {date}, au rythme des 30 derniers jours.",
+    "rupture_probable_today": "Rupture probable dans la journée, au rythme des 30 derniers jours.",
+    "coverage_with_incoming": "Avec l'arrivage attendu (+{qty}), le stock tiendrait environ {count, plural, one {# jour} other {# jours}}.",
+    "coverage_with_incoming_year": "Avec l'arrivage attendu (+{qty}), le stock tiendrait plus d'un an.",
     "elsewhere_title": "Dans vos autres boutiques",
     "elsewhere_hint": "Disponible réel (périmé et réservé retirés) pour orienter un client.",
     "elsewhere_none": "Aucune autre boutique n'en a en stock.",

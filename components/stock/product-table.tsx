@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef } from 'react'
 import { useLocale, useTranslations } from 'next-intl'
 import { dateLocaleTag } from '@/lib/i18n/date-format'
-import { availableQty, coverageInfo, COVERAGE_MAX_DAYS } from '@/lib/stock/signals'
+import { availableQty, coverageInfo, COVERAGE_MAX_DAYS, type NearRupture } from '@/lib/stock/signals'
 import { useUnitLabel } from '@/lib/products/use-unit-label'
 import { Archive, ArrowDown, ArrowUp, ArrowUpDown, Edit2, History, MoreHorizontal, ShoppingCart, Tag } from 'lucide-react'
 import type { Product } from '@/lib/types/database'
@@ -59,6 +59,8 @@ export interface ProductTableProps {
   reservedQty: (p: Product) => number
   /** Stock à venir du produit ; null = pas encore chargé ou non visible pour ce rôle (jamais confondu avec zéro) */
   pipelineFor: (p: Product) => { inTransit: number | null; onOrder: number | null }
+  /** Rupture proche (étape 13) : pastille sous le statut, « arrivage prévu » quand un arrivage suffit */
+  nearRuptureFor?: (p: Product) => NearRupture
   isPromoActive: (p: Product) => boolean
   promoStale: (p: Product) => boolean
   /** Raison d'une promo suggérée (péremption proche, vente lente), sinon null */
@@ -122,7 +124,7 @@ export function ProductTableSkeleton({ rows = 6 }: { rows?: number }) {
 }
 
 export function ProductTable({
-  products, thresholdFor, statusFor, soldQty, expiryFor, expiredQty, reservedQty, pipelineFor, isPromoActive, promoStale, promoSuggestion,
+  products, thresholdFor, statusFor, soldQty, expiryFor, expiredQty, reservedQty, pipelineFor, nearRuptureFor, isPromoActive, promoStale, promoSuggestion,
   formatPrice, fullRights, canWriteStock, canOrderStock, busy, selectedIds, onToggleSelect, onToggleSelectMany,
   sort, onSortChange, columns, onOpen, onOrder, onRestock, onEdit, onPromo, onBatches, onArchive,
 }: ProductTableProps) {
@@ -254,6 +256,7 @@ export function ProductTable({
             const expiry = expiryFor(product)
             const sold = soldQty(product)
             const incoming = pipelineFor(product)
+            const nearRupture = nearRuptureFor?.(product)
             const stickyBg = selected ? 'bg-stockshop-blue-muted dark:bg-blue-950/60' : 'bg-card'
             // Disponible = physique − périmé − réservé (lib/stock/signals)
             const expired = Math.min(product.quantity, expiredQty(product))
@@ -394,6 +397,11 @@ export function ProductTable({
                   <span className={cn('inline-flex rounded-full px-2 py-0.5 text-[11px] font-semibold', STATUS_CHIP[status])}>
                     {statusLabel[status]}
                   </span>
+                  {nearRupture?.near && (
+                    <span data-near-rupture={nearRupture.coveredByIncoming ? 'incoming' : 'yes'} className={cn('mt-1 flex w-fit rounded-full px-2 py-0.5 text-[10px] font-semibold', nearRupture.coveredByIncoming ? 'bg-stockshop-blue-muted text-stockshop-blue dark:bg-blue-950/40 dark:text-blue-400' : 'bg-amber-50 text-amber-700 dark:bg-amber-950/40 dark:text-amber-400')}>
+                      {nearRupture.coveredByIncoming ? t('products.near_rupture_incoming_badge') : t('products.near_rupture_badge')}
+                    </span>
+                  )}
                 </td>
                 <td className={cn('whitespace-nowrap text-right', CELL)}>
                   <div className="inline-flex items-center gap-0.5">

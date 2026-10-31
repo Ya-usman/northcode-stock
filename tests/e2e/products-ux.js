@@ -64,7 +64,16 @@ const closeAll = async page => { for (let i = 0; i < 4 && (await page.locator('[
   const { data: link } = await admin.auth.admin.generateLink({ type: 'magiclink', email: OWNER })
   const { data: mem } = await admin.from('shop_members').select('shop_id, shops(name)').eq('user_id', link.user.id).eq('is_active', true)
   const { count: totalAll } = await admin.from('products').select('id', { count: 'exact', head: true }).in('shop_id', mem.map(m => m.shop_id)).eq('is_active', true)
-  const withSku = prods.find(p => p.sku && p.quantity > 20), noSku = prods.find(p => !p.sku && p.quantity > 20)
+  // Carte « normale » mesurée : sans arrivage en cours. Un bon envoyé ou un transfert en route ajoute une ligne
+  // « +N en commande / en transit » (étape 5) qui allonge la carte : ce n'est pas le cas mesuré ici (31 oct. 2026 :
+  // le bon TEST BC-2026-0016, gardé en exemple sur Alpha, met « Aspirateur Roweta » en commande).
+  const { data: sentPos } = await admin.from('purchase_orders').select('purchase_order_items(product_id)').eq('shop_id', ALPHA).eq('status', 'sent')
+  const { data: sentTr } = await admin.from('stock_transfers').select('stock_transfer_items(source_product_id, destination_product_id)').eq('status', 'sent').or(`source_shop_id.eq.${ALPHA},destination_shop_id.eq.${ALPHA}`)
+  const incoming = new Set([
+    ...(sentPos || []).flatMap(po => (po.purchase_order_items || []).map(i => i.product_id)),
+    ...(sentTr || []).flatMap(tr => (tr.stock_transfer_items || []).flatMap(i => [i.source_product_id, i.destination_product_id])),
+  ].filter(Boolean))
+  const withSku = prods.find(p => p.sku && p.quantity > 20 && !incoming.has(p.id)), noSku = prods.find(p => !p.sku && p.quantity > 20 && !incoming.has(p.id))
   console.log(`Boutique Alpha : ${prods.length} produits actifs ; ${totalAll} sur les ${mem.length} boutiques du compte`)
 
   // ══ 1. Téléphone, propriétaire, toutes les boutiques ══════════════════════════════════════════════════════
