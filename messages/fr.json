@@ -3122,7 +3122,7 @@
     "col_sales_total": "Total ventes",
     "col_repayments_count": "Nb remb. crédit",
     "col_repayments_total": "Total remb. crédit",
-    "sale_abbr": "vte",
+    "sales_count": "{count, plural, one {# vente} other {# ventes}}",
     "repayment_abbr": "remb. créd."
   },
   "expenses": {
@@ -4870,5 +4870,380 @@
     "help_title": "Aide",
     "company_title": "Entreprise",
     "referrals_title": "Parrainage"
+  },
+  "help_page": {
+    "tab_faq": "Questions fréquentes",
+    "tab_manual": "Manuel illustré",
+    "toc": "Sommaire",
+    "contact_title": "Vous n'avez pas trouvé votre réponse ?",
+    "contact_body": "Écrivez-nous, notre équipe répond en moins de 24 heures.",
+    "faq": [
+      {
+        "title": "Bien démarrer",
+        "items": [
+          {
+            "q": "Comment ajouter mes produits ?",
+            "a": "Allez dans **Stock › Produits** puis **Ajouter**. Trois choix : **Ajouter un produit** (fiche complète avec photo), **Ajout rapide** (plusieurs produits d’un coup) ou **Importer des produits** depuis un fichier Excel."
+          },
+          {
+            "q": "Comment faire ma première vente ?",
+            "a": "Ouvrez **Nouvelle vente**. Touchez un produit (ou recherchez-le, ou scannez son code-barres) pour l’ajouter au panier, choisissez le mode de paiement puis touchez **Encaisser**. Le stock se met à jour tout seul."
+          },
+          {
+            "q": "Comment inviter un employé ?",
+            "a": "Allez dans **Équipe** puis **Inviter**. Saisissez son nom et son e-mail, choisissez la boutique et son rôle (caissier, gérant de stock…). Il reçoit un lien pour créer son mot de passe."
+          },
+          {
+            "q": "Je gère plusieurs boutiques : comment passer de l’une à l’autre ?",
+            "a": "Le sélecteur de boutique est en haut (sur ordinateur, dans la barre latérale). Choisissez une boutique, ou **Toutes les boutiques** pour voir les chiffres réunis. La pastille sous le titre de chaque page rappelle toujours où vous êtes."
+          },
+          {
+            "q": "À quoi servent le nom court et la couleur d’une boutique ?",
+            "a": "Dans **Paramètres**, donnez un nom court (« Akwa ») et une couleur à chaque boutique. On les retrouve partout où la place manque : sélecteur, transferts, listes en « Toutes les boutiques ». Le nom complet reste sur les tickets et les reçus."
+          }
+        ]
+      },
+      {
+        "title": "Ventes et crédits",
+        "items": [
+          {
+            "q": "Comment vendre à crédit ?",
+            "a": "Dans **Nouvelle vente**, choisissez un client (obligatoire pour un crédit) puis le mode de paiement **Crédit**, ou encaissez seulement une partie du montant. Le reste apparaît dans **Crédits**."
+          },
+          {
+            "q": "Comment enregistrer un remboursement ?",
+            "a": "Allez dans **Crédits**, onglet **On me doit**, puis **Rembourser** sur la carte du client. Le montant est réparti sur ses factures les plus anciennes. **Historique** affiche tous ses achats et paiements, avec un **Relevé** à imprimer."
+          },
+          {
+            "q": "Comment mettre une vente en attente ?",
+            "a": "Pendant une vente, touchez **Attente** : le panier est mis de côté et les articles restent réservés. Retrouvez-le plus tard dans **Factures en attente**, puis **Reprendre**."
+          },
+          {
+            "q": "Comment annuler ou modifier une vente ?",
+            "a": "Dans **Historique des ventes**, ouvrez la vente puis **Modifier** ou **Annuler**. Selon votre rôle, ces actions peuvent être réservées au propriétaire ou au gérant. Chaque changement est inscrit au journal."
+          },
+          {
+            "q": "Comment imprimer ou envoyer un ticket ?",
+            "a": "Après l’encaissement, choisissez **Imprimer le ticket** (imprimante Bluetooth ou PDF) ou **WhatsApp**. Depuis l’historique, chaque vente propose aussi **Imprimer le ticket** et **Reçu PDF**."
+          }
+        ]
+      },
+      {
+        "title": "Stock",
+        "items": [
+          {
+            "q": "Comment être prévenu quand un produit va manquer ?",
+            "a": "Chaque produit a un **seuil d’alerte**. Sous ce seuil, il passe en **Stock bas** ; à zéro disponible, en **Rupture**. La **Vue d’ensemble** du Stock et le **Tableau de bord** les signalent."
+          },
+          {
+            "q": "Comment réapprovisionner ?",
+            "a": "Sur la fiche d’un produit, **Réapprovisionner** ajoute une livraison reçue. Pour préparer une commande, l’onglet **Réapprovisionnement** propose les produits à commander, regroupés par fournisseur, avec une quantité suggérée, puis crée les bons de commande."
+          },
+          {
+            "q": "Comment suivre les dates de péremption ?",
+            "a": "Saisissez la date à la réception : elle est enregistrée sur le **lot**. L’onglet **Lots & péremptions** montre les lots périmés et ceux qui expirent bientôt, pour les traiter (promotion, retrait, correction)."
+          },
+          {
+            "q": "Comment faire un inventaire ?",
+            "a": "Dans **Stock › Inventaires**, commencez un inventaire puis comptez chaque produit. À la fin, seuls les écarts sont listés : indiquez un motif pour chacun avant de valider."
+          },
+          {
+            "q": "Comment envoyer du stock à une autre boutique ?",
+            "a": "Dans **Stock › Transferts**, **Nouveau transfert** : choisissez la boutique de destination et les produits, puis **Envoyer**. La boutique qui reçoit confirme la réception (avec le QR du transfert) et signale les écarts."
+          },
+          {
+            "q": "Un client demande un produit en rupture : que faire ?",
+            "a": "En caisse, la mention **ailleurs** indique les autres boutiques de l’entreprise qui l’ont en stock, avec la quantité exacte. Vous pouvez orienter le client ou **Demander** un transfert à cette boutique."
+          }
+        ]
+      },
+      {
+        "title": "Abonnement et compte",
+        "items": [
+          {
+            "q": "Comment payer mon abonnement ?",
+            "a": "Allez dans **Abonnement**, choisissez votre formule et votre mode de paiement (Mobile Money, carte…) selon votre pays."
+          },
+          {
+            "q": "Que se passe-t-il si mon abonnement expire ?",
+            "a": "Vos données sont conservées. Les ventes et les modifications sont suspendues jusqu’au renouvellement ; rien n’est supprimé."
+          },
+          {
+            "q": "Puis-je changer de formule ?",
+            "a": "Oui, à tout moment depuis **Abonnement**."
+          },
+          {
+            "q": "Comment fonctionne le parrainage ?",
+            "a": "Dans **Paramètres › Parrainage**, partagez votre code. Quand un commerçant parrainé devient client, vous gagnez une récompense, utilisable sur votre abonnement ou à retirer."
+          }
+        ]
+      },
+      {
+        "title": "Pratique",
+        "items": [
+          {
+            "q": "L’application fonctionne-t-elle sans internet ?",
+            "a": "Oui pour la caisse : les ventes faites hors ligne sont gardées sur l’appareil puis envoyées dès le retour de la connexion. Les autres écrans ont besoin d’internet pour être à jour."
+          },
+          {
+            "q": "Comment changer la langue ou passer en mode sombre ?",
+            "a": "Touchez votre **avatar** (vos initiales, en haut à droite) : **Langue** et **Mode sombre** sont dans ce menu, avec **Nouveautés**, **Aide** et **Se déconnecter**."
+          },
+          {
+            "q": "Comment recevoir les notifications ?",
+            "a": "Touchez **Activer** sur la carte « Recevoir les notifications ». Choisissez ensuite dans **Paramètres** celles que vous voulez (nouvelle vente, dépense, péremption…)."
+          },
+          {
+            "q": "Mes données sont-elles en sécurité ?",
+            "a": "Oui. Chaque employé ne voit que ce que son rôle autorise (le prix d’achat, par exemple, peut être caché), toutes les connexions sont chiffrées et les actions importantes sont inscrites au journal."
+          }
+        ]
+      }
+    ],
+    "manual": [
+      {
+        "id": "dashboard",
+        "title": "Tableau de bord",
+        "blocks": [
+          {
+            "image": "dashboard",
+            "title": "L’activité de la boutique en un coup d’œil",
+            "tips": [
+              "**Revenus et ventes du jour**, crédits en cours, dépenses du mois et vos encaissements.",
+              "**Alertes stock** : produits en stock bas ou en rupture.",
+              "Graphiques des ventes et **produits les plus vendus**.",
+              "**Ventes récentes**, mises à jour en direct."
+            ],
+            "callouts": [
+              {
+                "type": "info",
+                "text": "Avec plusieurs boutiques, choisissez « Toutes les boutiques » dans le sélecteur pour voir les chiffres réunis."
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "id": "sale",
+        "title": "Nouvelle vente",
+        "blocks": [
+          {
+            "image": "new-sale",
+            "title": "Encaisser une vente",
+            "tips": [
+              "Touchez un produit pour l’ajouter, ou **recherchez-le** et **scannez** son code-barres.",
+              "Les **favoris** (étoile) restent en haut pour aller plus vite.",
+              "Touchez le prix d’un article du panier pour le **modifier**.",
+              "Choisissez le **client**, le **mode de paiement**, puis **Encaisser**.",
+              "**Attente** met le panier de côté ; les articles restent réservés."
+            ],
+            "callouts": [
+              {
+                "type": "success",
+                "text": "Sans internet, la vente est gardée sur l’appareil et envoyée au retour de la connexion."
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "id": "history",
+        "title": "Historique des ventes",
+        "blocks": [
+          {
+            "image": "sales-history",
+            "title": "Retrouver et gérer les ventes",
+            "tips": [
+              "Choisissez la **période** et recherchez par numéro ou client.",
+              "Ouvrez une vente pour la **modifier**, l’**annuler**, imprimer le **ticket** ou le **reçu PDF**.",
+              "Onglets **Remboursements** et **Journal** (selon votre rôle).",
+              "**Exporter** en PDF, Excel ou CSV."
+            ]
+          }
+        ]
+      },
+      {
+        "id": "credits",
+        "title": "Crédits",
+        "blocks": [
+          {
+            "image": "credits",
+            "title": "Ce qu’on vous doit, ce que vous devez",
+            "tips": [
+              "**On me doit** : crédits de vos clients ; **Je dois** : soldes dus à vos fournisseurs.",
+              "**Rembourser** enregistre un paiement, réparti sur les factures les plus anciennes.",
+              "**Historique** : achats et paiements d’un client, avec le **Relevé** à imprimer.",
+              "**Ajouter une dette existante** pour reprendre un crédit d’avant StockShop."
+            ]
+          }
+        ]
+      },
+      {
+        "id": "customers",
+        "title": "Clients",
+        "blocks": [
+          {
+            "image": "customers",
+            "title": "Votre carnet de clients",
+            "tips": [
+              "Coordonnées, achats et crédits de chaque client.",
+              "**Importer** depuis Excel ou **exporter** la liste.",
+              "Les **doublons** sont signalés : fusionnez-les en un geste."
+            ]
+          }
+        ]
+      },
+      {
+        "id": "stock",
+        "title": "Stock",
+        "blocks": [
+          {
+            "image": "stock-overview",
+            "title": "Vue d’ensemble",
+            "tips": [
+              "**Valeur du stock**, ruptures, stock bas, lots périmés, stock dormant : chaque carte ouvre les produits concernés.",
+              "**Priorités** : les actions recommandées, et le **stock à venir** (commandes et transferts en route)."
+            ]
+          },
+          {
+            "image": "stock-products",
+            "title": "Produits",
+            "tips": [
+              "**Ajouter** : un produit, plusieurs en ajout rapide, ou un import Excel.",
+              "Filtrez par **catégorie** et **statut** ; vue en cartes ou en tableau.",
+              "La **fiche produit** montre les quantités (disponible, périmé, réservé), le stock des autres boutiques, et propose **Réapprovisionner**, **Commander** et **Mettre en promo**."
+            ]
+          },
+          {
+            "image": "stock-transfers",
+            "title": "Transferts",
+            "tips": [
+              "**Nouveau transfert** : boutique de destination et produits, puis **Envoyer**.",
+              "La boutique qui reçoit **scanne le QR** et confirme les quantités reçues.",
+              "En haut, les **demandes de transfert** reçues (accepter ou refuser) et envoyées."
+            ]
+          },
+          {
+            "image": "stock-replenishment",
+            "title": "Réapprovisionnement",
+            "tips": [
+              "Les produits à commander, **regroupés par fournisseur**.",
+              "Choisissez **Commander pour 15, 30 ou 60 jours** : la quantité suggérée suit les ventes, et la raison est expliquée sous chaque produit.",
+              "**Créer les bons** prépare les bons de commande."
+            ]
+          }
+        ]
+      },
+      {
+        "id": "suppliers",
+        "title": "Fournisseurs",
+        "blocks": [
+          {
+            "image": "suppliers",
+            "title": "Fournisseurs et bons de commande",
+            "tips": [
+              "Coordonnées, **prix par produit** et dette de chaque fournisseur.",
+              "**Bons de commande** : brouillon, envoyé, reçu ; **Réceptionner** ajoute le stock.",
+              "Envoyez un bon par **WhatsApp** ou copiez-le dans un e-mail."
+            ]
+          }
+        ]
+      },
+      {
+        "id": "expenses",
+        "title": "Dépenses",
+        "blocks": [
+          {
+            "image": "expenses",
+            "title": "Suivre les dépenses",
+            "tips": [
+              "**Ajouter** une dépense avec sa catégorie et une photo du justificatif.",
+              "**Budgets du mois** par catégorie, et dépenses **récurrentes** (loyer, salaires).",
+              "Comparaison avec le mois dernier ; **export** PDF ou CSV."
+            ]
+          }
+        ]
+      },
+      {
+        "id": "reports",
+        "title": "Rapports et contrôle de caisse",
+        "blocks": [
+          {
+            "image": "reports",
+            "title": "Rapports",
+            "tips": [
+              "Le bilan de la période choisie : ventes, encaissements, dépenses, produits les plus vendus.",
+              "**PDF** à télécharger ou partager."
+            ]
+          },
+          {
+            "image": "cash-control",
+            "title": "Contrôle de caisse",
+            "tips": [
+              "Les **encaissements du jour par caissier**, par mode de paiement, pour comparer avec l’argent compté en caisse."
+            ]
+          }
+        ]
+      },
+      {
+        "id": "team",
+        "title": "Équipe et rôles",
+        "blocks": [
+          {
+            "image": "team",
+            "title": "Votre équipe",
+            "tips": [
+              "**Inviter** un employé et lui donner un **rôle par boutique**.",
+              "**Affecter** une personne à une autre boutique.",
+              "Ce que chaque rôle peut voir et faire se règle dans **Paramètres › Accès par rôle**."
+            ]
+          }
+        ]
+      },
+      {
+        "id": "shops",
+        "title": "Boutiques et paramètres",
+        "blocks": [
+          {
+            "image": "shops",
+            "title": "Vos boutiques",
+            "tips": [
+              "Toutes les boutiques de l’entreprise, avec leurs chiffres du jour et leurs alertes.",
+              "**Nouvelle boutique** et fiche de chaque boutique (horaires, équipe, réglages)."
+            ]
+          },
+          {
+            "image": "settings",
+            "title": "Paramètres de la boutique",
+            "tips": [
+              "Nom, coordonnées, **nom court** et **couleur** de la boutique.",
+              "Pays, devise et fuseau horaire ; textes des **tickets**.",
+              "**Horaires** d’ouverture, **notifications** et **accès par rôle**."
+            ]
+          }
+        ]
+      },
+      {
+        "id": "menus",
+        "title": "Menu de l’avatar et menu « Plus »",
+        "blocks": [
+          {
+            "image": "avatar-menu",
+            "title": "Votre menu",
+            "tips": [
+              "Touchez vos **initiales** en haut à droite : **Nouveautés**, **Mode sombre**, **Langue**, **Aide**, **Se déconnecter**.",
+              "Un point sur l’avatar signale une nouveauté."
+            ]
+          },
+          {
+            "image": "more-menu",
+            "title": "Menu « Plus »",
+            "tips": [
+              "Sur téléphone, **Plus** (en bas à droite) donne accès à toutes les autres pages : crédits, clients, fournisseurs, dépenses, équipe, boutiques…"
+            ]
+          }
+        ]
+      }
+    ]
   }
 }

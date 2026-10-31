@@ -3122,7 +3122,7 @@
     "col_sales_total": "Sales total",
     "col_repayments_count": "Credit repayments #",
     "col_repayments_total": "Credit repayments total",
-    "sale_abbr": "sale",
+    "sales_count": "{count, plural, one {# sale} other {# sales}}",
     "repayment_abbr": "cr. repay."
   },
   "expenses": {
@@ -4870,5 +4870,380 @@
     "help_title": "Help",
     "company_title": "Company",
     "referrals_title": "Referrals"
+  },
+  "help_page": {
+    "tab_faq": "Frequently asked questions",
+    "tab_manual": "Illustrated guide",
+    "toc": "Contents",
+    "contact_title": "Didn't find your answer?",
+    "contact_body": "Write to us, our team replies within 24 hours.",
+    "faq": [
+      {
+        "title": "Getting started",
+        "items": [
+          {
+            "q": "How do I add my products?",
+            "a": "Go to **Stock › Products** then **Add**. Three options: **Add a product** (full form with photo), **Quick add** (several products at once) or **Import products** from an Excel file."
+          },
+          {
+            "q": "How do I make my first sale?",
+            "a": "Open **New Sale**. Tap a product (or search for it, or scan its barcode) to add it to the cart, choose the payment method and tap **Checkout**. Stock updates automatically."
+          },
+          {
+            "q": "How do I invite an employee?",
+            "a": "Go to **Team** then **Invite**. Enter their name and email, choose the shop and their role (cashier, stock manager…). They receive a link to set their password."
+          },
+          {
+            "q": "I run several shops: how do I switch between them?",
+            "a": "The shop selector is at the top (in the sidebar on a computer). Pick a shop, or **All shops** to see combined figures. The badge under each page title always shows where you are."
+          },
+          {
+            "q": "What are a shop’s short name and color for?",
+            "a": "In **Settings**, give each shop a short name (“Akwa”) and a color. They appear wherever space is tight: selector, transfers, “All shops” lists. The full name stays on receipts."
+          }
+        ]
+      },
+      {
+        "title": "Sales and credit",
+        "items": [
+          {
+            "q": "How do I sell on credit?",
+            "a": "In **New Sale**, choose a customer (required for credit) then the **Credit** payment method, or collect only part of the amount. The rest appears in **Credits**."
+          },
+          {
+            "q": "How do I record a repayment?",
+            "a": "Go to **Credits**, **Owed to me** tab, then **Repay** on the customer’s card. The amount is applied to their oldest invoices. **History** shows all their purchases and payments, with a printable **Statement**."
+          },
+          {
+            "q": "How do I put a sale on hold?",
+            "a": "During a sale, tap **Hold**: the cart is set aside and its items stay reserved. Find it later in **Pending invoices**, then **Resume**."
+          },
+          {
+            "q": "How do I cancel or edit a sale?",
+            "a": "In **Sales History**, open the sale then **Edit** or **Cancel**. Depending on your role, these actions may be reserved for the owner or the manager. Every change is recorded in the log."
+          },
+          {
+            "q": "How do I print or send a receipt?",
+            "a": "After checkout, choose **Print receipt** (Bluetooth printer or PDF) or **WhatsApp**. From the history, each sale also offers **Print receipt** and **PDF receipt**."
+          }
+        ]
+      },
+      {
+        "title": "Stock",
+        "items": [
+          {
+            "q": "How am I warned when a product is running out?",
+            "a": "Each product has an **alert threshold**. Below it, the product is **Low stock**; at zero available, **Out of stock**. The Stock **Overview** and the **Dashboard** show them."
+          },
+          {
+            "q": "How do I restock?",
+            "a": "On a product’s sheet, **Restock** adds a delivery you received. To prepare an order, the **Replenishment** tab lists the products to order, grouped by supplier, with a suggested quantity, then creates the purchase orders."
+          },
+          {
+            "q": "How do I track expiry dates?",
+            "a": "Enter the date when receiving: it is stored on the **batch**. The **Lots & expiry** tab shows expired batches and those expiring soon, so you can handle them (promotion, removal, correction)."
+          },
+          {
+            "q": "How do I do a stock count?",
+            "a": "In **Stock › Inventories**, start a count then count each product. At the end only the differences are listed: give a reason for each before confirming."
+          },
+          {
+            "q": "How do I send stock to another shop?",
+            "a": "In **Stock › Transfers**, **New transfer**: choose the destination shop and the products, then **Send**. The receiving shop confirms receipt (with the transfer’s QR code) and reports any difference."
+          },
+          {
+            "q": "A customer asks for an out-of-stock product: what can I do?",
+            "a": "At checkout, the **elsewhere** label shows the company’s other shops that have it in stock, with the exact quantity. You can direct the customer there or **Request** a transfer from that shop."
+          }
+        ]
+      },
+      {
+        "title": "Subscription and account",
+        "items": [
+          {
+            "q": "How do I pay for my subscription?",
+            "a": "Go to **Subscription**, choose your plan and your payment method (Mobile Money, card…) depending on your country."
+          },
+          {
+            "q": "What happens if my subscription expires?",
+            "a": "Your data is kept. Sales and changes are paused until you renew; nothing is deleted."
+          },
+          {
+            "q": "Can I change plans?",
+            "a": "Yes, at any time from **Subscription**."
+          },
+          {
+            "q": "How does referral work?",
+            "a": "In **Settings › Referrals**, share your code. When a referred merchant becomes a customer, you earn a reward you can use on your subscription or withdraw."
+          }
+        ]
+      },
+      {
+        "title": "Practical",
+        "items": [
+          {
+            "q": "Does the app work without internet?",
+            "a": "Yes for checkout: sales made offline are kept on the device and sent as soon as the connection returns. Other screens need internet to be up to date."
+          },
+          {
+            "q": "How do I change the language or switch to dark mode?",
+            "a": "Tap your **avatar** (your initials, top right): **Language** and **Dark mode** are in that menu, with **What’s new**, **Help** and **Log out**."
+          },
+          {
+            "q": "How do I get notifications?",
+            "a": "Tap **Enable** on the “Receive notifications” card. Then choose in **Settings** the ones you want (new sale, expense, expiry…)."
+          },
+          {
+            "q": "Is my data safe?",
+            "a": "Yes. Each employee only sees what their role allows (the cost price, for example, can be hidden), all connections are encrypted and important actions are recorded in the log."
+          }
+        ]
+      }
+    ],
+    "manual": [
+      {
+        "id": "dashboard",
+        "title": "Dashboard",
+        "blocks": [
+          {
+            "image": "dashboard",
+            "title": "Your shop’s activity at a glance",
+            "tips": [
+              "**Today’s revenue and sales**, open credit, this month’s expenses and your takings.",
+              "**Stock alerts**: products low or out of stock.",
+              "Sales charts and **best sellers**.",
+              "**Recent sales**, updated live."
+            ],
+            "callouts": [
+              {
+                "type": "info",
+                "text": "With several shops, choose “All shops” in the selector to see combined figures."
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "id": "sale",
+        "title": "New Sale",
+        "blocks": [
+          {
+            "image": "new-sale",
+            "title": "Ring up a sale",
+            "tips": [
+              "Tap a product to add it, or **search** for it and **scan** its barcode.",
+              "**Favorites** (star) stay at the top to go faster.",
+              "Tap the price of a cart item to **change it**.",
+              "Choose the **customer**, the **payment method**, then **Checkout**.",
+              "**Hold** sets the cart aside; its items stay reserved."
+            ],
+            "callouts": [
+              {
+                "type": "success",
+                "text": "Without internet, the sale is kept on the device and sent when the connection returns."
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "id": "history",
+        "title": "Sales History",
+        "blocks": [
+          {
+            "image": "sales-history",
+            "title": "Find and manage sales",
+            "tips": [
+              "Choose the **period** and search by number or customer.",
+              "Open a sale to **edit** it, **cancel** it, print the **receipt** or the **PDF receipt**.",
+              "**Refunds** and **Log** tabs (depending on your role).",
+              "**Export** to PDF, Excel or CSV."
+            ]
+          }
+        ]
+      },
+      {
+        "id": "credits",
+        "title": "Credits",
+        "blocks": [
+          {
+            "image": "credits",
+            "title": "What you are owed, what you owe",
+            "tips": [
+              "**Owed to me**: your customers’ credit; **I owe**: balances due to your suppliers.",
+              "**Repay** records a payment, applied to the oldest invoices.",
+              "**History**: a customer’s purchases and payments, with a printable **Statement**.",
+              "**Add an existing debt** to carry over credit from before StockShop."
+            ]
+          }
+        ]
+      },
+      {
+        "id": "customers",
+        "title": "Customers",
+        "blocks": [
+          {
+            "image": "customers",
+            "title": "Your customer book",
+            "tips": [
+              "Contact details, purchases and credit of each customer.",
+              "**Import** from Excel or **export** the list.",
+              "**Duplicates** are flagged: merge them in one step."
+            ]
+          }
+        ]
+      },
+      {
+        "id": "stock",
+        "title": "Stock",
+        "blocks": [
+          {
+            "image": "stock-overview",
+            "title": "Overview",
+            "tips": [
+              "**Stock value**, out of stock, low stock, expired batches, dormant stock: each card opens the products concerned.",
+              "**Priorities**: recommended actions, and **incoming stock** (orders and transfers on the way)."
+            ]
+          },
+          {
+            "image": "stock-products",
+            "title": "Products",
+            "tips": [
+              "**Add**: one product, several with quick add, or an Excel import.",
+              "Filter by **category** and **status**; card or table view.",
+              "The **product sheet** shows quantities (available, expired, reserved), stock in your other shops, and offers **Restock**, **Order** and **Set promotion**."
+            ]
+          },
+          {
+            "image": "stock-transfers",
+            "title": "Transfers",
+            "tips": [
+              "**New transfer**: destination shop and products, then **Send**.",
+              "The receiving shop **scans the QR code** and confirms the quantities received.",
+              "At the top, **transfer requests** received (accept or decline) and sent."
+            ]
+          },
+          {
+            "image": "stock-replenishment",
+            "title": "Replenishment",
+            "tips": [
+              "Products to order, **grouped by supplier**.",
+              "Choose **Order for 15, 30 or 60 days**: the suggested quantity follows sales, and the reason is explained under each product.",
+              "**Create orders** prepares the purchase orders."
+            ]
+          }
+        ]
+      },
+      {
+        "id": "suppliers",
+        "title": "Suppliers",
+        "blocks": [
+          {
+            "image": "suppliers",
+            "title": "Suppliers and purchase orders",
+            "tips": [
+              "Contact details, **price per product** and debt of each supplier.",
+              "**Purchase orders**: draft, sent, received; **Receive** adds the stock.",
+              "Send an order via **WhatsApp** or copy it into an email."
+            ]
+          }
+        ]
+      },
+      {
+        "id": "expenses",
+        "title": "Expenses",
+        "blocks": [
+          {
+            "image": "expenses",
+            "title": "Track expenses",
+            "tips": [
+              "**Add** an expense with its category and a photo of the receipt.",
+              "**Monthly budgets** per category, and **recurring** expenses (rent, salaries).",
+              "Comparison with last month; **export** to PDF or CSV."
+            ]
+          }
+        ]
+      },
+      {
+        "id": "reports",
+        "title": "Reports and cash audit",
+        "blocks": [
+          {
+            "image": "reports",
+            "title": "Reports",
+            "tips": [
+              "The chosen period at a glance: sales, takings, expenses, best sellers.",
+              "**PDF** to download or share."
+            ]
+          },
+          {
+            "image": "cash-control",
+            "title": "Cash audit",
+            "tips": [
+              "**Today’s takings per cashier**, by payment method, to compare with the cash counted in the till."
+            ]
+          }
+        ]
+      },
+      {
+        "id": "team",
+        "title": "Team and roles",
+        "blocks": [
+          {
+            "image": "team",
+            "title": "Your team",
+            "tips": [
+              "**Invite** an employee and give them a **role per shop**.",
+              "**Assign** someone to another shop.",
+              "What each role can see and do is set in **Settings › Role Permissions**."
+            ]
+          }
+        ]
+      },
+      {
+        "id": "shops",
+        "title": "Shops and settings",
+        "blocks": [
+          {
+            "image": "shops",
+            "title": "Your shops",
+            "tips": [
+              "All the company’s shops, with today’s figures and their alerts.",
+              "**New shop** and each shop’s page (opening hours, team, settings)."
+            ]
+          },
+          {
+            "image": "settings",
+            "title": "Shop settings",
+            "tips": [
+              "Name, contact details, **short name** and **color** of the shop.",
+              "Country, currency and time zone; **receipt** texts.",
+              "Opening **hours**, **notifications** and **role permissions**."
+            ]
+          }
+        ]
+      },
+      {
+        "id": "menus",
+        "title": "Avatar menu and “More” menu",
+        "blocks": [
+          {
+            "image": "avatar-menu",
+            "title": "Your menu",
+            "tips": [
+              "Tap your **initials** at the top right: **What’s new**, **Dark mode**, **Language**, **Help**, **Log out**.",
+              "A dot on the avatar means there is something new."
+            ]
+          },
+          {
+            "image": "more-menu",
+            "title": "“More” menu",
+            "tips": [
+              "On a phone, **More** (bottom right) opens every other page: credits, customers, suppliers, expenses, team, shops…"
+            ]
+          }
+        ]
+      }
+    ]
   }
 }

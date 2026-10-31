@@ -3122,7 +3122,7 @@
     "col_sales_total": "Jimlar Sayarwa",
     "col_repayments_count": "Yawan Dawowar",
     "col_repayments_total": "Jimlar Dawowar",
-    "sale_abbr": "siyar",
+    "sales_count": "{count, plural, other {sayarwa #}}",
     "repayment_abbr": "dawo. bashi"
   },
   "expenses": {
@@ -4870,5 +4870,380 @@
     "help_title": "Taimako",
     "company_title": "Kamfani",
     "referrals_title": "Gayyata"
+  },
+  "help_page": {
+    "tab_faq": "Tambayoyi",
+    "tab_manual": "Jagora mai hotuna",
+    "toc": "Abubuwan ciki",
+    "contact_title": "Ba ku sami amsarku ba?",
+    "contact_body": "Ku rubuto mana, ƙungiyarmu tana amsawa cikin awa 24.",
+    "faq": [
+      {
+        "title": "Farawa",
+        "items": [
+          {
+            "q": "Ta yaya zan ƙara kayana?",
+            "a": "Je zuwa **Kaya › Kaya** sannan **Ƙara**. Akwai hanyoyi uku: ƙara kaya ɗaya (cikakken fom da hoto), **ƙari da sauri** (kaya da yawa a lokaci ɗaya) ko **shigo da kaya** daga fayil ɗin Excel."
+          },
+          {
+            "q": "Ta yaya zan yi sayarwata ta farko?",
+            "a": "Buɗe **Sabuwar Sayarwa**. Taɓa kaya (ko nemo shi, ko duba lambar barcode) don saka shi a kwando, zaɓi hanyar biya sannan ka karɓi kuɗin. Kaya suna sabuntawa da kansu."
+          },
+          {
+            "q": "Ta yaya zan gayyaci ma’aikaci?",
+            "a": "Je zuwa **Ma’aikata** sannan **Gayyata**. Rubuta sunansa da imel ɗinsa, zaɓi shago da matsayinsa (mai karɓar kuɗi, mai kula da kaya…). Zai karɓi hanyar haɗi don saita kalmar sirrinsa."
+          },
+          {
+            "q": "Ina da shaguna da yawa: ta yaya zan canza daga ɗaya zuwa wani?",
+            "a": "Mai zaɓin shago yana sama (a kwamfuta, a gefen hagu). Zaɓi shago, ko **Duk shaguna** don ganin alkaluma a haɗe. Alamar da ke ƙarƙashin taken kowane shafi tana nuna inda kuke."
+          },
+          {
+            "q": "Me gajeren suna da launin shago suke yi?",
+            "a": "A **Saiti**, ba kowane shago gajeren suna («Akwa») da launi. Ana ganinsu duk inda babu isasshen wuri: mai zaɓi, canja wuri, jerin «Duk shaguna». Cikakken suna yana kan rasit."
+          }
+        ]
+      },
+      {
+        "title": "Sayarwa da bashi",
+        "items": [
+          {
+            "q": "Ta yaya zan sayar a bashi?",
+            "a": "A **Sabuwar Sayarwa**, zaɓi abokin ciniki (dole ne don bashi) sannan hanyar biya **Bashi**, ko karɓi wani ɓangare na kuɗin. Sauran yana bayyana a **Biya**."
+          },
+          {
+            "q": "Ta yaya zan rubuta biyan bashi?",
+            "a": "Je zuwa **Biya**, shafin **Ana bin ni**, sannan **Biya Bashi** a katin abokin ciniki. Ana raba kuɗin kan takardunsa mafi tsufa. **Tarihi** yana nuna dukkan sayayya da biyansa, tare da takardar bayani da za a buga."
+          },
+          {
+            "q": "Ta yaya zan ajiye sayarwa a jira?",
+            "a": "Yayin sayarwa, taɓa **Jira**: ana ajiye kwandon kuma kayansa suna zama a keɓe. Za ku same shi daga baya a cikin takardun da ke jira, sannan ku ci gaba."
+          },
+          {
+            "q": "Ta yaya zan soke ko gyara sayarwa?",
+            "a": "A **Tarihin Sayarwa**, buɗe sayarwar sannan **Gyara** ko **Soke**. Gwargwadon matsayinku, mai shago ko manaja ne kawai zai iya yin hakan. Ana rubuta kowane canji a cikin tarihi."
+          },
+          {
+            "q": "Ta yaya zan buga ko aika rasit?",
+            "a": "Bayan karɓar kuɗi, zaɓi buga rasit (firinta ta Bluetooth ko PDF) ko aika ta **WhatsApp**. Daga tarihi ma, kowace sayarwa tana ba da buga rasit da Rasidi PDF."
+          }
+        ]
+      },
+      {
+        "title": "Kaya",
+        "items": [
+          {
+            "q": "Ta yaya zan san cewa kaya suna ƙarewa?",
+            "a": "Kowane kaya yana da **iyakar faɗakarwa**. Idan ya gaza ta, yana nuna **ƙarancin kaya**; idan babu komai, **ya ƙare**. **Taƙaitawa** ta Kaya da **Taswirar Aiki** suna nuna su."
+          },
+          {
+            "q": "Ta yaya zan sake cika kaya?",
+            "a": "A shafin kaya, sake cikawa yana ƙara kayan da kuka karɓa. Don shirya oda, shafin **Sake saya kaya** yana nuna kayan da za a yi oda, an tara su bisa mai kawowa, tare da adadin da aka ba da shawara, sannan ya ƙirƙiri odar sayayya."
+          },
+          {
+            "q": "Ta yaya zan bi ranakun ƙarewa?",
+            "a": "Rubuta ranar a lokacin karɓa: ana ajiye ta a kan **lodi**. Shafin **Lodi & ƙarewa** yana nuna lodin da suka ƙare da waɗanda za su ƙare nan ba da daɗewa ba, don a kula da su (rangwame, cirewa, gyara)."
+          },
+          {
+            "q": "Ta yaya zan yi ƙidaya?",
+            "a": "A **Kaya › Ƙidaya**, fara ƙidaya sannan ku ƙirga kowane kaya. A ƙarshe ana nuna bambance-bambance kawai: ba da dalili ga kowanne kafin tabbatarwa."
+          },
+          {
+            "q": "Ta yaya zan aika kaya zuwa wani shago?",
+            "a": "A **Kaya › Canja Wuri**, sabon canja wuri: zaɓi shagon da za a kai da kayan, sannan **Aika**. Shagon da ke karɓa yana tabbatar da karɓa (da lambar QR ta canja wurin) kuma yana nuna bambance-bambance."
+          },
+          {
+            "q": "Abokin ciniki yana neman kayan da ya ƙare: me zan yi?",
+            "a": "A wurin sayarwa, alamar **a wani wuri** tana nuna sauran shagunan kamfanin da ke da shi, tare da ainihin adadi. Kuna iya tura abokin ciniki can ko **nemi** canja wuri daga wannan shago."
+          }
+        ]
+      },
+      {
+        "title": "Biyan kuɗi da asusu",
+        "items": [
+          {
+            "q": "Ta yaya zan biya biyan kuɗina?",
+            "a": "Je zuwa **Biyan Kuɗi**, zaɓi tsarinku da hanyar biya (Mobile Money, kati…) gwargwadon ƙasarku."
+          },
+          {
+            "q": "Me zai faru idan biyan kuɗina ya ƙare?",
+            "a": "Ana ajiye bayananku. Ana dakatar da sayarwa da gyare-gyare har sai kun sabunta; ba a share komai ba."
+          },
+          {
+            "q": "Zan iya canza tsari?",
+            "a": "Eh, a kowane lokaci daga **Biyan Kuɗi**."
+          },
+          {
+            "q": "Ta yaya gayyata take aiki?",
+            "a": "A **Saiti › Gayyata**, raba lambarku. Idan ɗan kasuwa da kuka gayyata ya zama abokin ciniki, kuna samun lada da za ku iya amfani da ita kan biyan kuɗinku ko ku cire ta."
+          }
+        ]
+      },
+      {
+        "title": "Amfani",
+        "items": [
+          {
+            "q": "Manhajar tana aiki ba tare da intanet ba?",
+            "a": "Eh don sayarwa: ana ajiye sayarwar da aka yi ba tare da intanet a kan na’urar ba, sannan a aika ta da zarar haɗi ya dawo. Sauran shafuka suna buƙatar intanet don su kasance na zamani."
+          },
+          {
+            "q": "Ta yaya zan canza harshe ko yanayin duhu?",
+            "a": "Taɓa **hotonku** (baƙaƙen sunanku, a sama a dama): **Harshe** da **Yanayin duhu** suna cikin wannan menu, tare da sababbin abubuwa, **Taimako** da **Fita**."
+          },
+          {
+            "q": "Ta yaya zan karɓi sanarwa?",
+            "a": "Taɓa maɓallin kunnawa a katin karɓar sanarwa. Sannan ku zaɓi a **Saiti** waɗanda kuke so (sabuwar sayarwa, kashe kuɗi, ƙarewa…)."
+          },
+          {
+            "q": "Bayanaina suna cikin aminci?",
+            "a": "Eh. Kowane ma’aikaci yana ganin abin da matsayinsa ya ba da izini kawai (ana iya ɓoye farashin saye, misali), duk haɗin suna ɓoye kuma ana rubuta muhimman ayyuka a cikin tarihi."
+          }
+        ]
+      }
+    ],
+    "manual": [
+      {
+        "id": "dashboard",
+        "title": "Taswirar Aiki",
+        "blocks": [
+          {
+            "image": "dashboard",
+            "title": "Ayyukan shago a kallo ɗaya",
+            "tips": [
+              "**Kuɗin shiga da sayarwar yau**, bashin da ke kai, kashe kuɗin wata da kuɗin da kuka karɓa.",
+              "**Faɗakarwar kaya**: kayan da suke ƙarewa ko suka ƙare.",
+              "Zane-zanen sayarwa da **kayan da suka fi sayuwa**.",
+              "**Sayarwa na baya-bayan nan**, ana sabuntawa kai tsaye."
+            ],
+            "callouts": [
+              {
+                "type": "info",
+                "text": "Idan kuna da shaguna da yawa, zaɓi «Duk shaguna» a mai zaɓi don ganin alkaluma a haɗe."
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "id": "sale",
+        "title": "Sabuwar Sayarwa",
+        "blocks": [
+          {
+            "image": "new-sale",
+            "title": "Karɓar kuɗin sayarwa",
+            "tips": [
+              "Taɓa kaya don ƙara shi, ko **nemo** shi ku **duba** lambar barcode.",
+              "Kayan **da aka fi so** (tauraro) suna zama a sama don sauri.",
+              "Taɓa farashin kaya a kwando don **canza** shi.",
+              "Zaɓi **abokin ciniki**, **hanyar biya**, sannan ku karɓi kuɗi.",
+              "**Jira** yana ajiye kwandon; kayansa suna zama a keɓe."
+            ],
+            "callouts": [
+              {
+                "type": "success",
+                "text": "Ba tare da intanet ba, ana ajiye sayarwar a na’urar sannan a aika ta idan haɗi ya dawo."
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "id": "history",
+        "title": "Tarihin Sayarwa",
+        "blocks": [
+          {
+            "image": "sales-history",
+            "title": "Nemo da sarrafa sayarwa",
+            "tips": [
+              "Zaɓi **lokaci** ku nemo da lamba ko abokin ciniki.",
+              "Buɗe sayarwa don **gyara**, **soke**, buga **rasit** ko **Rasidi PDF**.",
+              "Shafukan mayar da kuɗi da tarihi (gwargwadon matsayinku).",
+              "**Fitar** zuwa PDF, Excel ko CSV."
+            ]
+          }
+        ]
+      },
+      {
+        "id": "credits",
+        "title": "Biya",
+        "blocks": [
+          {
+            "image": "credits",
+            "title": "Abin da ake bin ku, abin da kuke bi",
+            "tips": [
+              "**Ana bin ni**: bashin abokan cinikinku; **Ina bin**: kuɗin da kuke bin masu kawo muku kaya.",
+              "**Biya Bashi** yana rubuta biya, ana raba shi kan takardu mafi tsufa.",
+              "**Tarihi**: sayayya da biyan abokin ciniki, tare da takardar bayani da za a buga.",
+              "Ƙara bashin da ya riga ya kasance don ɗaukar bashi daga kafin StockShop."
+            ]
+          }
+        ]
+      },
+      {
+        "id": "customers",
+        "title": "Abokan Ciniki",
+        "blocks": [
+          {
+            "image": "customers",
+            "title": "Littafin abokan cinikinku",
+            "tips": [
+              "Bayanan tuntuɓa, sayayya da bashin kowane abokin ciniki.",
+              "**Shigo** daga Excel ko **fitar** da jerin.",
+              "Ana nuna **kwafi**: haɗa su a mataki ɗaya."
+            ]
+          }
+        ]
+      },
+      {
+        "id": "stock",
+        "title": "Kaya",
+        "blocks": [
+          {
+            "image": "stock-overview",
+            "title": "Taƙaitawa",
+            "tips": [
+              "**Darajar kaya**, waɗanda suka ƙare, ƙarancin kaya, lodin da suka ƙare, kayan da ba sa motsi: kowane kati yana buɗe kayan da abin ya shafa.",
+              "**Muhimman ayyukan kaya**: ayyukan da aka ba da shawara, da **kayan da ke zuwa** (oda da canja wuri a hanya)."
+            ]
+          },
+          {
+            "image": "stock-products",
+            "title": "Kaya",
+            "tips": [
+              "**Ƙara**: kaya ɗaya, da yawa cikin sauri, ko shigo da Excel.",
+              "Tace bisa **nau’i** da **matsayi**; kati ko tebur.",
+              "**Shafin kaya** yana nuna adadi (akwai, ya ƙare, a keɓe), kayan sauran shaguna, kuma yana ba da sake cikawa, oda da rangwame."
+            ]
+          },
+          {
+            "image": "stock-transfers",
+            "title": "Canja Wuri",
+            "tips": [
+              "Sabon canja wuri: shagon da za a kai da kaya, sannan **Aika**.",
+              "Shagon da ke karɓa yana **duba lambar QR** kuma yana tabbatar da adadin da aka karɓa.",
+              "A sama, **buƙatun canja wuri** da aka karɓa (amince ko ƙi) da waɗanda aka aika."
+            ]
+          },
+          {
+            "image": "stock-replenishment",
+            "title": "Sake saya kaya",
+            "tips": [
+              "Kayan da za a yi oda, **an tara su bisa mai kawowa**.",
+              "Zaɓi oda na **kwanaki 15, 30 ko 60**: adadin da aka ba da shawara yana bin sayarwa, kuma an bayyana dalilin a ƙarƙashin kowane kaya.",
+              "Ƙirƙirar oda yana shirya odar sayayya."
+            ]
+          }
+        ]
+      },
+      {
+        "id": "suppliers",
+        "title": "Masu Samar da Kaya",
+        "blocks": [
+          {
+            "image": "suppliers",
+            "title": "Masu kawo kaya da odar sayayya",
+            "tips": [
+              "Bayanan tuntuɓa, **farashi bisa kaya** da bashin kowane mai kawowa.",
+              "**Odar sayayya**: daftari, an aika, an karɓa; karɓa yana ƙara kaya.",
+              "Aika oda ta **WhatsApp** ko kwafa ta cikin imel."
+            ]
+          }
+        ]
+      },
+      {
+        "id": "expenses",
+        "title": "Kashe Kuɗi",
+        "blocks": [
+          {
+            "image": "expenses",
+            "title": "Bin kashe kuɗi",
+            "tips": [
+              "**Ƙara** kashe kuɗi da nau’insa da hoton shaida.",
+              "**Kasafin wata** bisa nau’i, da kashe kuɗi **na yau da kullum** (haya, albashi).",
+              "Kwatanta da watan da ya gabata; **fitarwa** zuwa PDF ko CSV."
+            ]
+          }
+        ]
+      },
+      {
+        "id": "reports",
+        "title": "Rahoto da duba kuɗi",
+        "blocks": [
+          {
+            "image": "reports",
+            "title": "Rahoto",
+            "tips": [
+              "Takaitaccen lokacin da aka zaɓa: sayarwa, kuɗin da aka karɓa, kashe kuɗi, kayan da suka fi sayuwa.",
+              "**PDF** don saukewa ko rabawa."
+            ]
+          },
+          {
+            "image": "cash-control",
+            "title": "Duba Kuɗin Kasuwanci",
+            "tips": [
+              "**Kuɗin da kowane mai karɓar kuɗi ya karɓa yau**, bisa hanyar biya, don kwatanta da kuɗin da aka ƙirga."
+            ]
+          }
+        ]
+      },
+      {
+        "id": "team",
+        "title": "Ma’aikata da matsayi",
+        "blocks": [
+          {
+            "image": "team",
+            "title": "Ma’aikatanku",
+            "tips": [
+              "**Gayyaci** ma’aikaci ku ba shi **matsayi a kowane shago**.",
+              "Tura mutum zuwa wani shago.",
+              "Abin da kowane matsayi zai iya gani da yi ana saita shi a **Saiti**."
+            ]
+          }
+        ]
+      },
+      {
+        "id": "shops",
+        "title": "Kantuna da saiti",
+        "blocks": [
+          {
+            "image": "shops",
+            "title": "Kantunanku",
+            "tips": [
+              "Duk shagunan kamfanin, tare da alkaluman yau da faɗakarwarsu.",
+              "Sabon shago da shafin kowane shago (lokutan buɗewa, ma’aikata, saiti)."
+            ]
+          },
+          {
+            "image": "settings",
+            "title": "Saitin shago",
+            "tips": [
+              "Suna, bayanan tuntuɓa, **gajeren suna** da **launin** shago.",
+              "Ƙasa, kuɗi da yankin lokaci; rubutun **rasit**.",
+              "**Lokutan buɗewa**, **sanarwa** da izinin kowane matsayi."
+            ]
+          }
+        ]
+      },
+      {
+        "id": "menus",
+        "title": "Menu na hotonku da menu «Ƙari»",
+        "blocks": [
+          {
+            "image": "avatar-menu",
+            "title": "Menunku",
+            "tips": [
+              "Taɓa **baƙaƙen sunanku** a sama a dama: sababbin abubuwa, **Yanayin duhu**, **Harshe**, **Taimako**, **Fita**.",
+              "Ɗigo a kan hotonku yana nuna sabon abu."
+            ]
+          },
+          {
+            "image": "more-menu",
+            "title": "Menu «Ƙari»",
+            "tips": [
+              "A waya, **Ƙari** (a ƙasa a dama) yana buɗe duk sauran shafuka: biya, abokan ciniki, masu kawo kaya, kashe kuɗi, ma’aikata, kantuna…"
+            ]
+          }
+        ]
+      }
+    ]
   }
 }

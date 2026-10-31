@@ -3,7 +3,7 @@
 import { PageHeader } from '@/components/layout/page-header'
 import { useState, useEffect, useCallback } from 'react'
 import { format, startOfDay, endOfDay, addDays, isToday } from 'date-fns'
-import { useTranslations } from 'next-intl'
+import { useLocale, useTranslations } from 'next-intl'
 import { createClient } from '@/lib/supabase/client'
 import { useAuthContext } from '@/lib/contexts/auth-context'
 import { useRolePermissions } from '@/lib/hooks/use-role-permissions'
@@ -65,6 +65,7 @@ export default function CaissePage() {
   const { effectiveShopIds, profile, roleInActiveShop, shop, userShops } = useAuthContext()
   const t = useTranslations('caisse')
   const tRoot = useTranslations()
+  const locale = useLocale()
   const { fmt, symbol } = useCurrency()
   const cashExport = useTableExport()
 
@@ -252,7 +253,7 @@ export default function CaissePage() {
 
   const dateLabel = isToday(selectedDate)
     ? t('today')
-    : selectedDate.toLocaleDateString(undefined, { weekday: 'long', day: 'numeric', month: 'long' })
+    : selectedDate.toLocaleDateString(locale, { weekday: 'long', day: 'numeric', month: 'long' })
 
   // Export Excel / CSV : une ligne par caissier, ligne de totaux, journée en tête
   const exportCash = (fmtOut: 'xlsx' | 'csv') => {
@@ -400,7 +401,7 @@ export default function CaissePage() {
                           style={{ width: `${pct}%` }} />
                       </div>
                       <span className="text-[10px] text-muted-foreground flex-shrink-0 leading-tight">
-                        {c.salesCount > 0 && `${c.salesCount} ${t('sale_abbr')}`}
+                        {c.salesCount > 0 && t('sales_count', { count: c.salesCount })}
                         {c.repaymentsCount > 0 && `${c.salesCount > 0 ? ' · ' : ''}${c.repaymentsCount} ${t('repayment_abbr')}`}
                         {' · '}{pct.toFixed(0)}%
                       </span>
