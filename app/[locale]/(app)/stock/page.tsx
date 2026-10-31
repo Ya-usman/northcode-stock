@@ -109,6 +109,12 @@ export default function StockOverviewPage({ params: { locale } }: { params: { lo
   const [expiredQtyByProduct, setExpiredQtyByProduct] = useState<Record<string, number>>(() => readSignalsCache(effectiveShopIds)?.expiredQtyByProduct ?? {})
   // Quantité gardée pour des factures en attente à la caisse : elle sort aussi du disponible
   const [reservedQtyByProduct, setReservedQtyByProduct] = useState<Record<string, number>>(() => readSignalsCache(effectiveShopIds)?.reservedQtyByProduct ?? {})
+  // Ruptures et stock bas dépendent du périmé et du réservé : affichés seulement une fois ces deux quantités connues
+  // (cache de la même sélection de boutiques, ou chargement terminé). Sinon la carte passait de 2 à 3 en ~3 s
+  // (« Toutes les boutiques », produit dont tout le stock est périmé) ; demandé le 31 oct. 2026.
+  const levelCached = () => { const c = readSignalsCache(effectiveShopIds); return !!(c?.expiredQtyByProduct && c?.reservedQtyByProduct) }
+  const [levelReady, setLevelReady] = useState(levelCached)
+  useEffect(() => { setLevelReady(levelCached()) }, [effectiveShopIds.join(',')]) // eslint-disable-line react-hooks/exhaustive-deps
   // Stock à venir (en transit, en commande) : null tant qu'il n'est ni en cache ni chargé
   const [pipeline, setPipeline] = useState<StockPipeline | null>(() => readSignalsCache(effectiveShopIds)?.pipeline ?? null)
   // Lots datés encore en stock : cartes « Lots périmés » / « Expirent bientôt » en nombre de LOTS
@@ -124,7 +130,7 @@ export default function StockOverviewPage({ params: { locale } }: { params: { lo
 
   const fetchAll = async () => {
     if (!effectiveShopIds.length) return
-    if (!isOnline) { setLoading(false); setCostsPending(false); return }
+    if (!isOnline) { setLoading(false); setCostsPending(false); setLevelReady(true); return }
     try {
       // Même requête que la page Produits (lignes complètes, catégories,
       // fournisseurs) et même cache local : un clic sur une carte ouvre une
@@ -154,7 +160,22 @@ export default function StockOverviewPage({ params: { locale } }: { params: { lo
       setLoading(false)
     }
     // Signaux additifs, chacun tolérant à l'échec : dernier état connu conservé,
-    // et mis en cache pour la page Produits
+    // et mis en cache pour la page Produits. D'abord le périmé et le réservé (ensemble) : ils conditionnent
+    // l'affichage des cartes Ruptures / Stock bas
+    const [expiredRes, reservedRes] = await Promise.allSettled([
+      fetchExpiredQtyByProduct(supabase, effectiveShopIds),
+      fetchReservedQtyByProduct(supabase, effectiveShopIds),
+    ])
+    if (expiredRes.status === 'fulfilled') {
+      setExpiredQtyByProduct(expiredRes.value)
+      writeSignalsCache(effectiveShopIds, { expiredQtyByProduct: expiredRes.value })
+    }
+    if (reservedRes.status === 'fulfilled') {
+      setReservedQtyByProduct(reservedRes.value)
+      writeSignalsCache(effectiveShopIds, { reservedQtyByProduct: reservedRes.value })
+    }
+    // Échec : on affiche quand même (dernier état connu), plutôt que « … » sans fin
+    setLevelReady(true)
     try {
       const expiry = await fetchExpiryByProduct(supabase, effectiveShopIds)
       setExpiryByProduct(expiry)
@@ -168,16 +189,6 @@ export default function StockOverviewPage({ params: { locale } }: { params: { lo
     } catch { /* idem */ }
     try {
       setDatedLots(await fetchDatedLots(supabase, effectiveShopIds))
-    } catch { /* idem */ }
-    try {
-      const expiredQty = await fetchExpiredQtyByProduct(supabase, effectiveShopIds)
-      setExpiredQtyByProduct(expiredQty)
-      writeSignalsCache(effectiveShopIds, { expiredQtyByProduct: expiredQty })
-    } catch { /* idem */ }
-    try {
-      const reservedQty = await fetchReservedQtyByProduct(supabase, effectiveShopIds)
-      setReservedQtyByProduct(reservedQty)
-      writeSignalsCache(effectiveShopIds, { reservedQtyByProduct: reservedQty })
     } catch { /* idem */ }
     try {
       const incoming = await fetchStockPipeline(effectiveShopIds)
@@ -260,13 +271,13 @@ export default function StockOverviewPage({ params: { locale } }: { params: { lo
       desc: t('stock_overview.opp_expired_lots_desc'),
       action: t('stock_overview.act_treat_lots'), onClick: () => goToLots('expired'),
     },
-    kpis.out > 0 && {
+    levelReady && kpis.out > 0 && {
       key: 'out', tone: 'red' as Tone, icon: PackageX,
       title: t('stock_overview.opp_out', { count: kpis.out }),
       desc: t('stock_overview.opp_out_desc'),
       action: t('stock_overview.act_reorder'), onClick: goToReplenishment,
     },
-    kpis.low > 0 && {
+    levelReady && kpis.low > 0 && {
       key: 'low', tone: 'amber' as Tone, icon: ShoppingCart,
       title: t('stock_overview.opp_low', { count: kpis.low }),
       desc: t('stock_overview.opp_low_desc'),
@@ -330,8 +341,8 @@ export default function StockOverviewPage({ params: { locale } }: { params: { lo
               <KpiCard id="value" className="col-span-2" tone="blue" icon={Wallet} label={t('stock_overview.stock_value')} value={canSeeValue ? fmt(kpis.stockValue) : '…'} hint={t('stock_overview.stock_value_hint')} />
             )}
             <KpiCard id="products" className={showValueCard ? 'col-span-2' : 'col-span-2 sm:col-span-4 md:col-span-2 lg:col-span-4'} icon={Package} label={t('stock_overview.products_count')} value={kpis.total} actionLabel={t('stock_overview.open_products')} onClick={() => goToProducts()} />
-            <KpiCard id="out" tone={alertTone(kpis.out, 'red')} icon={PackageX} label={t('stock_overview.kpi_out')} value={kpis.out} actionLabel={t('stock_overview.open_products')} onClick={() => goToProducts('out')} />
-            <KpiCard id="low" tone={alertTone(kpis.low, 'amber')} icon={PackageMinus} label={t('stock_overview.kpi_low')} value={kpis.low} actionLabel={t('stock_overview.open_products')} onClick={() => goToProducts('low')} />
+            <KpiCard id="out" tone={levelReady ? alertTone(kpis.out, 'red') : 'neutral'} icon={PackageX} label={t('stock_overview.kpi_out')} value={levelReady ? kpis.out : '…'} actionLabel={t('stock_overview.open_products')} onClick={() => goToProducts('out')} />
+            <KpiCard id="low" tone={levelReady ? alertTone(kpis.low, 'amber') : 'neutral'} icon={PackageMinus} label={t('stock_overview.kpi_low')} value={levelReady ? kpis.low : '…'} actionLabel={t('stock_overview.open_products')} onClick={() => goToProducts('low')} />
             {/* Nombre de LOTS : périmés encore en stock (à traiter), puis proches de la péremption */}
             <KpiCard id="expired_lots" tone={alertTone(lots.expired, 'red')} icon={AlertTriangle} label={t('stock_overview.kpi_expired_lots')} value={lots.expired} actionLabel={t('stock_overview.act_lots')} onClick={() => goToLots('expired')} />
             <KpiCard id="expiring" tone={alertTone(lots.expiring, 'orange')} icon={CalendarClock} label={t('stock_overview.kpi_expiring_lots')} value={lots.expiring} actionLabel={t('stock_overview.act_lots')} onClick={() => goToLots('expiring')} />

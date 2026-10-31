@@ -31,6 +31,8 @@ const BASE = 'http://localhost:3000'
   for (let i = 0; i < 100; i++) { valueText = (await valueCard.innerText()).replace(/\s+/g, ' '); if (/\d/.test(valueText)) break; await page.waitForTimeout(150) }
   ok(/F CFA|FCFA|\d/.test(valueText) && /au prix d’achat/.test(valueText), `KPI Valeur du stock : « ${valueText.slice(0, 60)} »`)
   const cardLabels = ['Ruptures', 'Stock bas', 'Lots périmés', 'Expirent bientôt', 'Stock dormant']  // 179 : cartes de lots
+  // Ruptures / Stock bas affichent « … » tant que le périmé et le réservé ne sont pas chargés (31 oct. 2026)
+  await kpis.locator('button').filter({ hasText: /\d+\s*Ruptures/ }).waitFor({ timeout: 20000 }).catch(() => {})
   const found = []
   for (const l of cardLabels) if (await kpis.locator('button').filter({ hasText: new RegExp(`\\d+\\s*${l}`) }).count()) found.push(l)
   ok(found.length === cardLabels.length, `KPI cliquables : ${found.join(', ')}`)
