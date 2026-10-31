@@ -4,6 +4,7 @@
     "tagline": "Cikakken mafita don sarrafa shagonku"
   },
   "nav": {
+    "valuation": "Ƙimar kaya",
     "replenishment": "Sake saya kaya",
     "dashboard": "Taswirar Aiki",
     "stock": "Kaya",
@@ -4479,6 +4480,32 @@
     "cta_billing": "Duba shirye-shirye",
     "footer": "Ƙungiyar StockShop ce ta ba ku wannan kyauta."
   },
+  "valuation": {
+    "mismatch_title": "{count, plural, other {Kaya # da farashin lodinsu bai yi daidai da matsakaicin farashi ba}}",
+    "mismatch_hint": "Yawanci, an canza farashin saye da hannu a bayanan kaya: lodi suna riƙe da farashin karɓarsu. Duba waɗannan kaya.",
+    "mismatch_values": "matsakaicin farashi {average} · lodi {fifo}",
+    "cost_only": "Ga waɗanda ke ganin farashin saye kawai.",
+    "load_error": "Ba a iya loda ƙimar kaya ba. Sake gwadawa.",
+    "empty": "Babu kaya a ajiye.",
+    "currency_title": "Da {currency}",
+    "average_label": "Ƙima bisa matsakaicin farashi",
+    "average_hint": "Hanyar da rahotanni da riba ke amfani da ita.",
+    "fifo_label": "Ƙimar FIFO (bisa lodi)",
+    "fifo_same": "Daidai da matsakaicin farashi.",
+    "fifo_more": "{amount} fiye da matsakaicin farashi.",
+    "fifo_less": "{amount} ƙasa da matsakaicin farashi.",
+    "selling_label": "Ƙimar sayarwa",
+    "selling_hint": "{count, plural, other {Kaya # a ajiye}}",
+    "margin_label": "Riba mai yiwuwa",
+    "margin_hint": "Ƙimar sayarwa ban da ƙima bisa matsakaicin farashi.",
+    "unknown_title": "{count, plural, other {Kaya # ba su da farashin saye}}",
+    "unknown_hint": "Ba a ƙidaya kayansu a cikin ƙima ba: saka farashin sayensu a bayanansu.",
+    "categories_title": "Bisa nau'i (matsakaicin farashi)",
+    "no_category": "Babu nau'i",
+    "top_title": "Kaya 10 mafi daraja",
+    "top_quantity": "{count, plural, other {raka'a #}}",
+    "method_note": "Matsakaicin farashi: matsakaicin farashin saye, ana sake ƙididdiga a kowace karɓa. FIFO: kowane lodi a ajiye yana riƙe da farashin sayensa; lodi ba farashi da kaya a wajen lodi suna amfani da matsakaicin farashi."
+  },
   "emails": {
     "purchase_order": {
       "subject": "Odar sayayya {reference} · {shop}",
@@ -4898,6 +4925,7 @@
     "status_cancelled": "An soke"
   },
   "page_header": {
+    "stock_valuation": "Ƙimar kayanka bisa farashin saye: matsakaicin farashi da FIFO, kowane lodi da farashinsa.",
     "dashboard": "Ayyukan shago: kuɗin shiga, sayarwa na baya-bayan nan, kayan da suka fi sayuwa da faɗakarwar kaya.",
     "sales_history": "Duk sayarwa, tare da biyansu, mayar da kuɗi da tarihin gyare-gyare.",
     "payments": "Abin da abokan cinikinku ke binku da abin da kuke bin masu kawo muku kaya.",

@@ -4,6 +4,7 @@
     "tagline": "The complete solution to manage your boutique"
   },
   "nav": {
+    "valuation": "Valuation",
     "replenishment": "Replenishment",
     "dashboard": "Dashboard",
     "stock": "Stock",
@@ -4479,6 +4480,32 @@
     "cta_billing": "View plans",
     "footer": "This complimentary offer was granted to you by the StockShop team."
   },
+  "valuation": {
+    "mismatch_title": "{count, plural, one {# product whose batches are not priced like the average cost} other {# products whose batches are not priced like the average cost}}",
+    "mismatch_hint": "Usually a purchase price edited by hand on the product page: batches keep their receipt price. Check these products.",
+    "mismatch_values": "average cost {average} · batches {fifo}",
+    "cost_only": "Only for people who can see purchase prices.",
+    "load_error": "Could not load the valuation. Try again.",
+    "empty": "No products in stock.",
+    "currency_title": "In {currency}",
+    "average_label": "Value at average cost",
+    "average_hint": "Method used by reports and margins.",
+    "fifo_label": "FIFO value (by batch)",
+    "fifo_same": "Same as average cost.",
+    "fifo_more": "{amount} more than at average cost.",
+    "fifo_less": "{amount} less than at average cost.",
+    "selling_label": "Selling value",
+    "selling_hint": "{count, plural, one {# product in stock} other {# products in stock}}",
+    "margin_label": "Potential margin",
+    "margin_hint": "Selling value minus value at average cost.",
+    "unknown_title": "{count, plural, one {# product without a purchase price} other {# products without a purchase price}}",
+    "unknown_hint": "Their stock is not counted in the value: add their purchase price on their product page.",
+    "categories_title": "By category (average cost)",
+    "no_category": "No category",
+    "top_title": "The 10 most valuable products",
+    "top_quantity": "{count, plural, one {# unit} other {# units}}",
+    "method_note": "Average cost: weighted average purchase price, recalculated at each receipt. FIFO: each batch in stock keeps its own purchase price; a batch without a price and stock outside batches use the average cost."
+  },
   "emails": {
     "purchase_order": {
       "subject": "Purchase order {reference} · {shop}",
@@ -4898,6 +4925,7 @@
     "status_cancelled": "Cancelled"
   },
   "page_header": {
+    "stock_valuation": "Your stock value at purchase price: average cost and FIFO, each batch at its own price.",
     "dashboard": "Your shop's activity: revenue, recent sales, best sellers and stock alerts.",
     "sales_history": "All sales, with their payments, refunds and change log.",
     "payments": "What your customers owe you and what you owe your suppliers.",

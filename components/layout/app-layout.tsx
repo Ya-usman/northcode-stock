@@ -57,6 +57,7 @@ function usePageTitle(pathname: string, locale: string) {
     '/stock/inventory-count': t('nav.inventory_count'),
     '/stock/transfers': t('nav.transfers'),
     '/stock/replenishment': t('nav.replenishment'),
+    '/stock/valuation': t('nav.valuation'),
     '/stock': t('products.title'),
     '/payments': t('nav.payments'),
     '/customers': t('customers.title'),

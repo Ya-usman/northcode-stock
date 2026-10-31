@@ -17,8 +17,8 @@ const BASE = 'http://localhost:3000'
   const tablist = page.getByRole('tablist')
   await tablist.waitFor({ timeout: 20000 })
   const tabs = (await tablist.getByRole('tab').allInnerTexts()).map(s => s.trim())
-  // Réapprovisionnement ajouté en dernier à l'étape 12 (30 oct. 2026)
-  const expected = ['Vue d’ensemble', 'Produits', 'Mouvements', 'Lots & péremptions', 'Inventaires', 'Transferts', 'Réapprovisionnement']
+  // Réapprovisionnement ajouté à l'étape 12 (30 oct. 2026), Valorisation à l'étape 7 (31 oct., compte qui voit le prix d'achat)
+  const expected = ['Vue d’ensemble', 'Produits', 'Mouvements', 'Lots & péremptions', 'Inventaires', 'Transferts', 'Réapprovisionnement', 'Valorisation']
   ok(JSON.stringify(tabs) === JSON.stringify(expected), `onglets : ${tabs.join(' | ')}`)
   ok((await tablist.getByRole('tab', { selected: true }).innerText()).trim() === 'Vue d’ensemble', 'onglet actif : Vue d’ensemble')
   const kpis = page.locator('section[aria-label="Chiffres clés"]')

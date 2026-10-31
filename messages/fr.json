@@ -4,6 +4,7 @@
     "tagline": "La solution complète pour piloter votre boutique"
   },
   "nav": {
+    "valuation": "Valorisation",
     "replenishment": "Réapprovisionnement",
     "dashboard": "Tableau de bord",
     "stock": "Stock",
@@ -4479,6 +4480,32 @@
     "cta_billing": "Voir les formules",
     "footer": "Ce geste commercial vous avait été accordé par l’équipe StockShop."
   },
+  "valuation": {
+    "mismatch_title": "{count, plural, one {# produit dont les lots n'ont pas le même prix que le coût moyen} other {# produits dont les lots n'ont pas le même prix que le coût moyen}}",
+    "mismatch_hint": "En général, un prix d'achat modifié à la main sur la fiche : les lots gardent leur prix de réception. Vérifiez ces produits.",
+    "mismatch_values": "coût moyen {average} · lots {fifo}",
+    "cost_only": "Réservé aux personnes qui voient le prix d'achat.",
+    "load_error": "Impossible de charger la valorisation. Réessayez.",
+    "empty": "Aucun produit en stock.",
+    "currency_title": "En {currency}",
+    "average_label": "Valeur au coût moyen",
+    "average_hint": "Méthode utilisée par les rapports et la marge.",
+    "fifo_label": "Valeur FIFO (par lot)",
+    "fifo_same": "Identique au coût moyen.",
+    "fifo_more": "{amount} de plus qu'au coût moyen.",
+    "fifo_less": "{amount} de moins qu'au coût moyen.",
+    "selling_label": "Valeur de vente",
+    "selling_hint": "{count, plural, one {# produit en stock} other {# produits en stock}}",
+    "margin_label": "Marge potentielle",
+    "margin_hint": "Valeur de vente moins valeur au coût moyen.",
+    "unknown_title": "{count, plural, one {# produit sans prix d'achat} other {# produits sans prix d'achat}}",
+    "unknown_hint": "Leur stock n'est pas compté dans la valeur : indiquez leur prix d'achat sur leur fiche.",
+    "categories_title": "Par catégorie (coût moyen)",
+    "no_category": "Sans catégorie",
+    "top_title": "Les 10 produits qui pèsent le plus",
+    "top_quantity": "{count, plural, one {# unité} other {# unités}}",
+    "method_note": "Coût moyen : prix d'achat moyen pondéré, recalculé à chaque réception. FIFO : chaque lot en stock garde son propre prix d'achat ; un lot sans prix et le stock hors lot prennent le coût moyen."
+  },
   "emails": {
     "purchase_order": {
       "subject": "Bon de commande {reference} · {shop}",
@@ -4898,6 +4925,7 @@
     "status_cancelled": "Annulée"
   },
   "page_header": {
+    "stock_valuation": "La valeur de votre stock au prix d'achat : coût moyen et FIFO, chaque lot à son prix.",
     "dashboard": "L'activité de la boutique : chiffre d'affaires, ventes récentes, produits les plus vendus et alertes de stock.",
     "sales_history": "Toutes les ventes, avec leurs paiements, leurs remboursements et le journal des modifications.",
     "payments": "Ce que vos clients vous doivent et ce que vous devez à vos fournisseurs.",

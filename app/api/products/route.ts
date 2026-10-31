@@ -583,7 +583,11 @@ export async function PUT(request: Request) {
     const updatePayload: Record<string, unknown> = { quantity: newQty }
     if (enteredPrice !== null) {
       const prevPrice = Number(product.buying_price) || 0
-      newBuyingPrice = Math.round(((prevQty * prevPrice + addQty * enteredPrice) / newQty) * 100) / 100
+      // Étape 7 (même règle que la migration 193 pour les bons) : un coût précédent inconnu (0) ou un stock précédent
+      // nul / négatif ne dilue pas la moyenne, le prix saisi devient le coût
+      newBuyingPrice = prevPrice <= 0 || prevQty <= 0
+        ? enteredPrice
+        : Math.round(((prevQty * prevPrice + addQty * enteredPrice) / newQty) * 100) / 100
       updatePayload.buying_price = newBuyingPrice
     }
 

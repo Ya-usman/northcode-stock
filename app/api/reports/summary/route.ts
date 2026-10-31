@@ -150,8 +150,10 @@ export async function GET(request: Request) {
       expenses: expenses.map((e: any) => ({ id: e.id, amount: Number(e.amount), description: e.description, date: e.date, shop_id: e.shop_id })),
       total_expenses: totalExpenses,
       cashier_perf: cashierPerf,
-      // Identifiants des ventes de la période : la marge (coût des ventes) est demandée à /api/reports/margin
-      sale_ids: sales.map((s: any) => s.id),
+      // Identifiants des ventes de la période : la marge (coût des ventes) est demandée à /api/reports/margin.
+      // Étape 7 (31 oct. 2026) : exactement les ventes comptées dans l'encaissé (marge = encaissé − coût de CES ventes) ;
+      // avant, le coût portait sur toutes les ventes, même celles d'une boutique dont l'encaissé n'est pas visible.
+      sale_ids: inSection('encaisse').map((s: any) => s.id),
     })
   } catch (err: any) {
     return NextResponse.json({ error: err.message }, { status: 500 })

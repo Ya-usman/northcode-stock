@@ -2,7 +2,7 @@
 
 import { usePathname } from 'next/navigation'
 import { useTranslations } from 'next-intl'
-import { LayoutDashboard, Package, PackagePlus, ArrowRightLeft, ArrowLeftRight, ClipboardCheck, CalendarClock } from 'lucide-react'
+import { LayoutDashboard, Package, PackagePlus, ArrowRightLeft, ArrowLeftRight, ClipboardCheck, CalendarClock, Wallet } from 'lucide-react'
 import { useRolePermissions, type PermFeature } from '@/lib/hooks/use-role-permissions'
 import { SegmentedTabs } from '@/components/ui/segmented-tabs'
 import { useEntityMultiShop } from '@/lib/hooks/use-entity-multi-shop'
@@ -17,7 +17,7 @@ import { useEntityMultiShop } from '@/lib/hooks/use-entity-multi-shop'
 export function StockTabs({ locale }: { locale: string }) {
   const t = useTranslations('nav')
   const pathname = usePathname()
-  const { canAccess } = useRolePermissions()
+  const { canAccess, canViewCost } = useRolePermissions()
   const entityMultiShop = useEntityMultiShop()
 
   const tabs = [
@@ -36,6 +36,8 @@ export function StockTabs({ locale }: { locale: string }) {
     },
     // Produits à commander, regroupés par fournisseur (étape 12) : mêmes droits que le Stock pour consulter
     { href: `/${locale}/stock/replenishment`, label: t('replenishment'), icon: PackagePlus, show: canAccess('stock' as PermFeature) },
+    // Valeur du stock au prix d'achat (étape 7) : Stock ET prix d'achat
+    { href: `/${locale}/stock/valuation`, label: t('valuation'), icon: Wallet, show: canAccess('stock' as PermFeature) && canViewCost },
   ].filter(tab => tab.show)
 
   if (tabs.length <= 1 || !tabs.some(tab => tab.href === pathname)) return null
