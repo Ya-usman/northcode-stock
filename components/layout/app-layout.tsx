@@ -470,7 +470,7 @@ export function AppLayout({ children, locale }: { children: React.ReactNode; loc
           />
         )}
 
-        <Header title={title} locale={locale} onSignOut={handleSignOut} whatsNew={{ hasUnread: whatsNew.hasUnread, onOpen: openWhatsNew }} />
+        <Header title={title} locale={locale} profile={profile} role={roleInActiveShop ?? profile.role} onSignOut={handleSignOut} signingOut={signingOut} whatsNew={{ hasUnread: whatsNew.hasUnread, onOpen: openWhatsNew }} />
 
         <ExtensionRequestsBanner />
         {/* Proposer d'activer les notifications à ceux qui ont quelque chose à recevoir (propriétaire, direction, « Prolonger ») */}

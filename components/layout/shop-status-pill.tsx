@@ -15,7 +15,10 @@ import { cn } from '@/lib/utils/cn'
 
 const hhmm = (time: string | null | undefined) => (time || '').slice(0, 5)
 
-export function ShopStatusPill({ locale }: { locale: string }) {
+// variant 'pill' (ordinateur, à gauche de la barre du haut) : « ● Ouverte · ferme à 20:00 » ; variant 'dot'
+// (téléphone, juste après le sélecteur de boutique) : le point seul, état complet au survol et pour les lecteurs
+// d'écran (31 oct. 2026 : le nom de la page ne s'affiche plus dans la barre du haut).
+export function ShopStatusPill({ locale, variant = 'pill', className }: { locale: string; variant?: 'pill' | 'dot'; className?: string }) {
   const t = useTranslations('shop_hours')
   const { shop, roleInActiveShop, userShops, dashboardShopFilter } = useAuthContext()
   const [, setTick] = useState(0)
@@ -37,20 +40,30 @@ export function ShopStatusPill({ locale }: { locale: string }) {
     : t('status_closed_reopens', { time: hhmm(shop.opening_time) })
   const short = open ? t('status_open') : t('status_closed')
 
-  return (
+  const dot = <span className={cn('shrink-0 rounded-full', variant === 'dot' ? 'h-2.5 w-2.5' : 'h-2 w-2', open ? 'bg-emerald-600 dark:bg-emerald-400' : 'bg-slate-400 dark:bg-slate-500')} aria-hidden="true" />
+  return variant === 'dot' ? (
     <Link
       href={`/${locale}/shops/${shop.id}?tab=hours`}
       aria-label={t('status_aria', { status: full })}
       title={full}
-      // Téléphone : petite ligne sous le titre de la page (« ● Fermée ») ; ordinateur : pastille à côté du titre
-      className={cn('inline-flex w-fit shrink-0 items-center gap-1.5 rounded text-[11px] font-medium leading-tight text-muted-foreground transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
-        'sm:h-7 sm:rounded-full sm:border sm:bg-background sm:px-2.5 sm:text-xs sm:text-foreground sm:hover:bg-muted')}
+      className={cn('flex h-8 w-6 shrink-0 items-center justify-center rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring', className)}
       data-testid="shop-status-pill"
       data-open={open ? 'true' : 'false'}
     >
-      <span className={cn('h-1.5 w-1.5 shrink-0 rounded-full sm:h-2 sm:w-2', open ? 'bg-emerald-600 dark:bg-emerald-400' : 'bg-slate-400 dark:bg-slate-500')} aria-hidden="true" />
-      <span className="sm:hidden">{short}</span>
-      <span className="hidden whitespace-nowrap tabular-nums sm:inline">{full}</span>
+      {dot}
+      <span className="sr-only">{short}</span>
+    </Link>
+  ) : (
+    <Link
+      href={`/${locale}/shops/${shop.id}?tab=hours`}
+      aria-label={t('status_aria', { status: full })}
+      title={full}
+      className={cn('inline-flex h-7 w-fit shrink-0 items-center gap-1.5 rounded-full border bg-background px-2.5 text-xs font-medium text-foreground transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring', className)}
+      data-testid="shop-status-pill"
+      data-open={open ? 'true' : 'false'}
+    >
+      {dot}
+      <span className="whitespace-nowrap tabular-nums">{full}</span>
     </Link>
   )
 }

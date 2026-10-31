@@ -448,7 +448,7 @@ const has = (page, testId) => page.locator(`[data-testid=${testId}]`).count().th
   console.log('\n8. Terme haoussa « lodi »')
   s = await open({ locale: 'ha', width: 1280, height: 900 }); page = s.page
   const tab = (await page.locator('main [role=tablist], main nav').first().innerText()).replace(/\s+/g, ' ')
-  const header = (await page.locator('header h1').first().innerText()).trim()
+  const header = (await page.locator('main [data-testid=page-header] h1').first().innerText()).trim()
   const all = await visibleText(page.locator('main'))
   ok(/Lodi & ƙarewa/.test(tab) && header === 'Lodi & ƙarewa' && !/Rukuni & ƙarewa/.test(all + header), `onglet et en-tête : « ${header} » (plus « Rukuni & ƙarewa »)`)
   const headsHa = (await page.locator('main table thead th').allInnerTexts()).map(x => x.trim()).filter(Boolean)

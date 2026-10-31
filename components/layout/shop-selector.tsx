@@ -128,11 +128,9 @@ export function ShopSelector({ variant, allowAllShops = true, className, onShopC
           aria-label={tScope('aria_context', { name: currentLabel ?? '' })}
           title={currentLabel}
           data-testid="header-shop-context"
-          className="tap-target flex min-w-0 max-w-[8.5rem] items-center gap-1 rounded-md px-2 text-sm font-medium text-foreground transition-colors hover:bg-accent"
+          // Sans icône (31 oct. 2026, option B) : la marque StockShop est à gauche, la place va au nom de la boutique
+          className="tap-target flex min-w-0 max-w-[10rem] items-center gap-0.5 rounded-md px-1.5 text-sm font-medium text-foreground transition-colors hover:bg-accent"
         >
-          {showingAll
-            ? <Layers aria-hidden className="h-4 w-4 shrink-0 text-stockshop-blue dark:text-blue-400" />
-            : <Store aria-hidden className="h-4 w-4 shrink-0 text-stockshop-blue dark:text-blue-400" />}
           <span className="min-w-0 truncate">{showingAll ? tScope('all_short') : shortShopName(shop?.name, shop?.entity_name)}</span>
           <ChevronDown aria-hidden className={cn('h-3.5 w-3.5 shrink-0 text-muted-foreground transition-transform', open && 'rotate-180')} />
         </button>

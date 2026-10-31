@@ -5,12 +5,10 @@ import { OfflineLink as Link } from '@/components/ui/offline-link'
 import { useTranslations } from 'next-intl'
 import {
   LayoutDashboard, ShoppingCart, Package, BarChart2, Settings,
-  Users, Truck, CreditCard, History, LogOut, ChevronRight, Zap,
-  Store, Tag, Receipt, ShieldCheck, NotebookPen, BookOpen, Loader2, ClipboardList,
+  Users, Truck, CreditCard, History, ChevronRight, Zap,
+  Store, Tag, Receipt, ShieldCheck, NotebookPen, BookOpen, ClipboardList,
 } from 'lucide-react'
 import { cn } from '@/lib/utils/cn'
-import { Avatar, AvatarFallback } from '@/components/ui/avatar'
-import { Button } from '@/components/ui/button'
 import { ShopSelector } from '@/components/layout/shop-selector'
 import { useAuthContext } from '@/lib/contexts/auth-context'
 import type { UserRole, Profile } from '@/lib/types/database'
@@ -36,7 +34,6 @@ const ALL_NON_OWNER = ['owner', 'super_admin', 'manager', 'shop_manager', 'cashi
 
 export function Sidebar({ locale, role, profile, onSignOut, signingOut = false, userEmail = '', newNavPaths }: SidebarProps) {
   const t = useTranslations('nav')
-  const tRoles = useTranslations('roles')
   const pathname = usePathname()
   const { isOnline } = useOffline()
   const { canAccess } = useRolePermissions()
@@ -83,12 +80,6 @@ export function Sidebar({ locale, role, profile, onSignOut, signingOut = false, 
     },
   ]
 
-  const initials = profile.full_name
-    .split(' ')
-    .map(n => n[0])
-    .slice(0, 2)
-    .join('')
-    .toUpperCase()
 
   return (
     <aside className="hidden sm:flex sm:w-64 sm:flex-col sm:fixed sm:inset-y-0 border-r bg-card z-30">
@@ -173,33 +164,7 @@ export function Sidebar({ locale, role, profile, onSignOut, signingOut = false, 
         </div>
       )}
 
-      {/* User footer */}
-      <div className="border-t p-3">
-        <div className="flex items-center gap-3 rounded-md px-2 py-2">
-          <Avatar className="h-8 w-8">
-            <AvatarFallback className="bg-stockshop-blue text-white text-xs">
-              {initials}
-            </AvatarFallback>
-          </Avatar>
-          <div className="min-w-0 flex-1">
-            <p className="text-sm font-medium truncate">{profile.full_name}</p>
-            <p className="text-xs text-muted-foreground">{/* Rôle dans la boutique active (shop_members), traduit — pas l'ancien profiles.role */}{tRoles(role as any)}</p>
-          </div>
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={onSignOut}
-            disabled={signingOut}
-            title={t('logout')}
-            className="h-8 w-8 flex-shrink-0"
-          >
-            {signingOut
-              ? <Loader2 className="h-4 w-4 animate-spin" />
-              : <LogOut className="h-4 w-4" />
-            }
-          </Button>
-        </div>
-      </div>
+      {/* Bloc utilisateur retiré le 31 oct. 2026 : nom, rôle et déconnexion sont dans le menu de l'avatar (barre du haut) */}
     </aside>
   )
 }

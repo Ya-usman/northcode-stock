@@ -68,7 +68,7 @@ const BASE = 'http://localhost:3000'
   }
   ok(filteredCount === outCount, `Produits filtrés : ${filteredCount} = carte Rupture (${outCount})`)
   ok((await tablist.getByRole('tab', { selected: true }).innerText()).trim() === 'Produits', 'onglet actif : Produits')
-  const headerTitle = (await page.locator('header h1').first().innerText()).trim()
+  const headerTitle = (await page.locator('main [data-testid=page-header] h1').first().innerText()).trim()
   ok(headerTitle === 'Produits', `titre d’en-tête : ${headerTitle}`)
   ok(await page.locator('button[name], button').filter({ hasText: /Rupture|Stock bas/ }).count() === 0 || true, 'cartes d’alerte absentes de Produits (déplacées)')
   ok((await page.getByRole('button', { name: /\d+\s*Rupture/ }).count()) === 0, 'Produits : plus de cartes d’alerte (vivent dans la Vue d’ensemble)')
@@ -122,14 +122,14 @@ const BASE = 'http://localhost:3000'
   await page.locator('[data-testid="lots-status"]').click()
   ok(await page.getByRole('option', { name: 'Sans date' }).count() === 1, 'Lots & péremptions : filtre « Sans date »')
   await page.keyboard.press('Escape')
-  const lotsHeader = (await page.locator('header h1').first().innerText()).trim()
+  const lotsHeader = (await page.locator('main [data-testid=page-header] h1').first().innerText()).trim()
   ok(lotsHeader === 'Lots & péremptions', `titre d’en-tête : ${lotsHeader}`)
 
   // ── Inventaires ──────────────────────────────────────────────────────────
   await tablist.getByRole('tab', { name: 'Inventaires' }).click()
   await page.waitForURL(/\/fr\/stock\/inventory-count/, { timeout: 15000 })
   await page.waitForTimeout(800)
-  const invHeader = (await page.locator('header h1').first().innerText()).trim()
+  const invHeader = (await page.locator('main [data-testid=page-header] h1').first().innerText()).trim()
   ok(invHeader === 'Inventaires', `titre d’en-tête : ${invHeader}`)
   await browser.close()
 
