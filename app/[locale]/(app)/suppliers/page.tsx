@@ -59,6 +59,7 @@ import { useRefetchOnVisible } from '@/lib/hooks/use-refetch-on-visible'
 import { useShopLoadTimeout } from '@/lib/hooks/use-shop-load-timeout'
 import { LoadErrorFallback } from '@/components/ui/load-error-fallback'
 import { generatePurchaseOrderPDF } from '@/lib/utils/pdf'
+import { buildPoMessage, poPdfLabels, reorderOriginalRef } from '@/lib/suppliers/po-message'
 import { withTimeout } from '@/lib/utils/with-timeout'
 import { DEFAULT_REPLENISH_HORIZON, LEAD_TIME_MAX_DAYS, suggestedQty } from '@/lib/stock/replenishment'
 import { SegmentedTabs } from '@/components/ui/segmented-tabs'
@@ -149,7 +150,7 @@ export default function SuppliersPage() {
   const searchParams = useSearchParams()
   const router = useRouter()
   const pathname = usePathname()
-  const { profile, shop, roleInActiveShop, effectiveShopIds, userShops } = useAuth()
+  const { user, profile, shop, roleInActiveShop, effectiveShopIds, userShops } = useAuth()
   const { isOnline } = useOffline()
   const { fmt, symbol } = useCurrency()
   const suppliersExport = useTableExport()
@@ -266,6 +267,9 @@ export default function SuppliersPage() {
   const [creatingPo, setCreatingPo] = useState(false)
   const [poActionLoading, setPoActionLoading] = useState<string | null>(null)
   const [emailPo, setEmailPo] = useState<any | null>(null)
+  const [poEmailSending, setPoEmailSending] = useState(false)
+  const [poEmailCopy, setPoEmailCopy] = useState(true)
+  const [poEmailLog, setPoEmailLog] = useState<{ id: string; recipient: string; status: string; created_at: string; sent_by_name: string | null }[]>([])
   const [receivingPo, setReceivingPo] = useState<any | null>(null)
   const [receiveQuantities, setReceiveQuantities] = useState<Record<string, string>>({})
   const [receiveExpiryDates, setReceiveExpiryDates] = useState<Record<string, string>>({})
@@ -412,6 +416,21 @@ export default function SuppliersPage() {
   // bons de commande ajoutés ou modifiés par un autre membre de l'équipe.
   useRefetchOnVisible(() => { fetchSuppliers(); fetchProductPrices(); fetchPurchaseOrders() })
   useRefetchOnReconnect(() => { fetchSuppliers(); fetchProductPrices(); fetchPurchaseOrders() }, isOnline)
+
+  // Journal d'un bon : ses envois par e-mail, lus par le serveur (table non lisible depuis le navigateur)
+  useEffect(() => {
+    setPoEmailLog([])
+    if (!journalPo?.id) return
+    let cancelled = false
+    fetch(`/api/purchase-orders/email?id=${encodeURIComponent(journalPo.id)}&shop_id=${encodeURIComponent(journalPo.shop_id)}`)
+      .then(r => (r.ok ? r.json() : { data: [] }))
+      .then(j => { if (!cancelled) setPoEmailLog(Array.isArray(j.data) ? j.data : []) })
+      .catch(() => {})
+    return () => { cancelled = true }
+  }, [journalPo?.id, journalPo?.shop_id])
+
+  // Fenêtre « Envoyer » : la copie à l'expéditeur est proposée cochée à chaque ouverture
+  useEffect(() => { if (emailPo) setPoEmailCopy(true) }, [emailPo?.id])
   const shopLoadTimedOut = useShopLoadTimeout(effectiveShopIds.length)
 
   const productCounts = useMemo(() => {
@@ -996,44 +1015,51 @@ export default function SuppliersPage() {
       items: items.map((it: any) => ({
         name: it.product_name,
         quantity: it.quantity_ordered,
-        unit: it.unit || '',
+        unit: unitLabel(it.unit, it.quantity_ordered),
         unitPriceLabel: it.unit_price != null ? fmt(it.unit_price) : '—',
         totalLabel: it.unit_price != null ? fmt(it.unit_price * it.quantity_ordered) : '—',
       })),
       // Sans le droit au coût, les prix ne sont pas reçus : total « — », jamais un faux « 0 »
       totalLabel: canViewCostIn(po.shop_id) ? fmt(items.reduce((s: number, it: any) => s + (it.unit_price || 0) * it.quantity_ordered, 0)) : '—',
+      labels: poPdfLabels(tPo),
     })
   }
 
+  // Objet + texte du bon : même source que l'e-mail envoyé par le serveur (lib/suppliers/po-message), traduits.
+  // Bon créé via « Commander le reste » (submitReorder) : la référence d'origine, gardée dans les notes, adapte le texte.
+  const tPo = (key: string, values?: Record<string, string | number>) => t(`emails.purchase_order.${key}` as any, values as any)
   const buildPoEmailContent = (po: any) => {
     const items = po.purchase_order_items || []
-    const supplier = po.suppliers?.name || supplierName(po.supplier_id)
-    const dateStr = new Date(po.created_at).toLocaleDateString(dateLocaleTag(locale), { day: 'numeric', month: 'long', year: 'numeric' })
-    // Bon créé via "Commander le reste" (voir submitReorder) — garde le
-    // lien vers le bon d'origine dans notes pour adapter l'objet/le corps.
-    const reorderOriginalRef = po.notes?.match(/^\[reorder:(.+?)\]/)?.[1] as string | undefined
-    const poShopName = shopById[po.shop_id]?.name || 'StockShop' // boutique DU bon (objet et signature)
-    const subject = reorderOriginalRef
-      ? `Complément au bon ${reorderOriginalRef} — solde manquant (${po.reference}) — ${poShopName}`
-      : `Bon de commande ${po.reference} — ${poShopName}`
-    const lines = items.map((it: any) => `- ${it.product_name} : ${it.quantity_ordered} ${unitLabel(it.unit, it.quantity_ordered)}`.trim())
-    const intro = reorderOriginalRef
-      ? `Suite à la livraison partielle de notre bon de commande ${reorderOriginalRef}, veuillez trouver ci-joint le bon ${po.reference} du ${dateStr} pour le solde manquant.`
-      : `Veuillez trouver ci-joint notre bon de commande ${po.reference} du ${dateStr}.`
-    const body = [
-      `Bonjour ${supplier},`,
-      '',
-      intro,
-      '',
-      'Produits commandés :',
-      ...lines,
-      '',
-      'Merci de nous confirmer la réception de cette commande.',
-      '',
-      'Cordialement,',
-      poShopName,
-    ].join('\n')
-    return { subject, body }
+    return buildPoMessage(tPo, {
+      reference: po.reference,
+      shopName: shopById[po.shop_id]?.name || 'StockShop', // boutique DU bon (objet et signature)
+      supplierName: po.suppliers?.name || supplierName(po.supplier_id),
+      dateStr: new Date(po.created_at).toLocaleDateString(dateLocaleTag(locale), { day: 'numeric', month: 'long', year: 'numeric' }),
+      reorderOf: reorderOriginalRef(po.notes),
+      lines: items.map((it: any) => ({ name: it.product_name, quantity: `${it.quantity_ordered} ${unitLabel(it.unit, it.quantity_ordered)}`.trim() })),
+    })
+  }
+
+  // Envoi du bon par e-mail depuis StockShop (/api/purchase-orders/email) : destinataire, texte et PDF décidés par le
+  // serveur ; un brouillon passe à « Envoyé » après un envoi réussi.
+  const sendPoEmail = async (po: any) => {
+    setPoEmailSending(true)
+    try {
+      const res = await fetch('/api/purchase-orders/email', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: po.id, shop_id: po.shop_id, locale, copy: poEmailCopy }),
+      })
+      const json = await res.json().catch(() => ({}))
+      if (!res.ok) { toast({ title: json.error || t('toast.error'), variant: 'destructive' }); return }
+      toast({ title: t('suppliers.po_email_sent_toast', { email: json.recipient }), variant: 'success' })
+      setEmailPo(null)
+      fetchPurchaseOrders()
+    } catch (err: any) {
+      toast({ title: err.message || t('toast.retry_error'), variant: 'destructive' })
+    } finally {
+      setPoEmailSending(false)
+    }
   }
 
   const copyToClipboard = async (text: string, label: string) => {
@@ -1883,10 +1909,10 @@ export default function SuppliersPage() {
         onConfirm={confirmDeletePo}
       />
 
-      {/* Envoyer le bon : WhatsApp (numéro international) ou e-mail */}
+      {/* Envoyer le bon : par e-mail depuis StockShop (PDF joint, réponse à la boutique), ou soi-même (copie, WhatsApp) */}
       <PremiumDialog
         open={!!emailPo}
-        onOpenChange={open => { if (!open) setEmailPo(null) }}
+        onOpenChange={open => { if (!open && !poEmailSending) setEmailPo(null) }}
         title={t('suppliers.po_send_title')}
         description={emailPo ? `${emailPo.reference} · ${emailPo.suppliers?.name || supplierName(emailPo.supplier_id)}` : undefined}
         icon={<Send className="h-4 w-4" />}
@@ -1895,13 +1921,36 @@ export default function SuppliersPage() {
       >
         {emailPo && (() => {
           const { subject, body } = buildPoEmailContent(emailPo)
-          const supplierEmail = emailPo.suppliers?.email || ''
+          const supplierEmail = (emailPo.suppliers?.email || suppliers.find(s => s.id === emailPo.supplier_id)?.email || '').trim()
           const supplierPhone = emailPo.suppliers?.phone || suppliers.find(s => s.id === emailPo.supplier_id)?.phone || ''
-          const mailtoHref = `mailto:${encodeURIComponent(supplierEmail)}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`
+          // Même règle que le serveur : e-mail de la boutique, sinon celui de l'expéditeur (décision A)
+          const myEmail = (user?.email || '').trim()
+          const replyTo = (shopById[emailPo.shop_id]?.email || '').trim() || myEmail
+          const canEmail = canManageIn(emailPo.shop_id) && (emailPo.status === 'draft' || emailPo.status === 'sent')
           return (
             <>
               <PremiumDialogBody>
                 <p className="text-xs text-muted-foreground">{t('suppliers.po_send_hint')}</p>
+                {canEmail && (
+                  <div className="space-y-2 rounded-lg border bg-muted/30 p-3" data-testid="po-email-panel">
+                    {supplierEmail ? (
+                      <>
+                        <p className="text-sm font-medium break-all" data-testid="po-email-to">{t('suppliers.po_send_to', { email: supplierEmail })}</p>
+                        {replyTo && <p className="text-xs text-muted-foreground break-all" data-testid="po-email-reply-to">{t('suppliers.po_reply_to', { email: replyTo })}</p>}
+                        {myEmail && (
+                          <label className="flex items-center gap-2 text-xs text-foreground">
+                            <input type="checkbox" className="h-4 w-4 rounded accent-stockshop-blue" checked={poEmailCopy} onChange={e => setPoEmailCopy(e.target.checked)} data-testid="po-email-copy" />
+                            <span className="break-all">{t('suppliers.po_send_copy', { email: myEmail })}</span>
+                          </label>
+                        )}
+                        {emailPo.status === 'draft' && <p className="text-xs text-muted-foreground">{t('suppliers.po_send_marks_sent')}</p>}
+                      </>
+                    ) : (
+                      <p className="text-xs text-amber-600 dark:text-amber-400" data-testid="po-email-missing">{t('suppliers.po_no_supplier_email')}</p>
+                    )}
+                  </div>
+                )}
+                <p className="pt-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">{t('suppliers.po_send_yourself')}</p>
                 <div className="space-y-1.5">
                   <div className="flex items-center justify-between">
                     <Label>{t('suppliers.po_email_subject')}</Label>
@@ -1924,27 +1973,37 @@ export default function SuppliersPage() {
                     onFocus={e => e.target.select()}
                     rows={8}
                     className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm resize-none"
+                    data-testid="po-email-body"
                   />
                 </div>
                 {!supplierPhone && (
                   <p className="text-xs text-amber-600 dark:text-amber-400">{t('suppliers.po_no_supplier_phone')}</p>
                 )}
-                {!supplierEmail && (
-                  <p className="text-xs text-amber-600 dark:text-amber-400">{t('suppliers.po_no_supplier_email')}</p>
-                )}
               </PremiumDialogBody>
               <div className={`flex-shrink-0 border-t border-border bg-background px-5 py-4 ${FOOTER_ROW_CLASS}`}>
-                <Button variant="outline" className="h-11 min-w-0 flex-1 gap-2 rounded-lg px-4 font-medium sm:flex-none sm:min-w-[150px]" asChild>
-                  <a href={mailtoHref}><Mail className="h-4 w-4 flex-shrink-0" /><span className="truncate">{t('suppliers.po_send_email')}</span></a>
-                </Button>
                 <Button
                   type="button"
-                  className="h-11 min-w-0 flex-1 gap-2 rounded-lg border-0 bg-green-600 px-4 font-semibold text-white hover:bg-green-700 sm:flex-none sm:min-w-[180px]"
+                  variant="outline"
+                  className="h-11 min-w-0 flex-1 gap-2 rounded-lg px-4 font-medium sm:flex-none sm:min-w-[150px]"
                   onClick={() => sendPoWhatsApp(emailPo)}
+                  disabled={poEmailSending}
                   data-testid="po-send-whatsapp"
                 >
-                  <MessageCircle className="h-4 w-4 flex-shrink-0" /><span className="truncate">{t('suppliers.po_send_whatsapp')}</span>
+                  <MessageCircle className="h-4 w-4 flex-shrink-0 text-green-600" /><span className="truncate">{t('suppliers.po_send_whatsapp')}</span>
                 </Button>
+                {canEmail && (
+                  <Button
+                    type="button"
+                    variant="stockshop"
+                    className={FOOTER_PRIMARY_CLASS}
+                    onClick={() => sendPoEmail(emailPo)}
+                    loading={poEmailSending}
+                    disabled={!supplierEmail || !isOnline}
+                    data-testid="po-send-email"
+                  >
+                    <Mail className="h-4 w-4 flex-shrink-0" /><span className="truncate">{t('suppliers.po_send_email')}</span>
+                  </Button>
+                )}
               </div>
             </>
           )
@@ -2084,6 +2143,12 @@ export default function SuppliersPage() {
           ]
           if (journalPo.sent_at) {
             events.push({ key: 'sent', label: t('suppliers.po_journal_sent'), date: journalPo.sent_at, Icon: Send, color: 'text-stockshop-blue border-stockshop-blue/20 bg-stockshop-blue-muted dark:bg-blue-950/40 dark:text-blue-400 dark:border-blue-800', actorName: journalPo.sent_by_name })
+          }
+          // Envois par e-mail (migration 192), réussis ou non
+          for (const m of poEmailLog) {
+            events.push(m.status === 'sent'
+              ? { key: `mail-${m.id}`, label: t('suppliers.po_journal_emailed', { email: m.recipient }), date: m.created_at, Icon: Mail, color: 'text-stockshop-blue border-stockshop-blue/20 bg-stockshop-blue-muted dark:bg-blue-950/40 dark:text-blue-400 dark:border-blue-800', actorName: m.sent_by_name }
+              : { key: `mail-${m.id}`, label: t('suppliers.po_journal_email_failed', { email: m.recipient }), date: m.created_at, Icon: Mail, color: 'text-amber-700 border-amber-200 bg-amber-50 dark:bg-amber-950/40 dark:text-amber-400 dark:border-amber-800', actorName: m.sent_by_name })
           }
           if ((journalPo.status === 'received' || journalPo.status === 'partial') && journalPo.received_at) {
             events.push({ key: 'received', label: t('suppliers.po_journal_received'), date: journalPo.received_at, Icon: CheckCircle2, color: 'text-green-700 border-green-200 bg-green-50 dark:bg-green-950/40 dark:text-green-400 dark:border-green-800', actorName: journalPo.received_by_name })

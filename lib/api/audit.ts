@@ -45,6 +45,7 @@ export type AuditAction =
   | 'purchase_order.cancel'
   | 'purchase_order.delete'
   | 'purchase_order.send'
+  | 'purchase_order.email'
   | 'purchase_order.receive'
   | 'stock_transfer.send'
   | 'stock_transfer.receive'

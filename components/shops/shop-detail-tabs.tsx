@@ -280,7 +280,7 @@ const LABELLED = new Set([
   'payment.cancel', 'payment.edit', 'payment.write_off',
   'expense.create', 'expense.update', 'expense.delete', 'expense.recurring_generated', 'budget.set', 'budget.delete',
   'customer.create', 'customer.update', 'customer.delete', 'customer.merged', 'supplier.delete',
-  'purchase_order.send', 'purchase_order.receive', 'purchase_order.cancel', 'purchase_order.delete',
+  'purchase_order.send', 'purchase_order.email', 'purchase_order.receive', 'purchase_order.cancel', 'purchase_order.delete',
   'stock_transfer.send', 'stock_transfer.receive', 'stock_transfer.cancel', 'stock_transfer.draft', 'stock_transfer.settle',
   'create_product', 'update_product', 'archive_product', 'restore_product', 'delete_product', 'bulk_delete_products', 'delete_all_products',
   'bulk_update_category', 'update_batch_promo', 'update_batch_expiry', 'bulk_update_promo',

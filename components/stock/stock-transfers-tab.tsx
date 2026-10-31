@@ -9,7 +9,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useLocale, useTranslations } from 'next-intl'
 import { useRouter } from 'next/navigation'
-import { Ban, CheckCircle2, Copy, Download, FileEdit, Mail, MessageCircle, Plus, QrCode, ScanLine, Search, Send, Share2, Truck } from 'lucide-react'
+import { Ban, CheckCircle2, Download, FileEdit, MessageCircle, Plus, QrCode, ScanLine, Search, Send, Share2, Truck } from 'lucide-react'
 import { useAuthContext as useAuth } from '@/lib/contexts/auth-context'
 import { useShopScope } from '@/lib/shops/use-shop-scope'
 import { useFilterScope } from '@/lib/filters/use-filter-scope'
@@ -17,10 +17,8 @@ import { useRolePermissions } from '@/lib/hooks/use-role-permissions'
 import { useToast } from '@/components/ui/use-toast'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
 import { Skeleton } from '@/components/ui/skeleton'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
-import { PremiumDialog, PremiumDialogBody, PremiumDialogFooter } from '@/components/ui/premium-dialog'
 import { ConfirmModal } from '@/components/ui/confirm-modal'
 import { usePersistedFilters } from '@/lib/hooks/use-persisted-filters'
 import { useOffline } from '@/lib/offline/use-offline'
@@ -69,7 +67,6 @@ export function StockTransfersTab() {
   const [scanOpen, setScanOpen] = useState(false)
   const [detailId, setDetailId] = useState<string | null>(null)
   const [qrFor, setQrFor] = useState<{ id: string; reference: string } | null>(null)
-  const [emailFor, setEmailFor] = useState<TransferListRow | null>(null)
   const [create, setCreate] = useState<{ source: any; draft: TransferDraftInput | null; prefill?: TransferPrefill | null } | null>(null)
   // Demandes de transfert (190) : relues après une décision ou un transfert créé depuis une demande
   const [requestsKey, setRequestsKey] = useState(0)
@@ -183,7 +180,6 @@ export function StockTransfersTab() {
         {tr.status === 'draft' && tr.can_manage_source && workflow && <DropdownMenuItem onClick={() => setDetailId(tr.id)}><FileEdit className="mr-2 h-4 w-4" />{t('action_edit')}</DropdownMenuItem>}
         <DropdownMenuItem onClick={() => downloadNote(tr)}>{isCapacitor() ? <Share2 className="mr-2 h-4 w-4" /> : <Download className="mr-2 h-4 w-4" />}{t('action_download')}</DropdownMenuItem>
         <DropdownMenuItem onClick={() => share(tr)}><Share2 className="mr-2 h-4 w-4" />{t('action_share')}</DropdownMenuItem>
-        <DropdownMenuItem onClick={() => setEmailFor(tr)}><Mail className="mr-2 h-4 w-4" />{t('action_email')}</DropdownMenuItem>
         <DropdownMenuItem onClick={() => whatsapp(tr)}><MessageCircle className="mr-2 h-4 w-4" />{t('action_whatsapp')}</DropdownMenuItem>
         {(tr.status === 'draft' || tr.status === 'sent') && tr.can_manage_source && (
           <>
@@ -194,24 +190,6 @@ export function StockTransfersTab() {
       </DropdownMenuContent>
     </DropdownMenu>
   )
-
-  // E-mail : objet et corps à copier, ou application de messagerie (assistant existant)
-  const emailContent = (tr: TransferListRow) => {
-    const items = tr.stock_transfer_items || []
-    const subject = tRoot('stock_transfers.email_subject', { reference: tr.reference, source: tr.source_shop_name, destination: tr.destination_shop_name })
-    const body = [
-      tRoot('stock_transfers.email_greeting'), '',
-      tRoot('stock_transfers.email_body', { reference: tr.reference, source: tr.source_shop_name, destination: tr.destination_shop_name }), '',
-      tRoot('stock_transfers.email_products_sent'),
-      ...items.map(it => `- ${it.product_name} : ${it.quantity_sent} ${unitLabel((it as any).unit, it.quantity_sent)}`.trim()), '',
-      tRoot('stock_transfers.email_regards'), tr.source_shop_name || 'StockShop',
-    ].join('\n')
-    return { subject, body }
-  }
-  const copy = async (text: string, label: string) => {
-    try { await navigator.clipboard.writeText(text); toast({ title: tRoot('suppliers.po_copied', { label }), variant: 'success' }) }
-    catch { toast({ title: tRoot('toast.error'), variant: 'destructive' }) }
-  }
 
   if (!shop) return null
   // Destinations : mes boutiques ; pour une demande acceptée, aussi la boutique qui demande (même si je n'en suis pas membre)
@@ -304,34 +282,6 @@ export function StockTransfersTab() {
         loading={!!cancelAsk && busy === `cancel:${cancelAsk.id}`}
         onConfirm={doCancel}
       />
-
-      <PremiumDialog open={!!emailFor} onOpenChange={open => { if (!open) setEmailFor(null) }} title={tRoot('suppliers.po_email_helper')} icon={<Mail className="h-4 w-4" />} maxWidth="max-w-lg">
-        {emailFor && (() => {
-          const { subject, body } = emailContent(emailFor)
-          return (
-            <>
-              <PremiumDialogBody>
-                <p className="text-xs text-muted-foreground">{isCapacitor() ? tRoot('suppliers.po_email_hint_mobile') : tRoot('suppliers.po_email_hint')}</p>
-                <div className="mt-3 space-y-1.5">
-                  <div className="flex items-center justify-between"><Label>{tRoot('suppliers.po_email_subject')}</Label>
-                    <button className="flex items-center gap-1 text-xs text-stockshop-blue hover:underline dark:text-blue-400" onClick={() => copy(subject, tRoot('suppliers.po_email_subject'))}><Copy className="h-3 w-3" />{tRoot('suppliers.po_copy')}</button></div>
-                  <Input readOnly value={subject} onFocus={e => e.target.select()} />
-                </div>
-                <div className="mt-3 space-y-1.5">
-                  <div className="flex items-center justify-between"><Label>{tRoot('suppliers.po_email_body')}</Label>
-                    <button className="flex items-center gap-1 text-xs text-stockshop-blue hover:underline dark:text-blue-400" onClick={() => copy(body, tRoot('suppliers.po_email_body'))}><Copy className="h-3 w-3" />{tRoot('suppliers.po_copy')}</button></div>
-                  <textarea readOnly value={body} onFocus={e => e.target.select()} rows={9} className="w-full resize-none rounded-md border border-input bg-background px-3 py-2 text-sm" />
-                </div>
-              </PremiumDialogBody>
-              <PremiumDialogFooter onCancel={() => setEmailFor(null)} cancelLabel={tRoot('actions.cancel')}>
-                <Button variant="stockshop" className="h-11 min-w-0 flex-1 rounded-lg px-2 font-semibold" asChild>
-                  <a href={`mailto:?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`} className="min-w-0"><Mail className="mr-1.5 h-4 w-4 flex-shrink-0" /><span className="truncate">{tRoot('suppliers.po_open_mail_app')}</span></a>
-                </Button>
-              </PremiumDialogFooter>
-            </>
-          )
-        })()}
-      </PremiumDialog>
     </div>
   )
 }
