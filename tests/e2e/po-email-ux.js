@@ -104,7 +104,7 @@ const card = (page, ref) => page.locator(`xpath=//*[normalize-space(text())='${r
       const r3 = await post({ id: ids.draft.id, shop_id: 'abec3e3f-3e92-4ff0-a374-d2d88f57899b', locale: 'fr' })
       ok(r3.status === 404 || r3.status === 403, `serveur : bon d’une autre boutique refusé (${r3.status})`)
       const r4 = await s.ctx.request.get(`${BASE}/api/purchase-orders/email?id=${ids.draft.id}&shop_id=${AKWA}`)
-      ok(r4.status() !== 500, `historique : réponse propre (${r4.status()}, 192 pas encore appliquée en base)`)
+      ok(r4.status() !== 500, `historique : réponse propre (${r4.status()})`)
 
       // Transferts : plus d'assistant e-mail dans le menu
       await page.goto(`${BASE}/fr/stock/transfers`, { waitUntil: 'domcontentloaded', timeout: 120000 }); await wait(6000)
