@@ -1,5 +1,6 @@
 'use client'
 
+import { PageHeader } from '@/components/layout/page-header'
 import { useState, useEffect, useMemo, useRef } from 'react'
 import { useSearchParams, useRouter, usePathname } from 'next/navigation'
 import { usePersistedFilters } from '@/lib/hooks/use-persisted-filters'
@@ -19,7 +20,6 @@ import { createClient } from '@/lib/supabase/client'
 import { useAuthContext as useAuth } from '@/lib/contexts/auth-context'
 import { useRolePermissions, useShopPermissions } from '@/lib/hooks/use-role-permissions'
 import { useShopScope } from '@/lib/shops/use-shop-scope'
-import { ShopScopeBadge } from '@/components/shops/shop-scope-badge'
 import { useFilterScope } from '@/lib/filters/use-filter-scope'
 import { resolveCurrencyCode, currencySymbol } from '@/lib/saas/currencies'
 import { useToast } from '@/components/ui/use-toast'
@@ -1136,6 +1136,7 @@ export default function SuppliersPage() {
 
   return (
     <div className="space-y-4">
+      <PageHeader title={t('nav.suppliers')} description={t('page_header.suppliers')} />
       {/* View toggle + contexte (« Toutes les boutiques » ; rien pour un compte à une seule boutique) */}
       <div className="flex flex-wrap items-center gap-2">
       <SegmentedTabs value={view} onChange={v => setView(v as typeof view)} testId="suppliers-tabs" items={[
@@ -1143,7 +1144,6 @@ export default function SuppliersPage() {
         ...(showCost ? [{ key: 'by_product', label: t('suppliers.tab_by_product'), icon: ArrowRightLeft, attrs: { 'data-testid': 'suppliers-tab-prices' } }] : []),
         { key: 'purchase_orders', label: t('suppliers.tab_purchase_orders'), icon: FileText },
       ]} />
-      <ShopScopeBadge />
       </div>
 
       {view === 'suppliers' && (

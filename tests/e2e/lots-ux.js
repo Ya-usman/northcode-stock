@@ -102,7 +102,8 @@ const has = (page, testId) => page.locator(`[data-testid=${testId}]`).count().th
   const main = page.locator('main')
   ok(Object.keys(sim).length >= 8, `lots simulés dans le navigateur : ${raw.length} lots réels lus, 8 mis en scène`)
   let mainText = await visibleText(main)
-  ok((mainText.match(/Lots & péremptions/g) || []).length === 1 && await page.locator('main h1.sr-only').count() === 1, 'le titre n’est plus répété dans le contenu (il reste dans l’en-tête et l’onglet)')
+  // En-tête commun (31 oct. 2026) : titre visible une fois en tête de page (h1), en plus de l'onglet
+  ok((mainText.match(/Lots & péremptions/g) || []).length === 2 && await page.locator('main h1').count() === 1 && (await page.locator('main h1').innerText()).trim() === 'Lots & péremptions', 'titre « Lots & péremptions » : onglet + en-tête de page, un seul h1')
   ok(mainText.includes('Suivez vos lots et anticipez les péremptions.'), 'description : « Suivez vos lots et anticipez les péremptions. »')
   ok(await page.locator('[data-testid=lots-search]').getAttribute('placeholder') === 'Rechercher un produit ou un lot…', 'un seul champ : « Rechercher un produit ou un lot… »')
   const combos = await main.locator('button[role=combobox]').evaluateAll(els => els.map(e => e.innerText.trim()))

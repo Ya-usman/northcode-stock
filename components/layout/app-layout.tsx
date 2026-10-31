@@ -66,7 +66,7 @@ function usePageTitle(pathname: string, locale: string) {
     '/team': t('team.title'),
     '/settings': t('settings.title'),
     '/billing': t('nav.billing'),
-    '/shops': t('shops.title'),
+    '/shops': t('nav.shops'),
     '/notes': t('nav.notes'),
     '/expenses': t('nav.expenses'),
     '/caisse': t('caisse.title'),

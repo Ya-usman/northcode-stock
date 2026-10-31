@@ -1,5 +1,6 @@
 'use client'
 
+import { PageHeader } from '@/components/layout/page-header'
 import { useEffect, useState, useCallback, useRef } from 'react'
 import { useTranslations, useLocale } from 'next-intl'
 import { createClient } from '@/lib/supabase/client'
@@ -576,32 +577,20 @@ export default function DashboardPage() {
 
   return (
     <div className="space-y-4">
-      {/* Header */}
-      <div className="flex items-center justify-between gap-3 flex-wrap">
-        <div>
-          <p className="text-xs text-muted-foreground">
-            {new Date().toLocaleDateString(locale, { weekday: 'long', day: 'numeric', month: 'long' })}
-          </p>
-        </div>
-
-        <div className="flex items-center gap-2">
-          {/* Mode indicator — "Toutes les boutiques" si le filtre est global */}
-          {userShops.length > 1 && !dashboardShopFilter && (
-            <span className="hidden sm:inline-flex items-center gap-1 rounded-full bg-muted px-2.5 py-1 text-xs font-medium text-muted-foreground select-none">
-              {t('dashboard.all_shops')}
-            </span>
-          )}
-
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={handleRefresh}
-            disabled={refreshing}
-            className={refreshing ? 'animate-spin' : ''}
-          >
-            <RefreshCw className="h-4 w-4" />
-          </Button>
-        </div>
+      {/* En-tête commun : titre, boutique (ou « Toutes les boutiques »), phrase ; actualisation à droite */}
+      <div>
+        <PageHeader
+          title={t('nav.dashboard')}
+          description={t('page_header.dashboard')}
+          actions={
+            <Button variant="ghost" size="icon" onClick={handleRefresh} disabled={refreshing} className={refreshing ? 'animate-spin' : ''} aria-label={t('actions.refresh')}>
+              <RefreshCw className="h-4 w-4" />
+            </Button>
+          }
+        />
+        <p className="mt-1 text-xs text-muted-foreground first-letter:uppercase">
+          {new Date().toLocaleDateString(locale, { weekday: 'long', day: 'numeric', month: 'long' })}
+        </p>
       </div>
 
       {/* Guide « Bien démarrer » : propriétaire d'un compte qui débute (s'efface de lui-même) */}

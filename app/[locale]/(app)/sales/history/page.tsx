@@ -1,5 +1,6 @@
 ﻿'use client'
 
+import { PageHeader } from '@/components/layout/page-header'
 import { useState, useEffect, useMemo, Fragment, useRef } from 'react'
 import { usePersistedFilters } from '@/lib/hooks/use-persisted-filters'
 import { useTranslations } from 'next-intl'
@@ -11,7 +12,6 @@ import { createClient } from '@/lib/supabase/client'
 import { useAuthContext as useAuth } from '@/lib/contexts/auth-context'
 import { useShopPermissions } from '@/lib/hooks/use-role-permissions'
 import { useShopScope } from '@/lib/shops/use-shop-scope'
-import { ShopScopeBadge } from '@/components/shops/shop-scope-badge'
 import { useFilterScope } from '@/lib/filters/use-filter-scope'
 import { EmptyGuide } from '@/components/onboarding/empty-guide'
 import { useTableExport } from '@/lib/export/use-table-export'
@@ -1076,7 +1076,7 @@ export default function SalesHistoryPage() {
 
   return (
     <div className="space-y-4">
-      {scope.isAllShops && scope.multiShop && <div><ShopScopeBadge /></div>}
+      <PageHeader title={t('nav.sales_history')} description={t('page_header.sales_history')} />
       {/* View toggle */}
       <SegmentedTabs value={view} onChange={v => setView(v as typeof view)} testId="sales-history-tabs" items={[
         { key: 'sales', label: t('sales.sales_tab') },

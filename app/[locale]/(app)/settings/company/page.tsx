@@ -6,6 +6,7 @@
 // (Manager, Responsable) consulte, sans la facturation. Les reçus et tickets
 // gardent le nom de chaque boutique.
 
+import { PageHeader } from '@/components/layout/page-header'
 import { useEffect, useMemo, useState } from 'react'
 import dynamic from 'next/dynamic'
 import Link from 'next/link'
@@ -180,11 +181,13 @@ export default function CompanySettingsPage() {
         <ArrowLeft className="h-4 w-4" />{t('settings.title')}
       </Link>
 
+      <PageHeader scope="entity" title={t('page_header.company_title')} description={t('page_header.company')} />
+
       <div className="flex flex-wrap items-center gap-4 rounded-xl border bg-card p-5 shadow-sm">
         <span className="flex h-12 w-12 items-center justify-center rounded-xl bg-stockshop-blue-muted text-stockshop-blue dark:bg-blue-950/40 dark:text-blue-400"><Building2 className="h-6 w-6" /></span>
         <div className="min-w-0 flex-1">
           <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{t('entity.label')}</p>
-          <h1 className="break-words text-xl font-bold sm:truncate" data-testid="company-name">{entity.name}</h1>
+          <h2 className="break-words text-xl font-bold sm:truncate" data-testid="company-name">{entity.name}</h2>
           {!entity.name_confirmed && <span className="mt-1 inline-flex rounded-full bg-amber-100 px-2.5 py-1 text-xs font-medium text-amber-800 dark:bg-amber-950/40 dark:text-amber-300 sm:hidden">{t('entity.name_to_confirm')}</span>}
           <p className="text-sm text-muted-foreground">
             {t('entity.establishments_count', { count: entity.establishment_count })}

@@ -1,5 +1,6 @@
 'use client'
 
+import { PageHeader } from '@/components/layout/page-header'
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react'
 import { usePersistedFilters } from '@/lib/hooks/use-persisted-filters'
 import { useTranslations } from 'next-intl'
@@ -7,7 +8,6 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import { Search, Calendar, Package, X } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { useAuthContext as useAuth } from '@/lib/contexts/auth-context'
-import { ShopScopeBadge } from '@/components/shops/shop-scope-badge'
 import { useRolePermissions } from '@/lib/hooks/use-role-permissions'
 import { setPageCache, getPageCache } from '@/lib/offline/page-cache'
 import { useOffline } from '@/lib/offline/use-offline'
@@ -45,6 +45,7 @@ const MAX_ROWS = 500
 export default function StockMovementsPage({ params: { locale } }: { params: { locale: string } }) {
   const t = useTranslations('movements')
   const tNav = useTranslations('nav')
+  const tPage = useTranslations('page_header')
   const unitLabel = useUnitLabel()
   const router = useRouter()
   const { effectiveShopIds, shop, userShops } = useAuth()
@@ -205,6 +206,7 @@ export default function StockMovementsPage({ params: { locale } }: { params: { l
 
   return (
     <div className="space-y-4">
+      <PageHeader title={tNav('movements')} description={tPage('stock_movements')} />
       {/* Type de mouvement : « Tous » par défaut, un toucher pour filtrer */}
       <div
         ref={pillsRef}
@@ -303,7 +305,6 @@ export default function StockMovementsPage({ params: { locale } }: { params: { l
       ) : (
         <>
           <p className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground" data-testid="movements-count">
-            <ShopScopeBadge />
             {t('product_movements_count', { count: movements.length })}
             {movements.length >= MAX_ROWS && <> · {t('latest_shown', { count: MAX_ROWS })}</>}
           </p>

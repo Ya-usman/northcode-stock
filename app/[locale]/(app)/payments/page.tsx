@@ -1,12 +1,12 @@
 'use client'
 
+import { PageHeader } from '@/components/layout/page-header'
 import { useState, useEffect, useRef, useMemo } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { useLocale, useTranslations } from 'next-intl'
 import { useAuthContext as useAuth } from '@/lib/contexts/auth-context'
 import { useShopPermissions } from '@/lib/hooks/use-role-permissions'
 import { useShopScope } from '@/lib/shops/use-shop-scope'
-import { ShopScopeBadge } from '@/components/shops/shop-scope-badge'
 import { formatCurrency } from '@/lib/utils/currency'
 import { resolveCurrencyCode, currencySymbol } from '@/lib/saas/currencies'
 import { isManagerial as isManagerialRole } from '@/lib/permissions'
@@ -1525,7 +1525,7 @@ export default function CreditsPage() {
   // ── Render ───────────────────────────────────────────────
   return (
     <div className="space-y-4">
-      {scope.isAllShops && scope.multiShop && <div><ShopScopeBadge /></div>}
+      <PageHeader title={t('nav.payments')} description={t('page_header.payments')} />
 
       {/* Bascule créances / dettes — seulement pour qui voit aussi les dettes fournisseurs */}
       {canSeeSupplierDebts && (

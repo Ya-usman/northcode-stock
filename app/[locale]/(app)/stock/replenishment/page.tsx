@@ -1,5 +1,6 @@
 'use client'
 
+import { PageHeader } from '@/components/layout/page-header'
 import { useTranslations } from 'next-intl'
 import { PackagePlus } from 'lucide-react'
 import { ReplenishmentTab } from '@/components/stock/replenishment/replenishment-tab'
@@ -9,6 +10,7 @@ import { useRolePermissions } from '@/lib/hooks/use-role-permissions'
 // Stock ; la création des bons demande Fournisseurs en modification (vérifié par le serveur, boutique par boutique).
 export default function StockReplenishmentPage({ params: { locale } }: { params: { locale: string } }) {
   const t = useTranslations('nav')
+  const tPage = useTranslations('page_header')
   const { canAccess } = useRolePermissions()
 
   if (!canAccess('stock')) {
@@ -24,6 +26,7 @@ export default function StockReplenishmentPage({ params: { locale } }: { params:
 
   return (
     <div className="space-y-4">
+      <PageHeader title={t('replenishment')} description={tPage('stock_replenishment')} />
       <ReplenishmentTab />
     </div>
   )

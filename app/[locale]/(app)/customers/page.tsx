@@ -1,5 +1,6 @@
 'use client'
 
+import { PageHeader } from '@/components/layout/page-header'
 import { useState, useEffect, useMemo, useRef } from 'react'
 import { usePersistedFilters } from '@/lib/hooks/use-persisted-filters'
 import { normalize } from '@/lib/utils/normalize'
@@ -12,7 +13,6 @@ import { createClient } from '@/lib/supabase/client'
 import { useAuthContext as useAuth } from '@/lib/contexts/auth-context'
 import { useShopPermissions } from '@/lib/hooks/use-role-permissions'
 import { useShopScope } from '@/lib/shops/use-shop-scope'
-import { ShopScopeBadge } from '@/components/shops/shop-scope-badge'
 import { useFilterScope } from '@/lib/filters/use-filter-scope'
 import { formatCurrency } from '@/lib/utils/currency'
 import { resolveCurrencyCode, currencySymbol as symbolOfCode } from '@/lib/saas/currencies'
@@ -356,6 +356,7 @@ export default function CustomersPage() {
 
   return (
     <div className="space-y-4">
+      <PageHeader title={t('nav.customers')} description={t('page_header.customers')} />
       <div className="flex gap-2">
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -402,8 +403,6 @@ export default function CustomersPage() {
 
       {/* Import : boutique de l'en-tête ; en « Toutes », aucune présélection — la boutique est choisie dans le panneau */}
       <ImportDrawer kind="customers" open={showImport} onClose={() => setShowImport(false)} shopId={scope.shopId ?? ''} explicitShopInAllShops onImported={() => { fetchCustomers() }} />
-
-      {scope.multiShop && scope.isAllShops && <div><ShopScopeBadge /></div>}
 
       {!loading && mergeableGroups.length > 0 && (
         <div className="flex flex-wrap items-center gap-3 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm dark:border-amber-800/60 dark:bg-amber-950/40">

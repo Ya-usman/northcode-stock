@@ -107,7 +107,9 @@ const pickShop = async (page, id) => { const p = page.getByTestId('shop-picker')
 
   console.log('\n3. Produits — en-tête « Akwa »')
   s = await open('stock/products', { shop: AKWA }); page = s.page
-  ok(await badge(page).count() === 0, 'pas de badge répété (le contexte est dans l’en-tête et la barre latérale)')
+  // En-tête commun (validé le 31 oct. 2026) : la pastille de la boutique est TOUJOURS là pour un compte multi-boutique,
+  // une seule fois (en tête de page ; plus de pastille près du compteur)
+  ok(await badge(page).count() === 1 && (await badge(page).innerText()).trim() === 'Akwa', 'pastille « Akwa » une seule fois, en tête de page')
   await page.locator('[data-tour="add-product-menu"]:visible').first().click(); await page.locator('[data-tour="add-product-item"]').click()
   await page.getByTestId('product-drawer').waitFor({ timeout: 10000 })
   ok(await page.getByTestId('shop-picker').count() === 0 && low(await page.getByTestId('product-drawer').innerText()).includes(low('Boutique : Marché Soleil Akwa')), 'créer : Akwa utilisée directement (pas de question), rappelée dans le panneau')
@@ -124,7 +126,7 @@ const pickShop = async (page, id) => { const p = page.getByTestId('shop-picker')
   for (const [path, label] of [['stock/movements', 'Mouvements'], ['stock/expiry', 'Lots']]) {
     s = await open(path); const allB = await badge(s.page).isVisible(); await s.browser.close()
     s = await open(path, { shop: AKWA }); const oneB = await badge(s.page).count()
-    ok(allB && oneB === 0, `${label} : badge en « Toutes », absent sur « Akwa »`)
+    ok(allB && oneB === 1, `${label} : pastille en « Toutes » et sur « Akwa » (en-tête commun), une seule fois`)
     if (path === 'stock/expiry') {
       const row = s.page.locator('[data-lot-row] [data-lot-name], [data-lot-card]').first()
       if (await row.count()) {
@@ -218,7 +220,7 @@ const pickShop = async (page, id) => { const p = page.getByTestId('shop-picker')
   await pickShop(page, BONA); await page.getByTestId('product-drawer').waitFor()
   await page.keyboard.press('Escape'); await page.waitForTimeout(600)
   await switchTo('Marché Soleil Bastos')
-  ok(await headerTxt() === 'Bastos' && await countNow() === nBastos && await catTxt() === 'Catégorie' && await badge(page).count() === 0, `→ Bastos : ${nBastos} produits, aucun filtre repris, pas de badge`)
+  ok(await headerTxt() === 'Bastos' && await countNow() === nBastos && await catTxt() === 'Catégorie' && (await badge(page).innerText()).trim() === 'Bastos', `→ Bastos : ${nBastos} produits, aucun filtre repris, pastille « Bastos »`)
   await page.locator('[data-tour="add-product-menu"]:visible').first().click(); await page.locator('[data-tour="add-product-item"]').click()
   await page.getByTestId('product-drawer').waitFor({ timeout: 10000 })
   ok(await page.getByTestId('shop-picker').count() === 0 && low(await page.getByTestId('product-drawer').innerText()).includes(low('Boutique : Marché Soleil Bastos')), 'créer : Bastos (l’en-tête), pas Bonapriso choisie auparavant en « Toutes »')

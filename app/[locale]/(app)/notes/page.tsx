@@ -1,5 +1,6 @@
 'use client'
 
+import { PageHeader } from '@/components/layout/page-header'
 import { useState, useEffect, useRef } from 'react'
 import { usePersistedFilters } from '@/lib/hooks/use-persisted-filters'
 import { createClient } from '@/lib/supabase/client'
@@ -10,7 +11,6 @@ import { Input } from '@/components/ui/input'
 import { ConfirmModal } from '@/components/ui/confirm-modal'
 import { PremiumDialog, PremiumDialogBody, PremiumDialogFooter } from '@/components/ui/premium-dialog'
 import { useShopScope } from '@/lib/shops/use-shop-scope'
-import { ShopScopeBadge } from '@/components/shops/shop-scope-badge'
 import { useFilterScope } from '@/lib/filters/use-filter-scope'
 import { useShopPermissions } from '@/lib/hooks/use-role-permissions'
 import { cn } from '@/lib/utils/cn'
@@ -266,6 +266,7 @@ export default function NotesPage() {
 
   return (
     <div className="space-y-4">
+      <PageHeader title={tRoot('nav.notes')} description={tRoot('page_header.notes')} />
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center gap-3">
         <div className="flex-1 relative">
@@ -285,7 +286,6 @@ export default function NotesPage() {
       </div>
 
       {/* Loading */}
-      {scope.isAllShops && scope.multiShop && <div><ShopScopeBadge /></div>}
 
       {loading && shopLoadTimedOut && effectiveShopIds.length === 0 && <LoadErrorFallback />}
       {loading && !(shopLoadTimedOut && effectiveShopIds.length === 0) && (

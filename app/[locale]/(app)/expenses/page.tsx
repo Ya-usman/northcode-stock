@@ -1,5 +1,6 @@
 'use client'
 
+import { PageHeader } from '@/components/layout/page-header'
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import { usePersistedFilters } from '@/lib/hooks/use-persisted-filters'
 import { useTranslations, useLocale } from 'next-intl'
@@ -27,7 +28,6 @@ import { NumericInput } from '@/components/ui/numeric-input'
 import { format, startOfMonth, endOfMonth, addMonths, addWeeks, parseISO } from 'date-fns'
 import type { Expense, ExpenseBudget, Shop } from '@/lib/types/database'
 import { useShopScope } from '@/lib/shops/use-shop-scope'
-import { ShopScopeBadge } from '@/components/shops/shop-scope-badge'
 import { useFilterScope } from '@/lib/filters/use-filter-scope'
 import { useShopPermissions } from '@/lib/hooks/use-role-permissions'
 import { formatCurrency } from '@/lib/utils/currency'
@@ -825,6 +825,7 @@ export default function ExpensesPage() {
 
   return (
     <div className="space-y-4 max-w-2xl mx-auto">
+      <PageHeader title={tRoot('nav.expenses')} description={tRoot('page_header.expenses')} />
       {/* Header */}
       <div className="flex items-center justify-between gap-2 flex-wrap">
         <div className="flex items-center gap-1">
@@ -899,8 +900,6 @@ export default function ExpensesPage() {
           )}
         </div>
       </div>
-
-      {scope.isAllShops && scope.multiShop && <div><ShopScopeBadge /></div>}
 
       {/* View toggle */}
       {canWriteExpenses && (

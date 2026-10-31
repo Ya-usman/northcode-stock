@@ -1,5 +1,6 @@
 'use client'
 
+import { PageHeader } from '@/components/layout/page-header'
 import { useState, useEffect, useRef } from 'react'
 import Link from 'next/link'
 import { useTranslations } from 'next-intl'
@@ -526,6 +527,16 @@ export default function SettingsPage({ params: { locale } }: { params: { locale:
 
   return (
     <div className="space-y-4 max-w-5xl">
+      {/* En-tête commun : la pastille dit quelle boutique ces réglages concernent (remplace « Réglages de : … ») */}
+      <PageHeader
+        title={t('nav.settings')}
+        description={t('page_header.settings')}
+        actions={canEditShop && settingsShops.length > 1 ? (
+          <button type="button" onClick={chooseSettingsShop} className="tap-target text-sm font-medium text-stockshop-blue underline-offset-2 hover:underline dark:text-blue-400" data-testid="settings-change-shop">
+            {t('settings.change_shop')}
+          </button>
+        ) : undefined}
+      />
 
       {/* Entreprise (racine du compte) : nom, propriétaire, facturation, abonnement */}
       {isOwner && <CompanyCard />}
@@ -562,18 +573,6 @@ export default function SettingsPage({ params: { locale } }: { params: { locale:
       {/* Sections de la boutique de l'en-tête : informations, activité, horaires, notifications */}
       {canEditShop && (
         <>
-          {scope.multiShop && (
-            <div className="flex flex-wrap items-center gap-x-3 gap-y-1 rounded-xl border border-stockshop-blue/20 bg-stockshop-blue-muted px-4 py-3 dark:border-blue-800 dark:bg-blue-950/40" data-testid="settings-shop">
-              <Store aria-hidden className="h-4 w-4 shrink-0 text-stockshop-blue dark:text-blue-400" />
-              <p className="min-w-0 flex-1 text-sm font-semibold text-stockshop-blue dark:text-blue-300">{t('settings.settings_of', { name: shopData!.name })}</p>
-              {settingsShops.length > 1 && (
-                <button type="button" onClick={chooseSettingsShop} className="text-sm font-medium text-stockshop-blue underline-offset-2 hover:underline dark:text-blue-400 tap-target">
-                  {t('settings.change_shop')}
-                </button>
-              )}
-            </div>
-          )}
-
           {/* Shop Info */}
           <Card className="border-0 shadow-sm">
             <CardHeader className="pb-3">

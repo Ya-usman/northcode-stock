@@ -1,5 +1,6 @@
 'use client'
 
+import { PageHeader } from '@/components/layout/page-header'
 import { useEffect, useMemo, useState } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { useTranslations } from 'next-intl'
@@ -9,7 +10,6 @@ import { useUnitLabel } from '@/lib/products/use-unit-label'
 import { useTableExport } from '@/lib/export/use-table-export'
 import { createClient } from '@/lib/supabase/client'
 import { useAuthContext as useAuth } from '@/lib/contexts/auth-context'
-import { ShopScopeBadge } from '@/components/shops/shop-scope-badge'
 import { useShopScope } from '@/lib/shops/use-shop-scope'
 import { useRolePermissions } from '@/lib/hooks/use-role-permissions'
 import { fetchCosts } from '@/lib/costs/client'
@@ -277,9 +277,7 @@ export default function ExpiryPage({ params: { locale } }: { params: { locale: s
 
   return (
     <div className="space-y-3">
-      {/* Le titre est déjà dans l'en-tête et dans l'onglet : ici, une ligne suffit */}
-      <h1 className="sr-only">{t('expiry.title')}</h1>
-      <p className="text-sm text-muted-foreground" data-testid="lots-subtitle">{t('expiry.subtitle')}</p>
+      <PageHeader title={t('nav.expiry')} description={t('expiry.subtitle')} />
 
       <div className="flex flex-wrap items-center gap-2" data-testid="lots-toolbar">
         {/* Recherche sur sa propre ligne tant que la place manque (téléphone, tablette avec le menu latéral) */}
@@ -349,7 +347,6 @@ export default function ExpiryPage({ params: { locale } }: { params: { locale: s
 
       {!loading && batches.length > 0 && (
         <div className="flex items-center justify-between gap-3 text-xs text-muted-foreground">
-          <ShopScopeBadge />
           <span data-testid="lots-count">{t('expiry.count', { count: filtered.length })}</span>
           {filtersActive && (
             <button type="button" onClick={resetFilters} className="font-medium text-stockshop-blue hover:underline dark:text-blue-400" data-testid="lots-reset">

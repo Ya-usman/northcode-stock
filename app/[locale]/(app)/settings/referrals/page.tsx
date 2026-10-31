@@ -1,12 +1,10 @@
 'use client'
 
+import { PageHeader } from '@/components/layout/page-header'
 import { useState, useEffect, useCallback } from 'react'
 import Link from 'next/link'
 import { useTranslations } from 'next-intl'
-import {
-  ArrowLeft, Copy, Check, MessageCircle, Users, Wallet, Clock, Gift,
-  CreditCard, Banknote,
-} from 'lucide-react'
+import { ArrowLeft, Copy, Check, MessageCircle, Users, Wallet, Clock, CreditCard, Banknote } from 'lucide-react'
 import { useAuthContext as useAuth } from '@/lib/contexts/auth-context'
 import { useToast } from '@/components/ui/use-toast'
 import { Button } from '@/components/ui/button'
@@ -112,6 +110,7 @@ const STATUS_COLORS: Record<string, string> = {
 
 export default function ReferralsPage({ params: { locale } }: { params: { locale: string } }) {
   const t = useTranslations('referrals')
+  const tPage = useTranslations('page_header')
   const { profile, user } = useAuth()
   const { toast } = useToast()
 
@@ -291,13 +290,7 @@ export default function ReferralsPage({ params: { locale } }: { params: { locale
         {t('back_to_settings')}
       </Link>
 
-      <div>
-        <h1 className="text-xl font-bold text-foreground flex items-center gap-2">
-          <Gift className="h-5 w-5 text-stockshop-blue dark:text-blue-400" />
-          {t('page_title')}
-        </h1>
-        <p className="text-sm text-muted-foreground mt-0.5">{t('page_subtitle')}</p>
-      </div>
+      <PageHeader scope="entity" title={tPage('referrals_title')} description={tPage('referrals')} />
 
       {loading ? (
         <div className="space-y-4">

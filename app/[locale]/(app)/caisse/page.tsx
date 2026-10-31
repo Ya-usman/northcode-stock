@@ -1,5 +1,6 @@
 'use client'
 
+import { PageHeader } from '@/components/layout/page-header'
 import { useState, useEffect, useCallback } from 'react'
 import { format, startOfDay, endOfDay, addDays, isToday } from 'date-fns'
 import { useTranslations } from 'next-intl'
@@ -284,7 +285,7 @@ export default function CaissePage() {
     <div className="space-y-4 max-w-2xl mx-auto">
       {/* Header */}
       <div className="flex items-center justify-between gap-2">
-        <h1 className="text-lg font-bold">{t('title')}</h1>
+        <PageHeader className="flex-1" title={t('title')} description={tRoot('page_header.caisse')} />
         {hasAny && (
           <DropdownMenu>
             <DropdownMenuTrigger asChild>

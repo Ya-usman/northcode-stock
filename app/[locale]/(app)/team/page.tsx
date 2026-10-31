@@ -7,6 +7,7 @@
 // l'affectation (AssignDialog) sont les MÊMES composants que dans
 // Boutique → Équipe.
 
+import { PageHeader } from '@/components/layout/page-header'
 import { useState, useEffect, useCallback, useMemo } from 'react'
 import { useTranslations, useLocale } from 'next-intl'
 import {
@@ -202,6 +203,7 @@ export default function TeamPage() {
 
   return (
     <div className="space-y-4">
+      <PageHeader scope="entity" title={t('nav.team')} description={t('page_header.team')} />
       {/* En-tête : effectifs, quota, invitation */}
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="space-y-0.5">

@@ -1,5 +1,6 @@
 'use client'
 
+import { PageHeader } from '@/components/layout/page-header'
 import { useState, useEffect, useMemo, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { useTranslations, useLocale } from 'next-intl'
@@ -10,7 +11,6 @@ import { createClient } from '@/lib/supabase/client'
 import { useAuthContext } from '@/lib/contexts/auth-context'
 import { useShopPermissions } from '@/lib/hooks/use-role-permissions'
 import { useShopScope } from '@/lib/shops/use-shop-scope'
-import { ShopScopeBadge } from '@/components/shops/shop-scope-badge'
 import { formatCurrency } from '@/lib/utils/currency'
 import { resolveCurrencyCode } from '@/lib/saas/currencies'
 import { useCurrency } from '@/lib/hooks/use-currency'
@@ -486,6 +486,7 @@ export default function CategoriesPage() {
 
   return (
     <div className="space-y-4">
+      <PageHeader title={t('nav.categories')} description={t('categories.subtitle')} />
       {/* Recherche, tri, actions */}
       <div className="flex flex-wrap gap-2">
         <div className="relative min-w-[180px] flex-1">
@@ -562,7 +563,6 @@ export default function CategoriesPage() {
 
       {filtered.length > 0 && (
         <p className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground" data-testid="categories-count">
-          <ShopScopeBadge />
           {t('categories.count', { count: filtered.length })} · {products.length} {t('categories.products_total')}
         </p>
       )}

@@ -4827,5 +4827,31 @@
     "status_accepted": "An karɓa",
     "status_declined": "An ƙi",
     "status_cancelled": "An soke"
+  },
+  "page_header": {
+    "dashboard": "Ayyukan shago: kuɗin shiga, sayarwa na baya-bayan nan, kayan da suka fi sayuwa da faɗakarwar kaya.",
+    "sales_history": "Duk sayarwa, tare da biyansu, mayar da kuɗi da tarihin gyare-gyare.",
+    "payments": "Abin da abokan cinikinku ke binku da abin da kuke bin masu kawo muku kaya.",
+    "customers": "Littafin abokan cinikinku: bayanan tuntuɓa, sayayya da bashin da ke kansu.",
+    "stock_products": "Kundin kayanku: farashi, adadin da ake da shi, lodi da rangwame.",
+    "stock_movements": "Kowace shigarwa da fitar kaya, tare da dalilinta da wanda ya yi ta.",
+    "stock_inventory": "Ƙirga ainihin kayanku ku gyara bambance-bambance, tare da dalili ga kowanne.",
+    "stock_transfers": "Kayan da aka aika tsakanin shagunanku da buƙatun canja-wuri.",
+    "stock_replenishment": "Kayan da za a yi oda, an tara su bisa mai kawowa, tare da adadin da aka ba da shawara.",
+    "suppliers": "Masu kawo muku kaya, farashinsu da odar sayayyarku.",
+    "caisse": "Kuɗin da aka karɓa yau, bisa mai karɓar kuɗi.",
+    "reports": "Takaitaccen lokaci: sayarwa, kuɗin da aka karɓa, kashe-kashe da kayan da suka fi sayuwa.",
+    "expenses": "Kashe-kashen shago, tare da shaidu da kasafin wannan watan.",
+    "notes": "Bayananku da tunatarwa na shago.",
+    "settings": "Saitunan wannan shago: bayanan tuntuɓa, ƙasa, lokutan buɗewa da rasit.",
+    "shops": "Duk shagunan kamfaninku da saitunansu.",
+    "team": "Membobin kamfaninku da matsayinsu a kowane shago.",
+    "company": "Bayanan kamfaninku, waɗanda dukkan shagunansa ke amfani da su.",
+    "billing": "Tsarinku, takardun biyanku da hanyoyin biyanku.",
+    "referrals": "Ku gayyaci wasu 'yan kasuwa ku sami lada a kan biyan kuɗinsu.",
+    "help": "Jagorori, tambayoyin da ake yawan yi da hanyar tuntuɓar tallafi.",
+    "help_title": "Taimako",
+    "company_title": "Kamfani",
+    "referrals_title": "Gayyata"
   }
 }

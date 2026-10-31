@@ -1,5 +1,6 @@
 'use client'
 
+import { PageHeader } from '@/components/layout/page-header'
 import { useTranslations } from 'next-intl'
 import { ArrowRightLeft } from 'lucide-react'
 import { StockTransfersTab } from '@/components/stock/stock-transfers-tab'
@@ -8,6 +9,7 @@ import { useEntityMultiShop } from '@/lib/hooks/use-entity-multi-shop'
 
 export default function StockTransfersPage({ params: { locale } }: { params: { locale: string } }) {
   const t = useTranslations('nav')
+  const tPage = useTranslations('page_header')
   const { canAccess } = useRolePermissions()
 
   // Entreprise à une seule boutique : rien à transférer ; plusieurs (même si la personne n'en gère qu'une) : demandes reçues.
@@ -28,6 +30,7 @@ export default function StockTransfersPage({ params: { locale } }: { params: { l
 
   return (
     <div className="space-y-4">
+      <PageHeader title={t('transfers')} description={tPage('stock_transfers')} />
       <StockTransfersTab />
     </div>
   )

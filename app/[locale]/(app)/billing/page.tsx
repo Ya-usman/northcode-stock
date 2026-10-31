@@ -1,5 +1,6 @@
 'use client'
 
+import { PageHeader } from '@/components/layout/page-header'
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { useTranslations, useLocale } from 'next-intl'
@@ -33,6 +34,7 @@ const PLAN_ICONS: Record<PlanId, React.ReactNode> = {
 
 export default function BillingPage({ params: { locale } }: { params: { locale: string } }) {
   const t = useTranslations('billing_page')
+  const tRoot = useTranslations()
   const { shop, user, refreshShop } = useAuth()
   const { isOnline } = useOffline()
   const { toast } = useToast()
@@ -294,11 +296,11 @@ export default function BillingPage({ params: { locale } }: { params: { locale: 
   return (
     <>
       <div className="max-w-4xl mx-auto space-y-6">
+        <PageHeader scope="entity" title={tRoot('nav.billing')} description={tRoot('page_header.billing')} />
 
         {/* Current plan status */}
         <div className="rounded-xl border bg-card p-5 shadow-sm">
           <div className="flex items-center justify-between flex-wrap gap-3">
-            <h1 className="font-bold text-lg">{t('title')}</h1>
             <div className="flex items-center gap-2 text-sm text-muted-foreground">
               <span className="text-xl">{country.flag}</span>
               <span>{country.name} · {currencySymbol(billingCurrency)}</span>

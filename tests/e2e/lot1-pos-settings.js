@@ -140,7 +140,8 @@ const gridText = async page => (await page.locator('[data-tour="pos-grid"]').inn
   ok(await page.getByTestId('settings-pick-shop').isVisible() && !/Informations de la boutique/i.test(body0) && /Apparence/i.test(body0) && /Langue/i.test(body0),
     '« Toutes » : choix de la boutique demandé ; aucune section de boutique ; apparence et langue affichées')
   await page.getByTestId('settings-pick-shop').getByRole('button').click(); await pickShop(page, AKWA)
-  ok((await page.getByTestId('settings-shop').innerText()).includes('Réglages de : Marché Soleil Akwa'), 'Akwa choisie : « Réglages de : Marché Soleil Akwa »')
+  // En-tête commun (31 oct. 2026) : la pastille de la boutique remplace la barre « Réglages de : … »
+  ok((await page.getByTestId('shop-scope-badge').innerText()).trim() === 'Akwa' && await page.getByTestId('settings-change-shop').isVisible(), 'Akwa choisie : pastille « Akwa » + « Changer de boutique »')
   const nameInput = page.locator('main input[placeholder="Boutique Alpha"]')
   ok(await nameInput.inputValue() === FULL[AKWA], `formulaire d’Akwa (nom « ${await nameInput.inputValue()} »)`)
   const saveBtn = page.locator('[data-tour="settings-save"]')
@@ -149,7 +150,7 @@ const gridText = async page => (await page.locator('[data-tour="pos-grid"]').inn
   await nameInput.fill('TEST nom modifié non enregistré'); await page.waitForTimeout(300)
   await page.locator('aside').getByText('Marché Soleil Akwa').first().click().catch(() => {}); await page.waitForTimeout(400)
   await page.locator('aside button', { hasText: 'Marché Soleil Bastos' }).last().click(); await page.waitForTimeout(3000)
-  ok(await nameInput.inputValue() === FULL[BASTOS] && (await page.getByTestId('settings-shop').innerText()).includes('Marché Soleil Bastos'),
+  ok(await nameInput.inputValue() === FULL[BASTOS] && (await page.getByTestId('shop-scope-badge').innerText()).trim() === 'Bastos',
     `en-tête → Bastos : formulaire rechargé (« ${await nameInput.inputValue()} »), la saisie d’Akwa n’est pas reprise`)
   const n = s.writes.length
   await saveBtn.click(); await page.waitForTimeout(2000)
@@ -168,7 +169,7 @@ const gridText = async page => (await page.locator('[data-tour="pos-grid"]').inn
     'caisse ouverte directement, sans question ni sélecteur de boutique')
   await s.browser.close()
   s = await open('settings'); page = s.page
-  ok(await page.getByTestId('settings-pick-shop').count() === 0 && await page.getByTestId('settings-shop').count() === 0, 'Paramètres : ni choix ni bandeau de boutique')
+  ok(await page.getByTestId('settings-pick-shop').count() === 0 && await page.getByTestId('shop-scope-badge').count() === 0, 'Paramètres : ni choix ni pastille de boutique')
   await s.browser.close()
 
   console.log(`\n${pass} réussis, ${fail} échec(s)`); process.exit(fail ? 1 : 0)

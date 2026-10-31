@@ -78,7 +78,9 @@ const closeAll = async page => { for (let i = 0; i < 4 && (await page.locator('[
   check(`rangée 2 : ${tb.labels.join(', ')}, « Plus de filtres », « … »`, tb.labels.join('|') === 'Catégorie|Statut' && tb.rows.combos.every(y => near(y, tb.rows.filters)) && near(tb.rows.filters, tb.rows.more) && tb.rows.filters > tb.rows.add, JSON.stringify(tb.rows))
   check(`rangée 3 : le compteur (« ${tb.count} ») et la petite bascule cartes / liste`, near(tb.rows.count, tb.rows.view) && tb.rows.count > tb.rows.more, JSON.stringify(tb.rows))
   check(`« Ajouter » est le seul bouton plein de la barre`, tb.filled.join('|') === 'Ajouter', tb.filled.join('|'))
-  check(`${tb.block} px entre les onglets et le premier produit (368 px avant la simplification)`, tb.block <= 230, tb.block)
+  // Budget relevé le 31 oct. 2026 (option A validée) : l'en-tête commun (titre « Produits », pastille, phrase) ajoute
+  // ~78 px sur téléphone et ~51 px sur ordinateur. Avant l'en-tête : 230 px (téléphone) / 180 px (ordinateur).
+  check(`${tb.block} px entre les onglets et le premier produit (368 px avant la simplification, 230 avant l’en-tête commun)`, tb.block <= 312, tb.block)
   check('indication de recherche courte, aucun libellé coupé, aucune petite zone tactile, pas de défilement horizontal', tb.placeholder === 'Rechercher un produit…' && tb.cut === 0 && tb.small.length === 0 && tb.overflow <= 0, JSON.stringify({ p: tb.placeholder, cut: tb.cut, small: tb.small, o: tb.overflow }))
   check(`compteur accordé : « ${tb.count} » — plus de « (s) » sur la page`, tb.count === `${totalAll} produits` && !/\(s\)/.test(await page.locator('main').innerText()), tb.count)
   check('plus de bouton « Importer / Exporter » ni de filtre Boutique dans la barre', !/Importer|Exporter|boutique/i.test(tb.text) && tb.shopControls === 0, tb.text.replace(/\s+/g, ' '))
@@ -193,7 +195,7 @@ const closeAll = async page => { for (let i = 0; i < 4 && (await page.locator('[
   await d.page.locator('aside button, header button').filter({ hasText: 'Toutes les boutiques' }).first().click(); await d.page.waitForTimeout(4500)
   const all1 = await toolbar(d.page)
   check(`en-tête → « Toutes les boutiques » : retour à ${all1.count}, regroupés par boutique`, all1.count === `${totalAll} produits` && (await d.page.locator('table').count()) === mem.length && d.shops.size === mem.length)
-  check(`ordinateur : recherche, filtres, « … » et « Ajouter » sur une ligne ; ${all1.block} px avant le premier produit (201 px avant)`, near(all1.rows.search, all1.rows.add) && near(all1.rows.search, all1.rows.more) && all1.labels.join('|') === 'Catégorie|Statut' && all1.block <= 180, JSON.stringify(all1.rows))
+  check(`ordinateur : recherche, filtres, « … » et « Ajouter » sur une ligne ; ${all1.block} px avant le premier produit (201 px avant)`, near(all1.rows.search, all1.rows.add) && near(all1.rows.search, all1.rows.more) && all1.labels.join('|') === 'Catégorie|Statut' && all1.block <= 235, JSON.stringify(all1.rows))
   await d.page.screenshot({ path: `${__dirname}/out/produits-apres-1440-liste.png` })
   await d.browser.close()
 
@@ -237,7 +239,7 @@ const closeAll = async page => { for (let i = 0; i < 4 && (await page.locator('[
 
   // ══ 7. Largeurs ═══════════════════════════════════════════════════════════════════════════════════════════
   console.log('\n7. Largeurs')
-  for (const [w, h, name, max] of [[360, 740, 'petit téléphone', 230], [820, 1180, 'tablette', 240], [1440, 900, 'ordinateur', 180]]) {
+  for (const [w, h, name, max] of [[360, 740, 'petit téléphone', 312], [820, 1180, 'tablette', 280], [1440, 900, 'ordinateur', 220]] /* + en-tête commun (31 oct. 2026) ; avant : 230 / 240 / 180 */) {
     for (const view of ['cards', 'table']) {
       const o = await open('fr', w, h)
       if (view === 'cards') await cardsMode(o.page); else await tableMode(o.page)

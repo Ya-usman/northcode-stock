@@ -1,5 +1,6 @@
 'use client'
 
+import { PageHeader } from '@/components/layout/page-header'
 import { useState, useEffect } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { usePersistedFilters } from '@/lib/hooks/use-persisted-filters'
@@ -311,6 +312,7 @@ export default function ReportsPage() {
 
   return (
     <div className="space-y-3 pb-6">
+      <PageHeader title={t('nav.reports')} description={t('page_header.reports')} />
       {/* Controls */}
       <div className="flex flex-col gap-2">
         <div className="flex items-center justify-between gap-2">

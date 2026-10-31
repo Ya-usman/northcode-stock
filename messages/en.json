@@ -4827,5 +4827,31 @@
     "status_accepted": "Accepted",
     "status_declined": "Declined",
     "status_cancelled": "Cancelled"
+  },
+  "page_header": {
+    "dashboard": "Your shop's activity: revenue, recent sales, best sellers and stock alerts.",
+    "sales_history": "All sales, with their payments, refunds and change log.",
+    "payments": "What your customers owe you and what you owe your suppliers.",
+    "customers": "Your customer book: contact details, purchases and open credit.",
+    "stock_products": "Your catalog: prices, available quantities, batches and promotions.",
+    "stock_movements": "Every stock entry and exit, with its reason and the person who made it.",
+    "stock_inventory": "Count your actual stock and correct the differences, with a reason for each.",
+    "stock_transfers": "Goods sent between your shops, and transfer requests.",
+    "stock_replenishment": "Products to order, grouped by supplier, with a suggested quantity.",
+    "suppliers": "Your suppliers, their prices and your purchase orders.",
+    "caisse": "Today's takings, by cashier.",
+    "reports": "The period at a glance: sales, takings, expenses and best sellers.",
+    "expenses": "The shop's expenses, with receipts and this month's budgets.",
+    "notes": "Your notes and reminders for the shop.",
+    "settings": "This shop's settings: contact details, country, opening hours and receipts.",
+    "shops": "All the shops of your company and their settings.",
+    "team": "The members of your company and their role in each shop.",
+    "company": "Your company's details, shared by all its shops.",
+    "billing": "Your plan, your invoices and your payment methods.",
+    "referrals": "Refer other merchants and earn rewards on their subscriptions.",
+    "help": "Guides, frequently asked questions and support contact.",
+    "help_title": "Help",
+    "company_title": "Company",
+    "referrals_title": "Referrals"
   }
 }

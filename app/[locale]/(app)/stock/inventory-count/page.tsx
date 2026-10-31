@@ -9,6 +9,7 @@
 // qui a le droit « Inventaire » ; deux appareils ne s'écrasent jamais sans le savoir (contrôle de version).
 // Contexte : la boutique de l'en-tête ; en « Toutes les boutiques », choix explicite (jamais la boutique cachée).
 
+import { PageHeader } from '@/components/layout/page-header'
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react'
 import dynamic from 'next/dynamic'
 import { useTranslations } from 'next-intl'
@@ -66,6 +67,7 @@ const signed = (n: number) => (n > 0 ? `+${n}` : String(n))
 export default function InventoryCountPage({ params: { locale } }: { params: { locale: string } }) {
   const t = useTranslations('inventoryCount')
   const tProducts = useTranslations('products')
+  const tRoot = useTranslations()
   const unitLabel = useUnitLabel()
   const { toast } = useToast()
   const { userShops, switchShop } = useAuth()
@@ -321,6 +323,8 @@ export default function InventoryCountPage({ params: { locale } }: { params: { l
 
   return (
     <div className="space-y-4 pb-28">
+      {/* Pastille remplacée par l'indication explicite « Inventaire : … » juste dessous */}
+      <PageHeader badge={false} title={tRoot('nav.inventory_count')} description={tRoot('page_header.stock_inventory')} />
       {/* Boutique inventoriée : toujours visible (compte à plusieurs boutiques) */}
       {shop && multiShopAccount && (
         <div className="flex flex-wrap items-center gap-2" data-testid="inventory-shop">

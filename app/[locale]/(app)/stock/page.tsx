@@ -1,5 +1,6 @@
 'use client'
 
+import { PageHeader } from '@/components/layout/page-header'
 import { useEffect, useMemo, useState, type ComponentType } from 'react'
 import { useRouter } from 'next/navigation'
 import { startNavigationProgress } from '@/components/layout/navigation-progress'
@@ -18,7 +19,6 @@ import { useShopLoadTimeout } from '@/lib/hooks/use-shop-load-timeout'
 import { getPageCache, setPageCache } from '@/lib/offline/page-cache'
 import { presetPersistedFilters } from '@/lib/hooks/use-persisted-filters'
 import { useFilterScope } from '@/lib/filters/use-filter-scope'
-import { ShopScopeBadge } from '@/components/shops/shop-scope-badge'
 import { withTimeout } from '@/lib/utils/with-timeout'
 import { cn } from '@/lib/utils/cn'
 import { LoadErrorFallback } from '@/components/ui/load-error-fallback'
@@ -314,14 +314,7 @@ export default function StockOverviewPage({ params: { locale } }: { params: { lo
 
   return (
     <div className="space-y-5">
-      <div>
-        <div className="flex items-center justify-between gap-3">
-          <h1 className="text-lg font-semibold">{t('stock_overview.title')}</h1>
-          {/* Périmètre des chiffres : « Toutes les boutiques » ou la boutique de l'en-tête (compte multi-boutique) */}
-          <ShopScopeBadge emphasizeSingle testId="overview-shop-context" className="min-w-0" />
-        </div>
-        <p className="text-sm text-muted-foreground">{t('stock_overview.subtitle')}</p>
-      </div>
+      <PageHeader title={t('stock_overview.title')} description={t('stock_overview.subtitle')} badgeTestId="overview-shop-context" />
 
       {loading && shopLoadTimedOut && effectiveShopIds.length === 0 ? (
         <LoadErrorFallback />

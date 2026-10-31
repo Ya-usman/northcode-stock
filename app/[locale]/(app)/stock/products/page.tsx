@@ -1,5 +1,6 @@
 'use client'
 
+import { PageHeader } from '@/components/layout/page-header'
 import { useState, useEffect, useRef } from 'react'
 import { useRouter, usePathname, useSearchParams } from 'next/navigation'
 import { startNavigationProgress } from '@/components/layout/navigation-progress'
@@ -58,7 +59,6 @@ import { MultiSelectFilter, MultiSelectList } from '@/components/ui/multi-select
 import { asValueList, keepKnown, matchesAny, shopScopedGroups, toggleValue, type FilterGroup } from '@/lib/filters/multi-select'
 import { useFilterScope } from '@/lib/filters/use-filter-scope'
 import { useShopScope } from '@/lib/shops/use-shop-scope'
-import { ShopScopeBadge } from '@/components/shops/shop-scope-badge'
 import { useOffline } from '@/lib/offline/use-offline'
 import { useRefetchOnReconnect } from '@/lib/hooks/use-refetch-on-reconnect'
 import { useRefetchOnVisible } from '@/lib/hooks/use-refetch-on-visible'
@@ -1437,6 +1437,7 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
 
   return (
     <div className="space-y-4">
+      <PageHeader title={t('nav.products')} description={t('page_header.stock_products')} />
       <>
       {/* Zone du haut, du plus important au moins important :
             1. la recherche et « Ajouter » (seule action pleine) ;
@@ -1572,7 +1573,6 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
         <div className="flex min-h-9 items-center justify-between gap-2">
           <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1 text-sm text-muted-foreground">
             {/* Pas de « 0 produit » trompeur tant que la liste se charge sans cache */}
-            <ShopScopeBadge />
             <span data-testid="products-count">{loading && products.length === 0 ? '…' : t('products.stats_count', { count: showArchived ? archivedProducts.length : filtered.length })}</span>
             {anyFilterActive && (
               <button type="button" onClick={resetFilters} className="text-xs underline hover:text-foreground">

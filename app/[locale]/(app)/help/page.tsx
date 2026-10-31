@@ -1,6 +1,8 @@
 'use client'
 
+import { PageHeader } from '@/components/layout/page-header'
 import { useState } from 'react'
+import { useTranslations } from 'next-intl'
 import { ChevronDown, ChevronUp, MessageCircle, Mail, BookOpen, HelpCircle, List } from 'lucide-react'
 import { cn } from '@/lib/utils/cn'
 import Image from 'next/image'
@@ -561,6 +563,7 @@ function ManualContent() {
 type Tab = 'faq' | 'manual'
 
 export default function HelpPage() {
+  const tPage = useTranslations('page_header')
   const [tab, setTab] = useState<Tab>('faq')
 
   return (
@@ -568,13 +571,11 @@ export default function HelpPage() {
       {/* Tours guidés et guide « Bien démarrer » */}
       <HelpTours />
 
-      {/* Header */}
+      {/* En-tête commun (le titre était écrit en dur en français) */}
+      <PageHeader scope="entity" title={tPage('help_title')} description={tPage('help')} />
       <div className="rounded-xl border bg-card p-5 shadow-sm">
-        <h1 className="font-bold text-lg mb-1">Aide & Documentation</h1>
-        <p className="text-sm text-muted-foreground">FAQ rapide ou manuel complet illustré.</p>
-
         {/* Tab switcher */}
-        <div className="flex mt-4 rounded-xl border bg-muted p-1 gap-1">
+        <div className="flex rounded-xl border bg-muted p-1 gap-1">
           <button
             onClick={() => setTab('faq')}
             className={cn(
