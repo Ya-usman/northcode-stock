@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo } from 'react'
 import { useAuthContext } from '@/lib/contexts/auth-context'
-import { shortShopName } from '@/lib/shops/short-name'
+import { shopShortLabel } from '@/lib/shops/short-name'
 import { useShopPicker, type ShopPickOptions } from '@/components/shops/shop-picker'
 import type { Shop } from '@/lib/types/database'
 
@@ -23,8 +23,10 @@ export interface ShopScope {
   /** Boutique du contexte quand l'en-tête en désigne UNE ; null en « Toutes les boutiques » */
   shopId: string | null
   shopName: string | null
-  /** « Marché Soleil Akwa » → « Akwa » (règle stricte, lib/shops/short-name) */
+  /** Nom court : celui choisi, sinon « Marché Soleil Akwa » → « Akwa » (lib/shops/short-name) */
   shortName: string | null
+  /** Boutique du contexte (couleur, nom court) ; null en « Toutes les boutiques » */
+  shop: Shop | null
   /** Boutiques couvertes par la page (en-tête) */
   shopIds: string[]
   businessId: string | null
@@ -58,7 +60,8 @@ export function useShopScope({ companyView = false }: { companyView?: boolean } 
     isCompanyView: companyView,
     shopId: scopedShop?.id ?? null,
     shopName: scopedShop?.name ?? null,
-    shortName: scopedShop ? shortShopName(scopedShop.name, scopedShop.entity_name) : null,
+    shortName: scopedShop ? shopShortLabel(scopedShop) : null,
+    shop: scopedShop,
     shopIds: effectiveShopIds,
     businessId: business?.entity_id ?? null,
     businessName: business?.entity_name ?? null,

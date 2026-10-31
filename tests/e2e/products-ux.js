@@ -44,7 +44,7 @@ const toolbar = page => page.evaluate(() => {
     block: Math.round(first.getBoundingClientRect().top - tabs.getBoundingClientRect().bottom),
     count: q('[data-testid="products-count"]').innerText.trim(),
     overflow: document.documentElement.scrollWidth - window.innerWidth,
-    groups: [...document.querySelectorAll('main span.uppercase.tracking-wide')].filter(e => e.closest('.space-y-2') && /store|lucide/.test(e.previousElementSibling ? e.previousElementSibling.getAttribute('class') || '' : '')).length,
+    groups: [...document.querySelectorAll('main span.uppercase.tracking-wide')].filter(e => e.closest('.space-y-2') && (e.previousElementSibling && (e.previousElementSibling.hasAttribute('data-shop-mark') /* repère de couleur, migration 191 */ || /store|lucide/.test(e.previousElementSibling.getAttribute('class') || '')))).length,
     // Texte de la barre SANS le badge de contexte (« Toutes les boutiques » : indicateur, pas un filtre)
     text: (() => { const c = bar.cloneNode(true); c.querySelectorAll('[data-testid=shop-scope-badge]').forEach(e => e.remove()); return c.textContent })(),
     shopControls: [...bar.querySelectorAll('select, button[role=combobox]')].filter(e => /boutique/i.test(e.textContent || '')).length,
@@ -184,14 +184,14 @@ const closeAll = async page => { for (let i = 0; i < 4 && (await page.locator('[
   check(`« Toutes les boutiques » : ${all0.count}, ${await d.page.locator('table').count()} tableaux titrés`, all0.count === `${totalAll} produits` && (await d.page.locator('table').count()) === mem.length)
   d.shops.clear()
   await d.page.locator('aside button, header button').filter({ hasText: 'Toutes les boutiques' }).first().click(); await d.page.waitForTimeout(600)
-  await d.page.locator('aside button, header button').filter({ hasText: /^Boutique Alpha/ }).first().click(); await d.page.waitForTimeout(4500)
+  await d.page.locator('aside button, header button').filter({ hasText: /^(?:[A-Z]{2}s*)?Boutique Alpha/ }) /* initiales du repère de couleur devant le nom (migration 191) */.first().click(); await d.page.waitForTimeout(4500)
   const one = await toolbar(d.page)
   const alphaNames = await d.page.locator('table tbody tr [data-product-name]').allInnerTexts()
   check(`en-tête → « Boutique Alpha » : ${one.count}, un seul tableau, sans titre de boutique, uniquement ses produits`, one.count === `${prods.length} produits` && (await d.page.locator('table').count()) === 1 && one.groups === 0 && alphaNames.length === prods.length, `${one.count} / ${alphaNames.length}`)
   check('… seule cette boutique est demandée à la base', d.shops.size === 1 && d.shops.has(ALPHA), [...d.shops].join(','))
   check('… aucun second sélecteur de boutique dans la page', one.labels.length === 2 && !/boutique/i.test(one.text))
   d.shops.clear()
-  await d.page.locator('aside button, header button').filter({ hasText: /^Boutique Alpha/ }).first().click(); await d.page.waitForTimeout(600)
+  await d.page.locator('aside button, header button').filter({ hasText: /^(?:[A-Z]{2}s*)?Boutique Alpha/ }) /* initiales du repère de couleur devant le nom (migration 191) */.first().click(); await d.page.waitForTimeout(600)
   await d.page.locator('aside button, header button').filter({ hasText: 'Toutes les boutiques' }).first().click(); await d.page.waitForTimeout(4500)
   const all1 = await toolbar(d.page)
   check(`en-tête → « Toutes les boutiques » : retour à ${all1.count}, regroupés par boutique`, all1.count === `${totalAll} produits` && (await d.page.locator('table').count()) === mem.length && d.shops.size === mem.length)

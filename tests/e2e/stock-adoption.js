@@ -164,7 +164,9 @@ const pickShop = async (page, id) => { const p = page.getByTestId('shop-picker')
     const seen = ['TR-2026-0001', 'TR-2026-0002'].filter(r => txt.includes(r))
     ok(seen.join() === expected.join(), `${name} : ${seen.join(', ') || 'aucun'}`)
     if (shop === null) {
-      ok(/Marché Soleil Akwa\s*→?\s*Marché Soleil Bastos/.test(txt.replace(/\n/g, ' ')) || (txt.includes('Marché Soleil Akwa') && txt.includes('Marché Soleil Bastos')), 'chaque carte : « Source → Destination »')
+      // Noms COURTS sur les cartes (migration 191), nom complet au survol (title)
+      const titles = await s.page.locator('[data-testid=transfer-card] span[title]').evaluateAll(els => els.map(e => e.getAttribute('title')))
+      ok(/Akwa\s*→?\s*(BA\s*)?Bastos/.test(txt.replace(/\n/g, ' ')) && titles.includes('Marché Soleil Akwa') && titles.includes('Marché Soleil Bastos'), 'chaque carte : « Akwa → Bastos » (noms courts, noms complets au survol)')
       // Nouveau transfert : source choisie explicitement
       await s.page.getByRole('button', { name: 'Nouveau transfert' }).click()
       await pickShop(s.page, AKWA)

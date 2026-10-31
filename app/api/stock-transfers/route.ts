@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+import { shopShortLabels } from '@/lib/shops/short-name-server'
 import { canViewCost, canViewFeature, canWriteFeature } from '@/lib/api/role-permissions'
 import { createAdminClient } from '@/lib/supabase/server'
 import { getAuthedUser, checkShopRole } from '@/lib/api/shop-auth'
@@ -156,7 +157,7 @@ export async function POST(request: Request) {
       })
       const { data: src } = await admin.from('shops').select('name').eq('id', source_shop_id).maybeSingle()
       await notifyRequester(admin, linked.requesting_shop_id, linked.requested_by, {
-        title: t('push_transfer_request_accepted_title', { shop: src?.name ?? '' }),
+        title: t('push_transfer_request_accepted_title', { shop: (await shopShortLabels(admin, [source_shop_id]))[source_shop_id] || src?.name || '' }),
         body: asDraft ? t('push_transfer_request_prepared_body', { reference: data?.reference ?? '' }) : t('push_transfer_request_sent_body', { reference: data?.reference ?? '' }),
       })
     }

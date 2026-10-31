@@ -1669,7 +1669,19 @@
     "push_new_expense_label": "Alerte nouvelle dépense",
     "push_new_expense_hint": "Recevoir une alerte quand un Responsable ou Caissier ajoute une dépense",
     "referrals_title": "Parrainage & récompenses",
-    "referrals_subtitle": "Parrainez d'autres commerçants et gagnez des récompenses"
+    "referrals_subtitle": "Parrainez d'autres commerçants et gagnez des récompenses",
+    "short_name_label": "Nom court",
+    "short_name_hint": "Affiché là où la place manque (téléphone, listes, transferts). Laissez vide pour le nom proposé.",
+    "color_label": "Couleur de la boutique",
+    "color_preview": "Aperçu :",
+    "color_blue": "Bleu",
+    "color_violet": "Violet",
+    "color_teal": "Sarcelle",
+    "color_pink": "Rose",
+    "color_indigo": "Indigo",
+    "color_cyan": "Cyan",
+    "color_amber": "Ambre",
+    "color_slate": "Ardoise"
   },
   "referrals": {
     "page_title": "Parrainage & récompenses",
@@ -4092,7 +4104,10 @@
     "batch_photo_too_large": "Photo trop lourde (2 Mo au plus).",
     "batch_photo_type": "Format non accepté : JPEG, PNG ou WebP uniquement.",
     "batch_photo_upload_failed": "L'envoi de la photo a échoué.",
-    "product_archived_history": "Ce produit possède un historique. Il a été archivé afin de conserver la traçabilité."
+    "product_archived_history": "Ce produit possède un historique. Il a été archivé afin de conserver la traçabilité.",
+    "shop_short_name_invalid": "Le nom court doit faire 20 caractères au plus.",
+    "shop_short_name_taken": "Ce nom court est déjà utilisé par une autre boutique de l'entreprise.",
+    "shop_color_invalid": "Couleur non reconnue."
   },
   "product_form": {
     "code_scanned": "Code scanné : {code}",

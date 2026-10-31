@@ -6,8 +6,10 @@
 // (« Réceptionner » pour la boutique d'ARRIVÉE seulement, sinon « Voir le détail ») et menu « … » (actions secondaires).
 import { forwardRef } from 'react'
 import { useLocale, useTranslations } from 'next-intl'
-import { ArrowRight, CalendarDays, CheckCircle2, ChevronRight, Clock, Eye, FileEdit, MoreHorizontal, Package, QrCode, Store, Truck, XCircle } from 'lucide-react'
+import { ArrowRight, CalendarDays, CheckCircle2, ChevronRight, Clock, Eye, FileEdit, MoreHorizontal, Package, QrCode, Truck, XCircle } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { ShopMark } from '@/components/shops/shop-mark'
+import { useShopLook } from '@/lib/shops/use-shop-look'
 import { cn } from '@/lib/utils/cn'
 import { formatLocaleDate, formatLocaleTime } from '@/lib/i18n/date-format'
 import { isLateTransit, transferTotals, transitDays, type TransferRow } from '@/lib/stock/transfers-view'
@@ -48,6 +50,9 @@ export function TransferCard({ tr, onOpen, onReceive, menu }: {
   menu: React.ReactNode
 }) {
   const t = useTranslations('transfers')
+  // Boutiques : nom court + repère coloré (migration 191), nom complet en info-bulle
+  const look = useShopLook()
+  const src = look(tr.source_shop_id, tr.source_shop_name), dst = look(tr.destination_shop_id, tr.destination_shop_name)
   const locale = useLocale()
   const fmtDate = (iso: string) => formatLocaleDate(iso, locale, { day: 'numeric', month: 'short', year: 'numeric' })
   const fmtTime = (iso: string) => formatLocaleTime(iso, locale)
@@ -88,11 +93,11 @@ export function TransferCard({ tr, onOpen, onReceive, menu }: {
 
         <div className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-sm">
           <span className="inline-flex min-w-0 items-center gap-1.5 font-medium text-foreground">
-            <Store className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden="true" /><span className="truncate">{tr.source_shop_name}</span>
+            <ShopMark shop={src.shop} size="xs" /><span className="truncate" title={src.full}>{src.label}</span>
           </span>
           <ArrowRight className="h-4 w-4 shrink-0 text-muted-foreground" aria-label="→" />
           <span className="inline-flex min-w-0 items-center gap-1.5 font-medium text-foreground">
-            <Store className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden="true" /><span className="truncate">{tr.destination_shop_name}</span>
+            <ShopMark shop={dst.shop} size="xs" /><span className="truncate" title={dst.full}>{dst.label}</span>
           </span>
         </div>
         <p className="mt-1.5 flex items-center gap-1.5 text-sm text-muted-foreground">

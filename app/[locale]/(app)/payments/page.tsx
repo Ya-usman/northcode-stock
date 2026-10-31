@@ -1,5 +1,7 @@
 'use client'
 
+import { ShopDot } from '@/components/shops/shop-mark'
+import { shopShortLabel } from '@/lib/shops/short-name'
 import { PageHeader } from '@/components/layout/page-header'
 import { useState, useEffect, useRef, useMemo } from 'react'
 import { useSearchParams } from 'next/navigation'
@@ -1809,7 +1811,7 @@ export default function CreditsPage() {
                                 </Badge>
                               </div>
                               {entry.customer.phone && <p className="text-xs text-muted-foreground">{entry.customer.phone}</p>}
-                              {isMultiShop && <p className="text-[11px] text-muted-foreground" data-entry-shop>{shopOf(entry.customer.shop_id)?.name}</p>}
+                              {isMultiShop && <p className="flex items-center gap-1 text-[11px] text-muted-foreground" data-entry-shop title={shopOf(entry.customer.shop_id)?.name}><ShopDot shop={shopOf(entry.customer.shop_id)} />{shopShortLabel(shopOf(entry.customer.shop_id))}</p>}
                             </div>
                           </div>
                           <div className="text-right flex-shrink-0">
@@ -2050,7 +2052,7 @@ export default function CreditsPage() {
                                 </Badge>
                               </div>
                               {entry.supplier.phone && <p className="text-xs text-muted-foreground">{entry.supplier.phone}</p>}
-                              {isMultiShop && <p className="text-[11px] text-muted-foreground" data-entry-shop>{shopOf(entry.supplier.shop_id)?.name}</p>}
+                              {isMultiShop && <p className="flex items-center gap-1 text-[11px] text-muted-foreground" data-entry-shop title={shopOf(entry.supplier.shop_id)?.name}><ShopDot shop={shopOf(entry.supplier.shop_id)} />{shopShortLabel(shopOf(entry.supplier.shop_id))}</p>}
                             </div>
                           </div>
                           <div className="text-right flex-shrink-0">

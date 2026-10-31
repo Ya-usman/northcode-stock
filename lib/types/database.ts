@@ -23,6 +23,10 @@ export interface Shop {
   entity_id?: string | null
   /** Nom de l'entreprise, résolu par attachOwnerPlan (pas une colonne de shops) */
   entity_name?: string | null
+  /** Nom court choisi (migration 191) ; absent avant la migration */
+  short_name?: string | null
+  /** Couleur de la boutique parmi 8 teintes (migration 191) */
+  color?: string | null
   /** Type d'établissement : 'shop' aujourd'hui ; restaurant, hôtel… plus tard */
   establishment_type?: 'shop' | 'restaurant' | 'service' | 'hotel' | 'beauty' | 'other'
   /** Identité sur les reçus et tickets (migration 149) : activité sous le nom, mentions légales (une par ligne), message de pied. */

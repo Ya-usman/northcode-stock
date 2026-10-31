@@ -1,5 +1,6 @@
 'use client'
 
+import { ShopMark } from '@/components/shops/shop-mark'
 import { PageHeader } from '@/components/layout/page-header'
 import { useState, useEffect, useRef } from 'react'
 import { useRouter, usePathname, useSearchParams } from 'next/navigation'
@@ -1695,7 +1696,7 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
               return (
                 <div key={shopEntry.id} className="space-y-2">
                   <div className="flex items-center gap-2 pt-1">
-                    <Store className="h-3.5 w-3.5 text-stockshop-blue dark:text-blue-400 flex-shrink-0" />
+                    <ShopMark shop={shopEntry} size="xs" />
                     <span className="text-xs font-semibold text-stockshop-blue dark:text-blue-400 uppercase tracking-wide">{shopEntry.name}</span>
                     <div className="flex-1 h-px bg-border" />
                   </div>
@@ -1715,7 +1716,7 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
             return (
               <div key={shopEntry.id} className="space-y-2">
                 <div className="flex items-center gap-2 pt-1">
-                  <Store className="h-3.5 w-3.5 text-stockshop-blue dark:text-blue-400 flex-shrink-0" />
+                  <ShopMark shop={shopEntry} size="xs" />
                   <span className="text-xs font-semibold text-stockshop-blue dark:text-blue-400 uppercase tracking-wide">{shopEntry.name}</span>
                   <div className="flex-1 h-px bg-border" />
                 </div>

@@ -1,5 +1,8 @@
 'use client'
 
+import { shortShopName } from '@/lib/shops/short-name'
+import { SHOP_COLORS, SHOP_COLOR_CLASSES } from '@/lib/shops/colors'
+import { ShopMark } from '@/components/shops/shop-mark'
 import { PageHeader } from '@/components/layout/page-header'
 import { useState, useEffect, useRef } from 'react'
 import Link from 'next/link'
@@ -84,6 +87,9 @@ export default function SettingsPage({ params: { locale } }: { params: { locale:
   const [loading, setLoading] = useState(!shopData && !scope.isAllShops)
 
   const [name, setName] = useState('')
+  // Nom court et couleur (migration 191) ; champs absents avant la migration : section cachée
+  const [shortName, setShortName] = useState('')
+  const [shopColor, setShopColor] = useState<string | null>(null)
   const [city, setCity] = useState('')
   const [state, setState] = useState('')
   const [country, setCountry] = useState<CountryCode>('NG')
@@ -267,6 +273,8 @@ export default function SettingsPage({ params: { locale } }: { params: { locale:
       initialisedFor.current = shopData.id
       setShop(shopData)
       setName(shopData.name)
+      setShortName(shopData.short_name ?? '')
+      setShopColor(shopData.color ?? null)
       setCity(shopData.city)
       setState(shopData.state)
       setCountry((shopData.country as CountryCode) || 'NG')
@@ -357,6 +365,7 @@ export default function SettingsPage({ params: { locale } }: { params: { locale:
     }
   }
 
+  const supportsShopLook = !!shopData && 'color' in shopData
   const saveSettings = async () => {
     if (!shop?.id) return
     if (hoursEnabled && closingTime <= openingTime) {
@@ -369,6 +378,7 @@ export default function SettingsPage({ params: { locale } }: { params: { locale:
     const updates = {
       ...(timezone !== timezoneInitial || country !== shop.country ? { timezone: timezone || null } : {}),
       name: name.trim(),
+      ...(supportsShopLook ? { short_name: shortName.trim() || null, ...(shopColor ? { color: shopColor } : {}) } : {}),
       city,
       state,
       country,
@@ -580,7 +590,7 @@ export default function SettingsPage({ params: { locale } }: { params: { locale:
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="flex items-center gap-4" data-tour="settings-logo">
-                <ShopLogo src={shop?.logo_url} name={shop?.name || name} size="lg" shape="auto" />
+                <ShopLogo src={shop?.logo_url} name={shop?.name || name} size="lg" shape="auto" shop={supportsShopLook ? { id: shopData?.id, name, short_name: shortName, entity_name: shopData?.entity_name, color: shopColor } : undefined} />
                 <div>
                   <p className="text-sm font-medium">{t('settings.logo')}</p>
                   <label className="mt-1 inline-flex items-center gap-2 cursor-pointer rounded-md border px-3 py-1.5 text-xs hover:bg-muted transition-colors">
@@ -600,6 +610,33 @@ export default function SettingsPage({ params: { locale } }: { params: { locale:
                   <Label>{t('settings.whatsapp')}</Label>
                   <Input value={whatsapp} onChange={e => setWhatsapp(e.target.value)} placeholder="2348012345678" type="tel" />
                 </div>
+                {supportsShopLook && (
+                  <>
+                    {/* Nom court : affiché là où la place manque ; vide = règle automatique (nom de l'entreprise retiré) */}
+                    <div className="space-y-1">
+                      <Label htmlFor="shop-short-name">{t('settings.short_name_label')}</Label>
+                      <Input id="shop-short-name" data-testid="shop-short-name" value={shortName} maxLength={20}
+                        onChange={e => setShortName(e.target.value)} placeholder={shortShopName(name, shopData?.entity_name)} />
+                      <p className="text-xs text-muted-foreground">{t('settings.short_name_hint')}</p>
+                    </div>
+                    {/* Couleur : repère de la boutique dans les listes, les transferts et la pastille de contexte */}
+                    <div className="space-y-1">
+                      <Label>{t('settings.color_label')}</Label>
+                      <div className="flex flex-wrap items-center gap-2" role="radiogroup" aria-label={t('settings.color_label')} data-testid="shop-color">
+                        {SHOP_COLORS.map(c => (
+                          <button key={c} type="button" role="radio" aria-checked={shopColor === c} aria-label={t(`settings.color_${c}` as any)} title={t(`settings.color_${c}` as any)}
+                            onClick={() => setShopColor(c)}
+                            className={cn('h-8 w-8 rounded-full ring-offset-2 ring-offset-background transition-shadow focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-stockshop-blue/60', SHOP_COLOR_CLASSES[c].dot, shopColor === c && 'ring-2 ring-foreground')} />
+                        ))}
+                      </div>
+                      <p className="flex items-center gap-2 text-xs text-muted-foreground">
+                        {t('settings.color_preview')}
+                        <ShopMark shop={{ id: shopData?.id, name, short_name: shortName, entity_name: shopData?.entity_name, color: shopColor }} />
+                        <span className="font-medium text-foreground">{shortName.trim() || shortShopName(name, shopData?.entity_name)}</span>
+                      </p>
+                    </div>
+                  </>
+                )}
                 <div className="space-y-1">
                   <Label>{t('settings.city')}</Label>
                   <Input value={city} onChange={e => setCity(e.target.value)} placeholder={t('settings.city_example')} />

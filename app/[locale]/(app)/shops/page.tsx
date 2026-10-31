@@ -197,7 +197,7 @@ export default function ShopsPage({ params: { locale } }: { params: { locale: st
                     tabIndex={0} onKeyDown={e => { if (e.key === 'Enter') open(s.id) }}>
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-3">
-                        <ShopLogo src={s.logo_url} name={s.name} size="sm" className="rounded-md" />
+                        <ShopLogo src={s.logo_url} name={s.name} shop={s} size="sm" className="rounded-md" />
                         <div className="min-w-0">
                           <p className="flex items-center gap-1.5 truncate font-medium">
                             {s.name}
@@ -226,7 +226,7 @@ export default function ShopsPage({ params: { locale } }: { params: { locale: st
               <button type="button" key={s.id} onClick={() => open(s.id)} data-testid="shop-card"
                 className={cn('w-full space-y-3 rounded-xl border-2 bg-card p-4 text-left shadow-sm transition-colors hover:bg-muted/30', s.id === activeShop?.id ? 'border-stockshop-blue dark:border-blue-500' : 'border-border')}>
                 <div className="flex items-center gap-3">
-                  <ShopLogo src={s.logo_url} name={s.name} size="md" className="rounded-lg" />
+                  <ShopLogo src={s.logo_url} name={s.name} shop={s} size="md" className="rounded-lg" />
                   <div className="min-w-0 flex-1">
                     <p className="truncate text-sm font-semibold">{s.name}{s.code && <span className="ml-1.5 font-mono text-[11px] font-normal text-muted-foreground">{s.code}</span>}</p>
                     <p className="truncate text-xs text-muted-foreground">{[s.city, leadsText(s.id) !== '—' ? leadsText(s.id) : null].filter(Boolean).join(' · ') || '—'}</p>

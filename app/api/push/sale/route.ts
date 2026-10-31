@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+import { shopShortLabels } from '@/lib/shops/short-name-server'
 import webpush from 'web-push'
 import { createClient, createAdminClient } from '@/lib/supabase/server'
 import { configureWebPush } from '@/lib/api/push-server'
@@ -55,15 +56,17 @@ export async function POST(req: Request) {
       ? formatCurrency(Number(total), shop.currency)
       : `${currency_symbol}${Number(total).toLocaleString('fr-FR')}`
     const body = cashier_name
-      ? `${cashier_name} — ${amount} via ${payment_label}`
+      ? `${cashier_name} · ${amount} via ${payment_label}`
       : `${amount} via ${payment_label}`
 
     // Titre dans la langue de chaque destinataire (profil), jamais figé en français
     const { data: profs } = await admin.from('profiles').select('id, locale').in('id', subs.map((s: any) => s.user_id))
     const localeOf = new Map<string, string | null>((profs || []).map((p: any) => [p.id, p.locale]))
     const tag = `sale-${shop_id}-${Date.now()}`
+    // Nom court de la boutique (migration 191) : « Vente · Akwa » se lit en entier sur l'écran verrouillé
+    const shopLabel = (await shopShortLabels(admin, [shop_id]))[shop_id] || shop.name
     const payloadFor = (userId: string) => JSON.stringify({
-      title: `💰 ${getLocaleTranslator(localeOf.get(userId), 'sales')('sale_label')} — ${shop.name}`,
+      title: `💰 ${getLocaleTranslator(localeOf.get(userId), 'sales')('sale_label')} · ${shopLabel}`,
       body,
       tag,
       url: '/sales/history',

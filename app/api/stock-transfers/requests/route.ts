@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+import { shopShortLabels } from '@/lib/shops/short-name-server'
 import { createAdminClient } from '@/lib/supabase/server'
 import { getAuthedUser } from '@/lib/api/shop-auth'
 import { getApiTranslator } from '@/lib/api/i18n'
@@ -112,7 +113,7 @@ export async function POST(request: Request) {
       metadata: { product_name: product.name, quantity, source_shop_id: sourceShopId, source_shop_name: nameOf(sourceShopId) },
     })
     await notifyNewRequest(admin, sourceShopId, {
-      title: t('push_transfer_request_title', { shop: nameOf(shopId) }),
+      title: t('push_transfer_request_title', { shop: (await shopShortLabels(admin, [shopId]))[shopId] || nameOf(shopId) }),
       body: t('push_transfer_request_body', { quantity, product: product.name }),
     })
     return NextResponse.json({ data: { id: data.id } })

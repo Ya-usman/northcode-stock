@@ -5,9 +5,11 @@
 // réceptionné, annulé, avec qui et quand). Actions selon les droits renvoyés par le serveur (qui revérifie tout).
 import { useEffect, useState } from 'react'
 import { useLocale, useTranslations } from 'next-intl'
-import { ArrowRight, Ban, CheckCircle2, Clock, FileEdit, History, Loader2, Package, QrCode, Send, Store, Truck, XCircle } from 'lucide-react'
+import { ArrowRight, Ban, CheckCircle2, Clock, FileEdit, History, Loader2, Package, QrCode, Send, Truck, XCircle } from 'lucide-react'
 import { AppDrawer } from '@/components/ui/app-drawer'
 import { Button } from '@/components/ui/button'
+import { ShopMark } from '@/components/shops/shop-mark'
+import { useShopLook } from '@/lib/shops/use-shop-look'
 import { formatLocaleDate, formatLocaleTime } from '@/lib/i18n/date-format'
 import { useUnitLabel } from '@/lib/products/use-unit-label'
 import { cn } from '@/lib/utils/cn'
@@ -27,6 +29,7 @@ export function TransferDetailDrawer({ id, onOpenChange, onReceive, onSend, onEd
   busy?: string | null
 }) {
   const t = useTranslations('transfers')
+  const look = useShopLook()
   const locale = useLocale()
   const unitLabel = useUnitLabel()
   const [tr, setTr] = useState<any | null>(null)
@@ -51,7 +54,7 @@ export function TransferDetailDrawer({ id, onOpenChange, onReceive, onSend, onEd
     <AppDrawer
       open={!!id}
       onOpenChange={onOpenChange}
-      category={tr ? `${tr.source_shop_name} → ${tr.destination_shop_name}` : undefined}
+      category={tr ? `${look(tr.source_shop_id, tr.source_shop_name).label} → ${look(tr.destination_shop_id, tr.destination_shop_name).label}` : undefined}
       title={tr?.reference || '…'}
       icon={<Truck className="h-4 w-4" />}
       width="md"
@@ -94,9 +97,9 @@ export function TransferDetailDrawer({ id, onOpenChange, onReceive, onSend, onEd
               )}
             </div>
             <div className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-sm font-medium">
-              <span className="inline-flex items-center gap-1.5"><Store className="h-4 w-4 text-muted-foreground" />{tr.source_shop_name}</span>
+              <span className="inline-flex items-center gap-1.5"><ShopMark shop={look(tr.source_shop_id, tr.source_shop_name).shop} />{tr.source_shop_name}</span>
               <ArrowRight className="h-4 w-4 text-muted-foreground" />
-              <span className="inline-flex items-center gap-1.5"><Store className="h-4 w-4 text-muted-foreground" />{tr.destination_shop_name}</span>
+              <span className="inline-flex items-center gap-1.5"><ShopMark shop={look(tr.destination_shop_id, tr.destination_shop_name).shop} />{tr.destination_shop_name}</span>
             </div>
             <p className="mt-1.5 flex items-center gap-1.5 text-sm text-muted-foreground"><Package className="h-4 w-4" />{t('card_totals', { products: tr.stock_transfer_items.length, units: tr.units_sent })}</p>
             {tr.notes && <p className="mt-2 rounded-md bg-muted/60 px-2.5 py-1.5 text-sm">{tr.notes}</p>}

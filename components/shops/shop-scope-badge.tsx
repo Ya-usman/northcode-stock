@@ -2,7 +2,8 @@
 
 import * as React from 'react'
 import { useTranslations } from 'next-intl'
-import { Building2, Layers, Store } from 'lucide-react'
+import { Building2, Layers } from 'lucide-react'
+import { ShopDot } from '@/components/shops/shop-mark'
 import { cn } from '@/lib/utils/cn'
 import { useShopScope } from '@/lib/shops/use-shop-scope'
 
@@ -30,7 +31,8 @@ export function ShopScopeBadge({
   if (!scope.multiShop) return null
   if (scope.mode === 'single_shop' && !emphasizeSingle) return null
 
-  const Icon = scope.mode === 'company' ? Building2 : scope.mode === 'all_shops' ? Layers : Store
+  // Une boutique : point de SA couleur (migration 191) ; « Toutes » et « Vue entreprise » : icône
+  const Icon = scope.mode === 'company' ? Building2 : Layers
   const label = scope.mode === 'company' ? t('company_view') : scope.mode === 'all_shops' ? t('all_shops') : scope.shortName
 
   return (
@@ -43,7 +45,7 @@ export function ShopScopeBadge({
         className,
       )}
     >
-      <Icon aria-hidden className="h-3.5 w-3.5 shrink-0" />
+      {scope.mode === 'single_shop' ? <ShopDot shop={scope.shop} className="h-2.5 w-2.5" /> : <Icon aria-hidden className="h-3.5 w-3.5 shrink-0" />}
       <span className="min-w-0 truncate">{label}</span>
       {count != null && <span className="shrink-0 tabular-nums">· {count}</span>}
     </span>

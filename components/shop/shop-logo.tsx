@@ -1,4 +1,6 @@
 import { cn } from '@/lib/utils/cn'
+import { SHOP_COLOR_CLASSES, shopColorOf, shopInitials as markInitials } from '@/lib/shops/colors'
+import { shopShortLabel } from '@/lib/shops/short-name'
 
 // Logo de la boutique, partout de la même façon : boîte carrée, fond blanc,
 // bordure fine, logo CONTENU et centré (jamais étiré ni rogné — un logo
@@ -18,9 +20,11 @@ export function shopInitials(name: string | null | undefined): string {
 // (aperçu des réglages, en-tête du reçu). Carrée ailleurs (listes, en-têtes serrés).
 const AUTO_WIDTH = { sm: 'w-auto min-w-8 max-w-24', md: 'w-auto min-w-14 max-w-[10.5rem]', lg: 'w-auto min-w-16 max-w-48' } as const
 
-export function ShopLogo({ src, name, size = 'md', shape = 'square', className }: {
+export function ShopLogo({ src, name, size = 'md', shape = 'square', className, shop }: {
   src?: string | null
   name?: string | null
+  /** Boutique (migration 191) : sans logo, initiales de son nom court sur SA couleur au lieu du bleu commun */
+  shop?: { id?: string | null; name?: string | null; short_name?: string | null; entity_name?: string | null; color?: string | null } | null
   size?: keyof typeof SIZES
   shape?: 'square' | 'auto'
   className?: string
@@ -29,6 +33,13 @@ export function ShopLogo({ src, name, size = 'md', shape = 'square', className }
     return (
       <div className={cn('flex flex-shrink-0 items-center justify-center overflow-hidden border border-slate-200 bg-white dark:border-slate-700', SIZES[size], shape === 'auto' && AUTO_WIDTH[size], className)}>
         <img src={src} alt={name || ''} className={cn('h-full object-contain', shape === 'auto' ? 'w-auto max-w-full' : 'w-full')} />
+      </div>
+    )
+  }
+  if (shop) {
+    return (
+      <div data-shop-mark={shopColorOf(shop)} className={cn('flex flex-shrink-0 items-center justify-center font-bold', SIZES[size], SHOP_COLOR_CLASSES[shopColorOf(shop)].solid, className)}>
+        {markInitials(shopShortLabel(shop))}
       </div>
     )
   }

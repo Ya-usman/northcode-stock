@@ -240,7 +240,7 @@ export default function ShopDetailPage({ params: { shopId } }: { params: { shopI
       {/* En-tête de la fiche */}
       <div className="rounded-xl border bg-card p-4 shadow-sm sm:p-5" data-testid="shop-header">
         <div className="flex flex-wrap items-start gap-4">
-          <ShopLogo src={shop.logo_url} name={shop.name} size="lg" className="rounded-xl" />
+          <ShopLogo src={shop.logo_url} name={shop.name} shop={shop} size="lg" className="rounded-xl" />
           <div className="min-w-0 flex-1 space-y-1.5">
             <div className="flex flex-wrap items-center gap-2">
               <h1 className="truncate text-xl font-bold">{shop.name}</h1>

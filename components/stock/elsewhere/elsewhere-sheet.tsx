@@ -13,6 +13,8 @@ import { Input } from '@/components/ui/input'
 import { useToast } from '@/components/ui/use-toast'
 import { useUnitLabel } from '@/lib/products/use-unit-label'
 import { cn } from '@/lib/utils/cn'
+import { ShopMark } from '@/components/shops/shop-mark'
+import { useShopLook } from '@/lib/shops/use-shop-look'
 import { defaultRequestQty, type ElsewhereShop } from '@/lib/stock/elsewhere'
 
 export interface ElsewhereData {
@@ -49,6 +51,7 @@ export function ElsewhereSheet({ open, onOpenChange, shopId, product, entry, can
   onRequested?: () => void
 }) {
   const t = useTranslations('elsewhere')
+  const look = useShopLook()
   const { toast } = useToast()
   const unitLabel = useUnitLabel()
   const [asking, setAsking] = useState<string | null>(null)
@@ -87,7 +90,7 @@ export function ElsewhereSheet({ open, onOpenChange, shopId, product, entry, can
           <section key={s.shop_id} className="rounded-xl border bg-card p-3 shadow-sm" data-testid="elsewhere-shop">
             <div className="flex items-start justify-between gap-3">
               <div className="min-w-0">
-                <p className="truncate font-semibold">{s.name}</p>
+                <p className="flex min-w-0 items-center gap-1.5 font-semibold"><ShopMark shop={look(s.shop_id, s.name).shop} size="xs" /><span className="truncate">{s.name}</span></p>
                 <p className="mt-0.5 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-muted-foreground">
                   {s.city && <span className="flex items-center gap-1"><MapPin className="h-3 w-3" />{s.city}</span>}
                   <span className={cn('flex items-center gap-1 font-medium', s.open ? 'text-green-700 dark:text-green-400' : 'text-muted-foreground')}>

@@ -1669,7 +1669,19 @@
     "push_new_expense_label": "Sanarwar sabon kashewa",
     "push_new_expense_hint": "Karɓi sanarwa idan Manaja ko Ma'aikacin kuɗi ya ƙara kashewa",
     "referrals_title": "Tallafi da Lada",
-    "referrals_subtitle": "Kawo wasu 'yan kasuwa ka sami lada"
+    "referrals_subtitle": "Kawo wasu 'yan kasuwa ka sami lada",
+    "short_name_label": "Gajeren suna",
+    "short_name_hint": "Ana nuna shi inda babu isasshen wuri (waya, jerin abubuwa, canja-wuri). Bar shi babu komai don amfani da sunan da aka ba da shawara.",
+    "color_label": "Launin shago",
+    "color_preview": "Samfoti:",
+    "color_blue": "Shuɗi",
+    "color_violet": "Shunayya",
+    "color_teal": "Kore-shuɗi",
+    "color_pink": "Ruwan hoda",
+    "color_indigo": "Indigo",
+    "color_cyan": "Shuɗin sama",
+    "color_amber": "Ruwan zuma",
+    "color_slate": "Toka"
   },
   "referrals": {
     "page_title": "Tallafi da Lada",
@@ -4092,7 +4104,10 @@
     "batch_photo_too_large": "Hoton ya yi nauyi sosai (MB 2 a mafi yawa).",
     "batch_photo_type": "Ba a karɓi wannan tsari ba: JPEG, PNG ko WebP kaɗai.",
     "batch_photo_upload_failed": "Aika hoton ya kasa.",
-    "product_archived_history": "Wannan kaya yana da tarihi. An ajiye shi don a kiyaye bin diddigi."
+    "product_archived_history": "Wannan kaya yana da tarihi. An ajiye shi don a kiyaye bin diddigi.",
+    "shop_short_name_invalid": "Gajeren suna kada ya wuce haruffa 20.",
+    "shop_short_name_taken": "Wani shagon kamfanin yana amfani da wannan gajeren suna.",
+    "shop_color_invalid": "Ba a gane launin ba."
   },
   "product_form": {
     "code_scanned": "An sikan lamba: {code}",

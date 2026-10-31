@@ -7,6 +7,7 @@ import { validateShopIdentity, isShopCodeTaken, SHOP_IDENTITY_FIELDS } from '@/l
 import { resolveAccount, getAccountShopIds } from '@/lib/saas/team-quota'
 import { timezoneForShopUpdate } from '@/lib/api/shop-timezone'
 import { shopTimezoneErrorResponse } from '@/lib/api/stock-errors'
+import { isShopColor } from '@/lib/shops/colors'
 
 const HOURS_FIELDS = ['hours_enabled', 'opening_time', 'closing_time', 'hours_manual_override'] as const
 
@@ -37,6 +38,8 @@ export async function PATCH(request: Request) {
       'notify_email_low_stock', 'notify_email_daily', 'notify_email_expiry',
       'notify_push_new_sale', 'notify_push_new_expense', 'notify_push_expiry',
       ...HOURS_FIELDS,
+      // Nom court et couleur (migration 191)
+      'short_name', 'color',
     ] as const
     const updates: Record<string, unknown> = {}
     for (const field of ALLOWED_FIELDS) {
@@ -58,6 +61,16 @@ export async function PATCH(request: Request) {
       }
       updates[field] = clean || null
     }
+
+    // Nom court (1 à 20 caractères, vide = règle automatique) et couleur (palette) : migration 191
+    if ('short_name' in updates) {
+      const v = updates.short_name
+      if (v !== null && typeof v !== 'string') return NextResponse.json({ error: t('shop_short_name_invalid'), field: 'short_name' }, { status: 400 })
+      const clean = typeof v === 'string' ? v.replace(/s+/g, ' ').trim() : ''
+      if (clean.length > 20) return NextResponse.json({ error: t('shop_short_name_invalid'), field: 'short_name' }, { status: 400 })
+      updates.short_name = clean || null
+    }
+    if ('color' in updates && !isShopColor(updates.color)) return NextResponse.json({ error: t('shop_color_invalid'), field: 'color' }, { status: 400 })
 
     // Identité de la boutique (migration 152) : code, adresse, téléphone, e-mail
     const identity = validateShopIdentity(rawUpdates)
@@ -178,7 +191,7 @@ export async function PATCH(request: Request) {
 
     // Code unique dans le compte + valeurs avant pour le journal
     const INFO_FIELDS = ['name', 'city', 'country', ...SHOP_IDENTITY_FIELDS] as const
-    const touchesInfo = SHOP_IDENTITY_FIELDS.some(f => f in identity.values)
+    const touchesInfo = SHOP_IDENTITY_FIELDS.some(f => f in identity.values) || 'short_name' in updates || 'color' in updates
     let currentInfo: Record<string, unknown> | null = null
     if (touchesInfo) {
       const { data } = await admin.from('shops').select(INFO_FIELDS.join(',')).eq('id', shop_id).maybeSingle()
@@ -197,7 +210,11 @@ export async function PATCH(request: Request) {
     if (error) {
       const tzErr = shopTimezoneErrorResponse(error, t)
       if (tzErr) return NextResponse.json(tzErr.body, { status: tzErr.status })
-      if ((error as any).code === '23505') return NextResponse.json({ error: t('shop_code_taken'), field: 'code' }, { status: 409 })
+      if ((error as any).code === '23505') {
+        // Deux index uniques possibles : code (152) ou nom court dans l'entreprise (191)
+        if (/short_name/.test(`${(error as any).message} ${(error as any).details ?? ''}`)) return NextResponse.json({ error: t('shop_short_name_taken'), field: 'short_name' }, { status: 409 })
+        return NextResponse.json({ error: t('shop_code_taken'), field: 'code' }, { status: 409 })
+      }
       if (touchesInfo && /column .* does not exist|schema cache/i.test(error.message)) return NextResponse.json({ error: t('migration_required') }, { status: 503 })
       return NextResponse.json({ error: error.message }, { status: 500 })
     }

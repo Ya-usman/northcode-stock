@@ -8,6 +8,8 @@ const config: Config = {
     './components/**/*.{ts,tsx}',
     './app/**/*.{ts,tsx}',
     './src/**/*.{ts,tsx}',
+    // lib : classes écrites en toutes lettres hors des composants (palette des boutiques, lib/shops/colors.ts)
+    './lib/**/*.{ts,tsx}',
   ],
   prefix: '',
   theme: {

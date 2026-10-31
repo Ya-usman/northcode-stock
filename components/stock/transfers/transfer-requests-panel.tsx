@@ -14,6 +14,8 @@ import { useToast } from '@/components/ui/use-toast'
 import { useUnitLabel } from '@/lib/products/use-unit-label'
 import { formatLocaleDate, formatLocaleTime } from '@/lib/i18n/date-format'
 import { cn } from '@/lib/utils/cn'
+import { ShopMark } from '@/components/shops/shop-mark'
+import { useShopLook } from '@/lib/shops/use-shop-look'
 
 export interface TransferRequestRow {
   id: string
@@ -57,6 +59,7 @@ export function TransferRequestsPanel({ shopIds, refreshKey, onAccept }: {
   onAccept: (req: TransferRequestRow) => void
 }) {
   const t = useTranslations('transfer_requests')
+  const look = useShopLook()
   const locale = useLocale()
   const unitLabel = useUnitLabel()
   const { toast } = useToast()
@@ -104,7 +107,7 @@ export function TransferRequestsPanel({ shopIds, refreshKey, onAccept }: {
           <p className="flex items-center gap-2 text-sm font-semibold"><Inbox className="h-4 w-4 text-stockshop-blue dark:text-blue-400" />{t('incoming_title', { count: incoming.length })}</p>
           {incoming.map(r => (
             <div key={r.id} className="rounded-lg border border-amber-200 bg-amber-50/50 p-3 dark:border-amber-900/60 dark:bg-amber-950/20" data-testid="transfer-request-in">
-              <p className="text-sm"><span className="font-semibold">{r.requesting_shop_name}</span> {t('asks')} <span className="font-semibold tabular-nums">{qtyText(r)}</span> · {r.product_name}</p>
+              <p className="text-sm"><ShopMark shop={look(r.requesting_shop_id, r.requesting_shop_name).shop} size="xs" className="mr-1.5 align-[-2px]" /><span className="font-semibold">{r.requesting_shop_name}</span> {t('asks')} <span className="font-semibold tabular-nums">{qtyText(r)}</span> · {r.product_name}</p>
               <p className="mt-0.5 text-xs text-muted-foreground">{[r.requested_by_name, when(r.created_at), r.source_shop_name && shopIds.length > 1 ? t('from_your_shop', { shop: r.source_shop_name }) : null].filter(Boolean).join(' · ')}</p>
               {r.note && <p className="mt-1 text-xs italic text-foreground/80">« {r.note} »</p>}
               {r.can_decide && (

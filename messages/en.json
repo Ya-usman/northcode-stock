@@ -1669,7 +1669,19 @@
     "push_new_expense_label": "New expense alert",
     "push_new_expense_hint": "Get alerted when a Manager or Cashier adds an expense",
     "referrals_title": "Referrals & rewards",
-    "referrals_subtitle": "Refer other merchants and earn rewards"
+    "referrals_subtitle": "Refer other merchants and earn rewards",
+    "short_name_label": "Short name",
+    "short_name_hint": "Shown where space is tight (phone, lists, transfers). Leave empty to use the suggested name.",
+    "color_label": "Shop color",
+    "color_preview": "Preview:",
+    "color_blue": "Blue",
+    "color_violet": "Violet",
+    "color_teal": "Teal",
+    "color_pink": "Pink",
+    "color_indigo": "Indigo",
+    "color_cyan": "Cyan",
+    "color_amber": "Amber",
+    "color_slate": "Slate"
   },
   "referrals": {
     "page_title": "Referrals & rewards",
@@ -4092,7 +4104,10 @@
     "batch_photo_too_large": "Photo too large (2 MB maximum).",
     "batch_photo_type": "Format not accepted: JPEG, PNG or WebP only.",
     "batch_photo_upload_failed": "The photo upload failed.",
-    "product_archived_history": "This product has a history. It has been archived to keep traceability."
+    "product_archived_history": "This product has a history. It has been archived to keep traceability.",
+    "shop_short_name_invalid": "The short name must be 20 characters or fewer.",
+    "shop_short_name_taken": "This short name is already used by another shop of the company.",
+    "shop_color_invalid": "Unknown color."
   },
   "product_form": {
     "code_scanned": "Code scanned: {code}",

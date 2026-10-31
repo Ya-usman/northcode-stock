@@ -2,11 +2,12 @@
 
 import { useState } from 'react'
 import { useTranslations } from 'next-intl'
-import { Store, ChevronDown, Layers, Check } from 'lucide-react'
+import { ChevronDown, Layers, Check } from 'lucide-react'
 import { cn } from '@/lib/utils/cn'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import { useAuthContext } from '@/lib/contexts/auth-context'
-import { shortShopName } from '@/lib/shops/short-name'
+import { shopShortLabel } from '@/lib/shops/short-name'
+import { ShopMark } from '@/components/shops/shop-mark'
 
 interface ShopSelectorProps {
   /** 'sidebar' = dark gradient block (desktop sidebar). 'compact' = light button + dropdown (header, inline in pages). */
@@ -56,9 +57,10 @@ export function ShopSelector({ variant, allowAllShops = true, className, onShopC
             userShops.length > 1 ? 'hover:bg-white/10 cursor-pointer' : 'cursor-default'
           )}
         >
-          <div className="h-5 w-5 rounded-full bg-white/20 flex items-center justify-center flex-shrink-0">
-            {showingAll ? <Layers className="h-3 w-3 text-white" /> : <Store className="h-3 w-3 text-white" />}
-          </div>
+          {/* Boutique : repère à ses couleurs et initiales (migration 191) ; « Toutes » : icône */}
+          {showingAll
+            ? <div className="h-5 w-5 rounded-full bg-white/20 flex items-center justify-center flex-shrink-0"><Layers className="h-3 w-3 text-white" /></div>
+            : <ShopMark shop={shop} size="xs" className="h-5 w-5 ring-1 ring-white/40" />}
           <div className="min-w-0 flex-1">
             {showingAll ? (
               <p className="text-xs font-semibold text-blue-200 italic truncate leading-none">{t('all_shops')}</p>
@@ -100,7 +102,7 @@ export function ShopSelector({ variant, allowAllShops = true, className, onShopC
                     : 'hover:bg-white/10 text-blue-200 hover:text-white'
                 )}
               >
-                <Store className="h-3.5 w-3.5 flex-shrink-0" />
+                <ShopMark shop={s} size="xs" />
                 <span className="truncate">{s.name}</span>
                 {!showingAll && s.id === shop?.id && <Check className="ml-auto h-3.5 w-3.5 flex-shrink-0" />}
               </button>
@@ -131,7 +133,7 @@ export function ShopSelector({ variant, allowAllShops = true, className, onShopC
           // Sans icône (31 oct. 2026, option B) : la marque StockShop est à gauche, la place va au nom de la boutique
           className="tap-target flex min-w-0 max-w-[10rem] items-center gap-0.5 rounded-md px-1.5 text-sm font-medium text-foreground transition-colors hover:bg-accent"
         >
-          <span className="min-w-0 truncate">{showingAll ? tScope('all_short') : shortShopName(shop?.name, shop?.entity_name)}</span>
+          <span className="min-w-0 truncate">{showingAll ? tScope('all_short') : shopShortLabel(shop)}</span>
           <ChevronDown aria-hidden className={cn('h-3.5 w-3.5 shrink-0 text-muted-foreground transition-transform', open && 'rotate-180')} />
         </button>
       ) : (
@@ -140,7 +142,7 @@ export function ShopSelector({ variant, allowAllShops = true, className, onShopC
         >
           {showingAll
             ? <Layers className="h-4 w-4 text-stockshop-blue dark:text-blue-400 flex-shrink-0" />
-            : <Store className="h-4 w-4 text-stockshop-blue dark:text-blue-400 flex-shrink-0" />
+            : <ShopMark shop={shop} size="xs" />
           }
           <span className="truncate">
             {label && <span className="font-normal text-muted-foreground">{label}: </span>}
@@ -173,7 +175,7 @@ export function ShopSelector({ variant, allowAllShops = true, className, onShopC
               className={cn('flex cursor-pointer items-center gap-2 rounded-lg px-3 py-2.5 text-sm',
                 current ? 'bg-stockshop-blue-muted font-medium text-stockshop-blue focus:bg-stockshop-blue-muted dark:bg-blue-950/40 dark:text-blue-400' : 'text-foreground/80')}
             >
-              <Store className="h-3.5 w-3.5 flex-shrink-0" />
+              <ShopMark shop={s} />
               <div className="min-w-0">
                 <p className="truncate font-medium">{s.name}</p>
                 {s.city && <p className="truncate text-xs text-muted-foreground">{s.city}</p>}

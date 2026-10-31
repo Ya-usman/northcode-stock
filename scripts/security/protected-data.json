@@ -35,6 +35,7 @@
     "lib/supabase/server"
   ],
   "serverFiles": {
+    "lib/shops/short-name-server.ts": "noms courts des boutiques pour les titres de notifications (client de service fourni par la route)",
     "lib/stock/pipeline-load.ts": "lecture serveur partagée : le client (rôle de service) est fourni par la route appelante",
     "lib/stock/elsewhere-load.ts": "lecture serveur du stock des autres boutiques et des demandes : appelée par /api/stock/elsewhere et les routes des demandes, avec le client de service fourni par la route",
     "lib/api/transfer-requests.ts": "règles serveur des demandes de transfert (client de service fourni par les routes)",

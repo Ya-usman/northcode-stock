@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+import { shopShortLabels } from '@/lib/shops/short-name-server'
 import { createAdminClient } from '@/lib/supabase/server'
 import { getAuthedUser } from '@/lib/api/shop-auth'
 import { getApiTranslator } from '@/lib/api/i18n'
@@ -47,7 +48,7 @@ export async function PATCH(request: Request, { params }: { params: { id: string
     if (action === 'decline') {
       const { data: src } = await admin.from('shops').select('name').eq('id', req.source_shop_id).maybeSingle()
       await notifyRequester(admin, req.requesting_shop_id, req.requested_by, {
-        title: t('push_transfer_request_declined_title', { shop: src?.name ?? '' }),
+        title: t('push_transfer_request_declined_title', { shop: (await shopShortLabels(admin, [req.source_shop_id]))[req.source_shop_id] || src?.name || '' }),
         body: reason ? t('push_transfer_request_declined_body_reason', { product: req.product_name, reason }) : t('push_transfer_request_declined_body', { product: req.product_name }),
       })
     }
