@@ -181,6 +181,9 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
   const [promoSuggestionReason, setPromoSuggestionReason] = useState<string | null>(null)
   const [promoSuggestionKey, setPromoSuggestionKey] = useState<'expiry' | 'dormant' | null>(null)
   const [promoBatch, setPromoBatch] = useState<any | null>(null)
+  // Garde de fermeture (lot 7) : valeurs de la fenêtre promo à son ouverture (suggestion, promo existante ou lot)
+  const [promoInitial, setPromoInitial] = useState('')
+  useEffect(() => { if (promoProduct) setPromoInitial(JSON.stringify([promoPrice, promoUntil, promoStart])) }, [promoProduct?.id, promoBatch?.id]) // eslint-disable-line react-hooks/exhaustive-deps
   const [expiryBatch, setExpiryBatch] = useState<any | null>(null)
   // Fiche produit : `batchesProduct` est le produit affiché ; la fiche s'ouvre en haut, ou sur ses lots (icône « Lots »)
   const [batchesProduct, setBatchesProduct] = useState<Product | null>(null)
@@ -2010,6 +2013,7 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
       {/* Promotion Modal */}
       <PremiumDialog
         open={!!promoProduct}
+        dirty={!!promoProduct && !!promoInitial && JSON.stringify([promoPrice, promoUntil, promoStart]) !== promoInitial}
         onOpenChange={open => { if (!open) { setPromoProduct(null); setPromoBatch(null); setPromoSuggestionReason(null); setPromoSuggestionKey(null) } }}
         category={promoBatch ? t('products.promo_batch_category') : t('products.promo_action')}
         title={promoProduct?.name || ''}
@@ -2239,6 +2243,7 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
       {/* Bulk promo dialog */}
       <PremiumDialog
         open={bulkPromoDialog}
+        dirty={bulkPromoDialog && !!(bulkPromoPercent || bulkPromoUntil || bulkPromoStart)}
         onOpenChange={open => { if (!open) setBulkPromoDialog(false) }}
         title={t('products.assign_promo_title', { count: selectedIds.size })}
         icon={<Tag className="h-4 w-4" />}

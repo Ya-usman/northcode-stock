@@ -110,7 +110,8 @@ export function BatchAdjustDialog({ batch, onClose, onSaved }: DialogProps) {
   }
 
   return (
-    <PremiumDialog open={!!batch} onOpenChange={open => { if (!open) onClose() }} title={t('products.adjust_quantity_action')} icon={<Edit2 className="h-4 w-4" />}>
+    <PremiumDialog open={!!batch} onOpenChange={open => { if (!open) onClose() }} title={t('products.adjust_quantity_action')} icon={<Edit2 className="h-4 w-4" />}
+      dirty={!!batch && !saving && (quantity !== String(batch.quantity) || !!note.trim())}>
       {batch && (
         <>
           <PremiumDialogBody>
@@ -164,7 +165,8 @@ export function BatchExpiryDialog({ batch, onClose, onSaved }: DialogProps) {
   }
 
   return (
-    <PremiumDialog open={!!batch} onOpenChange={open => { if (!open) onClose() }} title={t('products.edit_expiry_action')} icon={<CalendarClock className="h-4 w-4" />}>
+    <PremiumDialog open={!!batch} onOpenChange={open => { if (!open) onClose() }} title={t('products.edit_expiry_action')} icon={<CalendarClock className="h-4 w-4" />}
+      dirty={!!batch && !saving && (date !== (batch.expiry_date ? dayOf(batch.expiry_date) : '') || !!note.trim())}>
       {batch && (
         <>
           <PremiumDialogBody>
@@ -244,6 +246,7 @@ export function BatchPromoDialog({ batch, onClose, onSaved, formatPrice }: Dialo
   return (
     <PremiumDialog
       open={!!batch} onOpenChange={open => { if (!open) onClose() }}
+      dirty={!!batch && !saving && (price !== (batch.promo_price ? String(batch.promo_price) : '') || until !== (batch.promo_until ? localDay(batch.promo_until) : '') || start !== (batch.promo_start ? localDay(batch.promo_start) : ''))}
       category={t('products.promo_batch_category')} title={batch?.productName || ''} icon={<Tag className="h-4 w-4" />}
     >
       {batch && (

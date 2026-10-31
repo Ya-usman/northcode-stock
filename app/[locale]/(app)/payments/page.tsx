@@ -2112,6 +2112,7 @@ export default function CreditsPage() {
       {/* ── Repayment Dialog ── */}
       <PremiumDialog
         open={!!repayDebtor || !!receiptResult}
+        dirty={!receiptResult && !!repayDebtor && (repayAmount !== String(Math.round(repayDebtor.totalDebt)) || repayMethod !== 'cash' || !!repayRef.trim() || !!repayNotes.trim())}
         onOpenChange={open => { if (!open) { setRepayDebtor(null); setReceiptResult(null) } }}
         title={receiptResult ? t('toast.payment_recorded') : t('payments.record_repayment_title')}
         icon={receiptResult ? <CheckCircle2 className="h-4 w-4" /> : <Banknote className="h-4 w-4" />}
@@ -2278,6 +2279,7 @@ export default function CreditsPage() {
       {/* ── Postpone due date Dialog ── */}
       <PremiumDialog
         open={!!postponeSale}
+        dirty={!!postponeSale && (postponeDate !== (postponeSale.sale.due_date ? postponeSale.sale.due_date.slice(0, 10) : new Date().toISOString().slice(0, 10)) || !!postponeReason.trim())}
         onOpenChange={open => { if (!open) setPostponeSale(null) }}
         title={t('payments.postpone_action')}
         icon={<CalendarDays className="h-4 w-4" />}
@@ -2314,6 +2316,7 @@ export default function CreditsPage() {
       {/* ── Write off Dialog ── */}
       <PremiumDialog
         open={!!writeOffSale}
+        dirty={!!writeOffSale && !!writeOffReason.trim()}
         onOpenChange={open => { if (!open) { setWriteOffSale(null); setWriteOffReason('') } }}
         title={t('payments.write_off_title')}
         icon={<Ban className="h-4 w-4" />}
@@ -2549,6 +2552,7 @@ export default function CreditsPage() {
       {/* ── Edit payment Dialog ── */}
       <PremiumDialog
         open={!!editingPayment}
+        dirty={!!editingPayment && (editMethod !== editingPayment.method || editRef !== (editingPayment.reference || '') || editNotes !== (editingPayment.notes || ''))}
         onOpenChange={open => { if (!open) setEditingPayment(null) }}
         title={t('payments.edit_payment_title')}
         icon={<Pencil className="h-4 w-4" />}
@@ -2614,6 +2618,7 @@ export default function CreditsPage() {
       {/* ── Cancel payment Dialog ── */}
       <PremiumDialog
         open={!!cancellingPayment}
+        dirty={!!cancellingPayment && !!cancelReason.trim()}
         onOpenChange={open => { if (!open) { setCancellingPayment(null); setCancelReason('') } }}
         title={t('payments.cancel_payment_title')}
         icon={<Ban className="h-4 w-4" />}
@@ -2644,6 +2649,7 @@ export default function CreditsPage() {
       {/* ── Supplier Repayment Dialog ── */}
       <PremiumDialog
         open={!!repaySupplier}
+        dirty={!!repaySupplier && (supplierRepayAmount !== String(Math.round(repaySupplier.totalOwed)) || supplierRepayMethod !== 'cash' || !!supplierRepayRef.trim() || !!supplierRepayNotes.trim())}
         onOpenChange={open => { if (!open) setRepaySupplier(null) }}
         title={t('payments.record_payment_title')}
         icon={<Banknote className="h-4 w-4" />}

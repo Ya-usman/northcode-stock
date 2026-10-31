@@ -94,6 +94,8 @@ export function AssignDialog({ open, onOpenChange, shops, roleByShop, people, fi
   return (
     <PremiumDialog
       open={open}
+      // Garde (lot 7) : une boutique ou une personne choisie à la main (les valeurs imposées ne comptent pas)
+      dirty={!saving && ((!fixedShopId && shops.length > 1 && !!shopId) || (!fixedPerson && !!userId))}
       onOpenChange={onOpenChange}
       title={t('team.assign_title')}
       description={fixedPerson?.full_name || (fixedShopId ? shopName(fixedShopId) : undefined)}

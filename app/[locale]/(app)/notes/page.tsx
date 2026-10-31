@@ -87,6 +87,8 @@ export default function NotesPage() {
   const [color, setColor]     = useState('default')
   const [pinned, setPinned]   = useState(false)
   const [noteShop, setNoteShop] = useState('')
+  // Garde de fermeture (lot 7) : champs non contrôlés (refs), on note la première saisie
+  const [noteDirty, setNoteDirty] = useState(false)
   // Changement de contexte : la note en cours de saisie est fermée — aucune boutique précédente reprise
   const scopeKeyRef = useRef(scopeKey)
   useEffect(() => {
@@ -145,6 +147,7 @@ export default function NotesPage() {
     setColor('default')
     setPinned(false)
     setNoteShop(picked.id)
+    setNoteDirty(false)
     setModalOpen(true)
     setTimeout(() => {
       if (titleRef.current) titleRef.current.value = ''
@@ -161,6 +164,7 @@ export default function NotesPage() {
     setColor(note.color)
     setPinned(note.pinned)
     setNoteShop(note.shop_id)
+    setNoteDirty(false)
     setModalOpen(true)
     // Pré-chauffe la session Supabase pendant que l'utilisateur édite
     supabase.auth.getSession().catch(() => {})
@@ -328,12 +332,13 @@ export default function NotesPage() {
       )}
 
       {/* Modal */}
-      <PremiumDialog open={modalOpen} onOpenChange={v => { if (!v) closeModal() }} title={editing ? t('edit_title') : t('new_note')}>
+      <PremiumDialog open={modalOpen} onOpenChange={v => { if (!v) closeModal() }} title={editing ? t('edit_title') : t('new_note')} dirty={noteDirty && !saving}>
         <PremiumDialogBody>
           <div className="space-y-3">
             {/* Title — uncontrolled to prevent re-render from killing Android IME suggestions */}
             <Input
               ref={titleRef}
+              onInput={() => setNoteDirty(true)}
               placeholder={t('title_placeholder')}
               defaultValue=""
               inputMode="text"
@@ -348,7 +353,7 @@ export default function NotesPage() {
               ref={contentRef}
               placeholder={t('content_placeholder')}
               defaultValue={editing?.content ?? ''}
-              onInput={e => { contentValueRef.current = (e.target as HTMLTextAreaElement).value }}
+              onInput={e => { contentValueRef.current = (e.target as HTMLTextAreaElement).value; setNoteDirty(true) }}
               rows={6}
               inputMode="text"
               autoCorrect="on"
@@ -364,7 +369,7 @@ export default function NotesPage() {
                 {COLORS.map(c => (
                   <button
                     key={c.key}
-                    onClick={() => setColor(c.key)}
+                    onClick={() => { setColor(c.key); setNoteDirty(true) }}
                     title={c.label}
                     className={cn(
                       'h-7 w-7 rounded-full border-2 transition-transform',
@@ -392,7 +397,7 @@ export default function NotesPage() {
 
               <div className={cn('flex items-center gap-2', userShops.length <= 1 && 'mt-4')}>
                 <button
-                  onClick={() => setPinned(p => !p)}
+                  onClick={() => { setPinned(p => !p); setNoteDirty(true) }}
                   className={cn(
                     'flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-sm font-medium transition-colors',
                     pinned
