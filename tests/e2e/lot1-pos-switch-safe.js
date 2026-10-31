@@ -48,14 +48,15 @@ const fakeSale = (n, shopId) => ({ already_existed: false, sale: {
   const addProduct = async name => { await grid.getByText(name, { exact: false }).first().click(); await page.waitForTimeout(600) }
   const receiptOpen = () => page.getByTestId('receipt-number').isVisible().catch(() => false)
   const closeReceipt = async () => { await page.keyboard.press('Escape'); await page.waitForTimeout(800) }
-  const pendingBanner = () => page.getByText(/facture\(s\) en attente/).first().isVisible().catch(() => false)
+  // Vrais pluriels depuis le 31 oct. 2026 (« 1 facture en attente », plus « facture(s) »)
+  const pendingBanner = () => page.getByText(/factures? en attente/).first().isVisible().catch(() => false)
   const nameField = page.getByPlaceholder(/Nom complet du client/).first()
 
   console.log('Akwa : facture en attente, vente (client + MTN MoMo), vente mise en file')
   await addProduct(akwaProducts[0])
   await page.getByRole('button', { name: /Mettre en attente/ }).first().click()
   await page.locator('form').getByRole('button', { name: /Mettre en attente/ }).click(); await page.waitForTimeout(1500)
-  ok(await pendingBanner(), 'Akwa : « 1 facture(s) en attente »')
+  ok(await pendingBanner(), 'Akwa : « 1 facture en attente »')
   await addProduct(akwaProducts[1])
   await nameField.fill('TEST Client Akwa'); await page.waitForTimeout(500)
   await page.keyboard.press('Escape').catch(() => {})

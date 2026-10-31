@@ -269,7 +269,7 @@ const searchPos = async (page, locale, name) => { const box = page.getByPlacehol
     // ══ 5. Appareil 1 : reprise puis suppression ═════════════════════════════
     console.log('\n5. Caisse (appareil 1) : reprise, suppression → libération')
     await goto(page, '/fr/sales/new', 7000)
-    await page.getByText('1 facture(s) en attente').first().click()
+    await page.getByText('1 facture en attente').first().click()
     await page.getByRole('button', { name: /Reprendre/ }).first().click(); await page.waitForTimeout(900)
     await searchPos(page, 'fr', A.name)
     const afterResume = await posCard(page, A.name).innerText()

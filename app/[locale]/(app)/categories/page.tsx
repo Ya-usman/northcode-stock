@@ -563,7 +563,7 @@ export default function CategoriesPage() {
 
       {filtered.length > 0 && (
         <p className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground" data-testid="categories-count">
-          {t('categories.count', { count: filtered.length })} · {products.length} {t('categories.products_total')}
+          {t('categories.count', { count: filtered.length })} · {t('categories.products_total', { count: products.length })}
         </p>
       )}
 

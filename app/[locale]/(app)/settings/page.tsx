@@ -1,7 +1,8 @@
 'use client'
 
 import { shortShopName } from '@/lib/shops/short-name'
-import { SHOP_COLORS, SHOP_COLOR_CLASSES } from '@/lib/shops/colors'
+import { SHOP_COLORS, SHOP_COLOR_CLASSES, type ShopColor } from '@/lib/shops/colors'
+import { suggestShopColorFromLogo } from '@/lib/shops/logo-color'
 import { ShopMark } from '@/components/shops/shop-mark'
 import { PageHeader } from '@/components/layout/page-header'
 import { useState, useEffect, useRef } from 'react'
@@ -90,6 +91,8 @@ export default function SettingsPage({ params: { locale } }: { params: { locale:
   // Nom court et couleur (migration 191) ; champs absents avant la migration : section cachée
   const [shortName, setShortName] = useState('')
   const [shopColor, setShopColor] = useState<string | null>(null)
+  // Couleur de la palette la plus proche du logo : suggestion seulement (lib/shops/logo-color)
+  const [logoColor, setLogoColor] = useState<ShopColor | null>(null)
   const [city, setCity] = useState('')
   const [state, setState] = useState('')
   const [country, setCountry] = useState<CountryCode>('NG')
@@ -366,6 +369,12 @@ export default function SettingsPage({ params: { locale } }: { params: { locale:
   }
 
   const supportsShopLook = !!shopData && 'color' in shopData
+  useEffect(() => {
+    let cancelled = false
+    setLogoColor(null)
+    if (supportsShopLook && shop?.logo_url) suggestShopColorFromLogo(shop.logo_url).then(c => { if (!cancelled) setLogoColor(c) })
+    return () => { cancelled = true }
+  }, [shop?.logo_url, supportsShopLook])
   const saveSettings = async () => {
     if (!shop?.id) return
     if (hoursEnabled && closingTime <= openingTime) {
@@ -634,6 +643,16 @@ export default function SettingsPage({ params: { locale } }: { params: { locale:
                         <ShopMark shop={{ id: shopData?.id, name, short_name: shortName, entity_name: shopData?.entity_name, color: shopColor }} />
                         <span className="font-medium text-foreground">{shortName.trim() || shortShopName(name, shopData?.entity_name)}</span>
                       </p>
+                      {logoColor && logoColor !== shopColor && (
+                        <p className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground" data-testid="shop-color-from-logo">
+                          {t('settings.color_from_logo')}
+                          <span className={cn('inline-block h-3 w-3 rounded-full', SHOP_COLOR_CLASSES[logoColor].dot)} aria-hidden="true" />
+                          <span className="font-medium text-foreground">{t(`settings.color_${logoColor}` as any)}</span>
+                          <button type="button" onClick={() => setShopColor(logoColor)} className="tap-target font-medium text-stockshop-blue underline-offset-2 hover:underline dark:text-blue-400">
+                            {t('settings.color_use')}
+                          </button>
+                        </p>
+                      )}
                     </div>
                   </>
                 )}

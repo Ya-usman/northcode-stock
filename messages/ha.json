@@ -1681,7 +1681,9 @@
     "color_indigo": "Indigo",
     "color_cyan": "Shuɗin sama",
     "color_amber": "Ruwan zuma",
-    "color_slate": "Toka"
+    "color_slate": "Toka",
+    "color_from_logo": "Mafi kusa da tambarinku:",
+    "color_use": "Yi amfani"
   },
   "referrals": {
     "page_title": "Tallafi da Lada",
