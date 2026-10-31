@@ -243,6 +243,14 @@
     "viewer": "Viewer"
   },
   "products": {
+    "status_surstock": "Overstock",
+    "surstock_badge": "Overstock",
+    "surstock_note": "Overstock: at the current pace, this stock would last more than 6 months.",
+    "promo_suggested_surstock": "Suggested price: more than 6 months of stock at the current pace.",
+    "last_sale_days": "Last sale {count, plural, one {# day ago} other {# days ago}}",
+    "last_sale_never": "No sale since it was added ({date})",
+    "last_sale_over_year": "No sale for more than a year",
+    "new_no_hindsight": "Added less than 30 days ago: too early to judge its sales.",
     "status_near_rupture": "Running out soon",
     "near_rupture_badge": "Running out soon",
     "near_rupture_incoming_badge": "Running out soon · delivery expected",
@@ -317,7 +325,7 @@
     "card_out_of_stock": "Out of stock",
     "card_low_stock": "Low stock",
     "card_expiry": "Expiry",
-    "card_dormant": "Slow movers",
+    "card_dormant": "No sales (30 d)",
     "batches_title": "Product batches",
     "section_main": "Main information",
     "section_advanced_hint": "Product photo",
@@ -4146,6 +4154,10 @@
     "restored_no_photo": "Your entry has been restored (photo cancelled)."
   },
   "stock_overview": {
+    "hint_dormant_old": "{count, plural, one {# of them for more than 90 days} other {# of them for more than 90 days}}",
+    "opp_surstock": "{count, plural, one {# product overstocked} other {# products overstocked}}",
+    "opp_surstock_desc": "More than 6 months of stock at the current pace: consider a promotion or a transfer.",
+    "opp_surstock_desc_value": "{amount} tied up: more than 6 months of stock at the current pace.",
     "opp_near_rupture": "{count, plural, one {# product may run out within 7 days} other {# products may run out within 7 days}}",
     "opp_near_rupture_incoming_only": "{count, plural, one {# product close to running out, delivery expected} other {# products close to running out, delivery expected}}",
     "opp_near_rupture_desc": "Estimate based on sales over the last 30 days.",

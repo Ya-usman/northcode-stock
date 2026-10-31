@@ -221,6 +221,33 @@ export function ruptureDateOf(cov: CoverageInfo, today: string): string | null {
   return cov.kind === 'days' && !cov.lowVolume ? addDays(today, cov.days) : null
 }
 
+/**
+ * Date de la dernière vente ACTIVE de chaque produit demandé, sur 365 jours au plus (null = aucune sur la période).
+ * Une petite lecture par produit (la plus récente seulement), 8 à la fois ; réservée aux produits sans vente sur
+ * 30 jours, donc à une liste courte. Plafond de 200 produits par appel.
+ */
+export async function fetchLastSaleAt(supabase: Db, shopIds: string[], productIds: string[]): Promise<Record<string, string | null>> {
+  const since = new Date(Date.now() - LAST_SALE_LOOKBACK_DAYS * 86_400_000).toISOString()
+  const ids = Array.from(new Set(productIds)).slice(0, 200)
+  const out: Record<string, string | null> = {}
+  for (let i = 0; i < ids.length; i += 8) {
+    await Promise.all(ids.slice(i, i + 8).map(async id => {
+      const { data, error } = await withTimeout<any>(supabase
+        .from('sale_items')
+        .select('sales!inner(created_at)')
+        .eq('product_id', id)
+        .in('sales.shop_id', shopIds)
+        .eq('sales.sale_status', 'active')
+        .gte('sales.created_at', since)
+        .order('sales(created_at)', { ascending: false })
+        .limit(1), 20_000)
+      if (error) throw error
+      out[id] = (data?.[0] as any)?.sales?.created_at ?? null
+    }))
+  }
+  return out
+}
+
 /** Quantité vendue par produit sur les 30 derniers jours (ventes actives) ; `productId` limite la lecture à un produit. */
 export async function fetchSoldQty30d(supabase: Db, shopIds: string[], productId?: string): Promise<Record<string, number>> {
   const thirtyDaysAgo = new Date(Date.now() - 30 * 86_400_000).toISOString()
@@ -279,6 +306,8 @@ export interface StockProductLike {
   promo_start?: string | null
   /** Raison d'une promo posée depuis une suggestion ('expiry' | 'dormant'), sinon null */
   promo_reason?: string | null
+  /** Date de création : délai de grâce des règles « sans vente » et « surstock » */
+  created_at?: string | null
 }
 
 /** Réglages d'une boutique utilisés par les règles de stock */
@@ -374,8 +403,35 @@ export function lotExpiryCounts(lots: DatedLot[], ctx: StockRulesContext): { exp
   return { expired, expiring }
 }
 
-export function isDormant(p: { id: string; quantity: number }, ctx: StockRulesContext): boolean {
-  return ctx.soldQtyLoaded && p.quantity > 0 && !(ctx.soldQtyByProduct[p.id] > 0)
+/**
+ * Étape 15 (décisions du 31 oct. 2026) — écoulement du stock, règles uniques :
+ *   délai de grâce  un produit créé il y a moins de 30 jours n'est ni « sans vente » ni en surstock : pas assez de
+ *                   recul (ses ventes sur 30 jours couvrent moins de 30 jours) ;
+ *   sans vente      du stock et aucune vente sur 30 jours (ancien « Ventes lentes ») ;
+ *   surstock        il se vend, mais le stock vendable tiendrait plus de 180 jours au rythme des 30 derniers jours.
+ */
+export const DORMANT_GRACE_DAYS = 30
+export const SURSTOCK_DAYS = 180
+/** Dernière vente cherchée sur 365 jours au plus ; au-delà : « plus d'un an » */
+export const LAST_SALE_LOOKBACK_DAYS = 365
+
+export function isNewProduct(p: { created_at?: string | null }, now: number = Date.now()): boolean {
+  const t = p.created_at ? Date.parse(p.created_at) : NaN
+  return Number.isFinite(t) && now - t < DORMANT_GRACE_DAYS * 86_400_000
+}
+
+export function isDormant(p: { id: string; quantity: number; created_at?: string | null }, ctx: StockRulesContext): boolean {
+  return ctx.soldQtyLoaded && p.quantity > 0 && !(ctx.soldQtyByProduct[p.id] > 0) && !isNewProduct(p)
+}
+
+/** Surstock : se vend, mais le stock vendable (physique − périmé) tiendrait plus de 180 jours au rythme actuel */
+export function isSurstock(p: { id: string; quantity: number; created_at?: string | null }, ctx: StockRulesContext): boolean {
+  if (!ctx.soldQtyLoaded || isNewProduct(p)) return false
+  const sold = ctx.soldQtyByProduct[p.id] || 0
+  if (!(sold > 0)) return false
+  const sellable = (Number(p.quantity) || 0) - Math.min(Number(p.quantity) || 0, ctx.expiredQtyByProduct?.[p.id] || 0)
+  const cov = coverageInfo(sellable, sold)
+  return cov.kind === 'over_year' || (cov.kind === 'days' && cov.days > SURSTOCK_DAYS)
 }
 
 /** Rupture proche d'un produit (règle nearRuptureOf), tant que les ventes 30 j sont chargées */
@@ -402,7 +458,8 @@ export function isPromoActive(o: { promo_price?: number | null; promo_until?: st
 export function isPromoStale(p: StockProductLike, ctx: StockRulesContext): boolean {
   if (!isPromoActive(p) || !p.promo_reason) return false
   if (p.promo_reason === 'expiry') return !isExpiringSoon(p, ctx)
-  if (p.promo_reason === 'dormant') return !isDormant(p, ctx)
+  // Raison « dormant » = écoulement lent (sans vente OU surstock, même valeur en base : migration 094)
+  if (p.promo_reason === 'dormant') return !isDormant(p, ctx) && !isSurstock(p, ctx)
   return false
 }
 
@@ -412,6 +469,9 @@ export interface StockKpis {
   low: number
   expiring: number
   dormant: number
+  /** Surstock : stock pour plus de 180 jours au rythme actuel, et sa valeur au prix d'achat */
+  surstock: number
+  surstockValue: number
   /** Rupture proche sans arrivage suffisant (chiffre de la carte) */
   nearRupture: number
   /** Rupture proche, mais un arrivage attendu suffit (« arrivage prévu », compté à part) */
@@ -445,7 +505,7 @@ export function stockLevelOf(
 }
 
 export function computeStockKpis(products: StockProductLike[], ctx: StockRulesContext): StockKpis {
-  const kpis: StockKpis = { total: products.length, out: 0, low: 0, expiring: 0, dormant: 0, nearRupture: 0, nearRuptureIncoming: 0, dormantValue: 0, promo: 0, promoStale: 0, stockValue: 0, retailValue: 0 }
+  const kpis: StockKpis = { total: products.length, out: 0, low: 0, expiring: 0, dormant: 0, surstock: 0, surstockValue: 0, nearRupture: 0, nearRuptureIncoming: 0, dormantValue: 0, promo: 0, promoStale: 0, stockValue: 0, retailValue: 0 }
   for (const p of products) {
     const cost = Number(p.quantity) * Number(p.buying_price || 0)
     const level = stockLevelOf(p, ctx)
@@ -453,6 +513,7 @@ export function computeStockKpis(products: StockProductLike[], ctx: StockRulesCo
     else if (level === 'low') kpis.low++
     if (isExpired(p, ctx) || isExpiringSoon(p, ctx)) kpis.expiring++
     if (isDormant(p, ctx)) { kpis.dormant++; kpis.dormantValue += cost }
+    else if (isSurstock(p, ctx)) { kpis.surstock++; kpis.surstockValue += cost }
     const nr = isNearRupture(p, ctx)
     if (nr.near) { if (nr.coveredByIncoming) kpis.nearRuptureIncoming++; else kpis.nearRupture++ }
     if (isPromoActive(p)) kpis.promo++

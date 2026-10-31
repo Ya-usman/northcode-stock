@@ -243,6 +243,14 @@
     "viewer": "Mai Kallo"
   },
   "products": {
+    "status_surstock": "Kaya sun yi yawa",
+    "surstock_badge": "Kaya sun yi yawa",
+    "surstock_note": "Kaya sun yi yawa: bisa saurin sayarwa na yanzu, za su ɗore fiye da watanni 6.",
+    "promo_suggested_surstock": "Farashin da aka ba da shawara: kaya na fiye da watanni 6 bisa saurin yanzu.",
+    "last_sale_days": "{count, plural, other {Sayarwa ta ƙarshe kwanaki # da suka wuce}}",
+    "last_sale_never": "Ba a sayar ba tun da aka ƙara shi ({date})",
+    "last_sale_over_year": "Ba a sayar ba fiye da shekara ɗaya",
+    "new_no_hindsight": "An ƙara shi ƙasa da kwanaki 30: lokaci bai yi ba don yin hukunci kan sayarwarsa.",
     "status_near_rupture": "Kusa da ƙarewa",
     "near_rupture_badge": "Kusa da ƙarewa",
     "near_rupture_incoming_badge": "Kusa da ƙarewa · ana jiran kaya",
@@ -317,7 +325,7 @@
     "card_out_of_stock": "Ya ƙare",
     "card_low_stock": "Kaya kaɗan",
     "card_expiry": "Ƙarewa",
-    "card_dormant": "Sayarwa a hankali",
+    "card_dormant": "Babu sayarwa (kwana 30)",
     "batches_title": "Lodin kaya",
     "section_main": "Bayanai na farko",
     "section_advanced_hint": "Hoton kaya",
@@ -4146,6 +4154,10 @@
     "restored_no_photo": "An mayar da abin da ka shigar (an soke ɗaukar hoto)."
   },
   "stock_overview": {
+    "hint_dormant_old": "{count, plural, other {# daga cikinsu fiye da kwanaki 90}}",
+    "opp_surstock": "{count, plural, other {Kaya # sun yi yawa}}",
+    "opp_surstock_desc": "Kaya na fiye da watanni 6 bisa saurin yanzu: ba da rangwame ko canja wuri.",
+    "opp_surstock_desc_value": "{amount} a tsaye: kaya na fiye da watanni 6 bisa saurin yanzu.",
     "opp_near_rupture": "{count, plural, other {Kaya # na iya ƙarewa cikin kwanaki 7}}",
     "opp_near_rupture_incoming_only": "{count, plural, other {Kaya # na kusa da ƙarewa, ana jiran isowa}}",
     "opp_near_rupture_desc": "Ƙiyasi bisa sayarwar kwanaki 30 da suka gabata.",

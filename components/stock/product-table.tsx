@@ -61,6 +61,8 @@ export interface ProductTableProps {
   pipelineFor: (p: Product) => { inTransit: number | null; onOrder: number | null }
   /** Rupture proche (étape 13) : pastille sous le statut, « arrivage prévu » quand un arrivage suffit */
   nearRuptureFor?: (p: Product) => NearRupture
+  /** Écoulement (étape 15) : pastille Surstock, et « dernière vente » d'un produit sans vente sur 30 jours */
+  flowFor?: (p: Product) => { surstock: boolean; lastSale: string | null }
   isPromoActive: (p: Product) => boolean
   promoStale: (p: Product) => boolean
   /** Raison d'une promo suggérée (péremption proche, vente lente), sinon null */
@@ -124,7 +126,7 @@ export function ProductTableSkeleton({ rows = 6 }: { rows?: number }) {
 }
 
 export function ProductTable({
-  products, thresholdFor, statusFor, soldQty, expiryFor, expiredQty, reservedQty, pipelineFor, nearRuptureFor, isPromoActive, promoStale, promoSuggestion,
+  products, thresholdFor, statusFor, soldQty, expiryFor, expiredQty, reservedQty, pipelineFor, nearRuptureFor, flowFor, isPromoActive, promoStale, promoSuggestion,
   formatPrice, fullRights, canWriteStock, canOrderStock, busy, selectedIds, onToggleSelect, onToggleSelectMany,
   sort, onSortChange, columns, onOpen, onOrder, onRestock, onEdit, onPromo, onBatches, onArchive,
 }: ProductTableProps) {
@@ -257,6 +259,7 @@ export function ProductTable({
             const sold = soldQty(product)
             const incoming = pipelineFor(product)
             const nearRupture = nearRuptureFor?.(product)
+            const flow = flowFor?.(product)
             const stickyBg = selected ? 'bg-stockshop-blue-muted dark:bg-blue-950/60' : 'bg-card'
             // Disponible = physique − périmé − réservé (lib/stock/signals)
             const expired = Math.min(product.quantity, expiredQty(product))
@@ -402,6 +405,10 @@ export function ProductTable({
                       {nearRupture.coveredByIncoming ? t('products.near_rupture_incoming_badge') : t('products.near_rupture_badge')}
                     </span>
                   )}
+                  {flow?.surstock && (
+                    <span data-surstock className="mt-1 flex w-fit rounded-full bg-stockshop-blue-muted px-2 py-0.5 text-[10px] font-semibold text-stockshop-blue dark:bg-blue-950/40 dark:text-blue-400">{t('products.surstock_badge')}</span>
+                  )}
+                  {flow?.lastSale && <span data-last-sale className="mt-1 block text-[10px] text-muted-foreground">{flow.lastSale}</span>}
                 </td>
                 <td className={cn('whitespace-nowrap text-right', CELL)}>
                   <div className="inline-flex items-center gap-0.5">

@@ -136,7 +136,7 @@ const closeFiche = async page => { for (let i = 0; i < 4 && (await drawer(page).
     await findProduct(page, 'fr', P.name); await findProduct(c.page, 'fr', P.name)
     const ownerRow = await tableRow(page, P.name), cashierRow = await tableRow(c.page, P.name)
     check('liste · caissier : « Ventes 30 j » = ' + refSold + ', comme le propriétaire (le serveur lit toutes les ventes de la boutique)', !!cashierRow && cashierRow['Ventes 30 j'] === String(refSold) && ownerRow['Ventes 30 j'] === String(refSold), JSON.stringify([ownerRow && ownerRow['Ventes 30 j'], cashierRow && cashierRow['Ventes 30 j']]))
-    check('liste · caissier : même statut que le propriétaire (« ' + (ownerRow && ownerRow['Statut']) + ' »), plus de « Ventes lentes » à tort', !!cashierRow && cashierRow['Statut'] === ownerRow['Statut'] && (refSold === 0 || !/Ventes lentes/.test(cashierRow['Statut'])), JSON.stringify([ownerRow && ownerRow['Statut'], cashierRow && cashierRow['Statut']]))
+    check('liste · caissier : même statut que le propriétaire (« ' + (ownerRow && ownerRow['Statut']) + ' »), plus de « Ventes lentes » à tort', !!cashierRow && cashierRow['Statut'] === ownerRow['Statut'] && (refSold === 0 || !/Ventes lentes|Sans vente/.test(cashierRow['Statut'])), JSON.stringify([ownerRow && ownerRow['Statut'], cashierRow && cashierRow['Statut']]))
     check('liste · bouton « Réapprovisionner » : présent pour le propriétaire, absent pour le caissier (Stock en consultation)', ownerRow.__restock === true && cashierRow.__restock === false, JSON.stringify([ownerRow.__restock, cashierRow.__restock]))
     const soldAnon = await fetch(BASE + '/api/stock/sold-30d?shop_ids=' + ALPHA)
     const soldOther = await get(page, '/api/stock/sold-30d?shop_ids=' + akwa)

@@ -53,7 +53,7 @@ const toolbar = page => page.evaluate(() => {
 const cardInfo = (page, id) => page.evaluate(i => {
   const c = document.querySelector(`[data-product-card="${i}"]`); if (!c) return null
   const r = c.getBoundingClientRect()
-  return { h: Math.round(r.height), text: c.innerText.replace(/\s+/g, ' '), sku: !!c.querySelector('p.font-mono'), cost: !!c.querySelector('[data-card-cost]'), footer: !!c.querySelector('[data-card-footer]'), buttons: [...c.querySelectorAll('button')].filter(b => b.getBoundingClientRect().height >= 40).map(b => (b.innerText || b.title || b.getAttribute('aria-label') || '').trim()), smallTap: [...c.querySelectorAll('[data-card-footer] button')].filter(b => b.getBoundingClientRect().height < 44).length, empty: [...c.querySelectorAll('p, div')].filter(e => !e.children.length && !e.innerText.trim() && e.getBoundingClientRect().height > 6).length, cursor: getComputedStyle(c).cursor }
+  return { h: Math.round(r.height), text: c.innerText.replace(/\s+/g, ' '), sku: !!c.querySelector('.font-mono'), cost: !!c.querySelector('[data-card-cost]'), footer: !!c.querySelector('[data-card-footer]'), buttons: [...c.querySelectorAll('button')].filter(b => b.getBoundingClientRect().height >= 40).map(b => (b.innerText || b.title || b.getAttribute('aria-label') || '').trim()), smallTap: [...c.querySelectorAll('[data-card-footer] button')].filter(b => b.getBoundingClientRect().height < 44).length, empty: [...c.querySelectorAll('p, div')].filter(e => !e.children.length && !e.innerText.trim() && e.getBoundingClientRect().height > 6).length, cursor: getComputedStyle(c).cursor }
 }, id)
 const sheet = page => page.locator('[data-testid="product-detail"]')
 const closeAll = async page => { for (let i = 0; i < 4 && (await page.locator('[role="dialog"], [role="alertdialog"], [role="menu"]').count()); i++) { await page.keyboard.press('Escape'); await page.waitForTimeout(450) } }
@@ -73,7 +73,7 @@ const closeAll = async page => { for (let i = 0; i < 4 && (await page.locator('[
     ...(sentPos || []).flatMap(po => (po.purchase_order_items || []).map(i => i.product_id)),
     ...(sentTr || []).flatMap(tr => (tr.stock_transfer_items || []).flatMap(i => [i.source_product_id, i.destination_product_id])),
   ].filter(Boolean))
-  const withSku = prods.find(p => p.sku && p.quantity > 20 && !incoming.has(p.id)), noSku = prods.find(p => !p.sku && p.quantity > 20 && !incoming.has(p.id))
+  let withSku = prods.find(p => p.sku && p.quantity > 20 && !incoming.has(p.id)), noSku = prods.find(p => !p.sku && p.quantity > 20 && !incoming.has(p.id))
   console.log(`Boutique Alpha : ${prods.length} produits actifs ; ${totalAll} sur les ${mem.length} boutiques du compte`)
 
   // ══ 1. Téléphone, propriétaire, toutes les boutiques ══════════════════════════════════════════════════════
@@ -105,8 +105,17 @@ const closeAll = async page => { for (let i = 0; i < 4 && (await page.locator('[
 
   // ══ 2. Carte ══════════════════════════════════════════════════════════════════════════════════════════════
   console.log('\n2. Carte produit — propriétaire')
+  // Carte de référence : sans ligne « Dernière vente » (étape 15, propre aux produits sans vente). Les pastilles
+  // (surstock, rupture proche) sont sur la ligne du code-barres et n'ajoutent pas de ligne : limite de 170 px inchangée
+  const plainCard = id => page.evaluate(i => { const el = document.querySelector(`[data-product-card="${i}"]`); return !!el && !el.querySelector('[data-last-sale]') }, id)
+  const skuCands = prods.filter(p => p.sku && p.quantity > 20 && !incoming.has(p.id))
+  for (const c of skuCands) if (await plainCard(c.id)) { withSku = c; break }
+  for (const c of prods.filter(p => !p.sku && p.quantity > 20 && !incoming.has(p.id))) if (await plainCard(c.id)) { noSku = c; break }
   const a = await cardInfo(page, withSku.id), b = await cardInfo(page, noSku.id)
-  check(`« ${withSku.name.trim()} » : ${a.h} px de haut (188 px avant) — ${a.text.slice(0, 90)}…`, a.h <= 170 && a.text.includes(withSku.name.trim()) && /En stock|Stock faible|Rupture|Ventes lentes/.test(a.text) && /F CFA|₦/.test(a.text), JSON.stringify(a))
+  // Carte d'un produit sans vente : une ligne « Dernière vente … » en plus, limite de 190 px (décision du 31 oct. 2026)
+  const lastSaleCard = await page.evaluate(() => { const el = document.querySelector('[data-product-card] [data-last-sale]'); const c = el && el.closest('[data-product-card]'); return c ? { h: Math.round(c.getBoundingClientRect().height), text: c.innerText.replace(/\s+/g, ' ').slice(0, 90) } : null })
+  if (lastSaleCard) check(`carte avec « dernière vente » : ${lastSaleCard.h} px de haut (limite 190) — ${lastSaleCard.text}…`, lastSaleCard.h <= 190, JSON.stringify(lastSaleCard))
+  check(`« ${withSku.name.trim()} » : ${a.h} px de haut (188 px avant) — ${a.text.slice(0, 90)}…`, a.h <= 170 && a.text.includes(withSku.name.trim()) && /En stock|Stock faible|Rupture|Ventes lentes|Sans vente/.test(a.text) && /F CFA|₦/.test(a.text), JSON.stringify(a))
   check('une seule action visible (« Réapprovisionner ») et le menu « … »', a.buttons.filter(x => !/Ouvrir la fiche/.test(x) && x !== withSku.name.trim()).join('|') === 'Réapprovisionner|Plus d’actions', a.buttons.join('|'))
   check('code affiché en petit quand il existe ; aucune ligne vide quand il n’existe pas', a.sku && !b.sku && a.empty === 0 && b.empty === 0, JSON.stringify({ a: a.empty, b: b.empty }))
   check('coût affiché (droit de voir les coûts) ; zones tactiles ≥ 44 px ; curseur « main »', a.cost && /Coût/.test(a.text) && a.smallTap === 0 && a.cursor === 'pointer', JSON.stringify({ c: a.cost, t: a.smallTap }))

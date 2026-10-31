@@ -24,8 +24,9 @@ import { withTimeout } from '@/lib/utils/with-timeout'
 import { cn } from '@/lib/utils/cn'
 import { LoadErrorFallback } from '@/components/ui/load-error-fallback'
 import { Skeleton } from '@/components/ui/skeleton'
-import { computeStockKpis, fetchDatedLots, fetchExpiryByProduct, fetchExpiredQtyByProduct, fetchSoldQty30dForShops, lotExpiryCounts, readSignalsCache, shopRulesOf, writeSignalsCache, type DatedLot, type StockProductLike } from '@/lib/stock/signals'
+import { computeStockKpis, isDormant, fetchDatedLots, fetchExpiryByProduct, fetchExpiredQtyByProduct, fetchSoldQty30dForShops, lotExpiryCounts, readSignalsCache, shopRulesOf, writeSignalsCache, type DatedLot, type StockProductLike } from '@/lib/stock/signals'
 import { fetchStockPipeline, type StockPipeline } from '@/lib/stock/pipeline'
+import { daysSince } from '@/lib/stock/last-sale'
 import { fetchReservedQtyByProduct } from '@/lib/stock/reservations'
 import { PRODUCT_PUBLIC_COLUMNS } from '@/lib/products/columns'
 import { SUPPLIER_PUBLIC_COLUMNS } from '@/lib/suppliers/columns'
@@ -233,6 +234,30 @@ export default function StockOverviewPage({ params: { locale } }: { params: { lo
     incomingByProduct,
   }), [products, categories, shop?.low_stock_threshold, shop?.expiry_alert_days, expiryByProduct, soldQtyByProduct, soldQtyLoaded, expiredQtyByProduct, reservedQtyByProduct, incomingByProduct, costs, userShops])
 
+  // Stock dormant ancien (étape 15) : sans vente depuis plus de 90 jours. Dernière vente lue par le serveur
+  // (/api/stock/last-sale, 365 jours au plus) ; sans vente sur la période, l'ancienneté part de la date d'ajout.
+  const dormantList = useMemo(() => soldQtyLoaded
+    ? (products as any[]).filter(p => isDormant(p, { expiryByProduct: {}, soldQtyByProduct, soldQtyLoaded })) : [], [products, soldQtyByProduct, soldQtyLoaded])
+  const dormantIdsKey = dormantList.map(p => p.id).sort().join(',')
+  const [lastSaleByProduct, setLastSaleByProduct] = useState<Record<string, string | null> | null>(null)
+  const shopIdsKey = effectiveShopIds.join(',')
+  useEffect(() => {
+    setLastSaleByProduct(null)
+    if (!dormantIdsKey || !shopIdsKey) return
+    let cancelled = false
+    fetch(`/api/stock/last-sale?shop_ids=${encodeURIComponent(shopIdsKey)}&product_ids=${encodeURIComponent(dormantIdsKey.split(',').slice(0, 200).join(','))}`)
+      .then(r => (r.ok ? r.json() : null))
+      .then(j => { if (!cancelled && j) setLastSaleByProduct(j.byProduct || {}) })
+      .catch(() => {})
+    return () => { cancelled = true }
+  }, [dormantIdsKey, shopIdsKey])
+  const DORMANT_OLD_DAYS = 90
+  const dormantOld = lastSaleByProduct === null ? null : dormantList.filter(p => {
+    const last = lastSaleByProduct[p.id]
+    const since = last ? daysSince(last) : p.created_at ? daysSince(p.created_at) : Infinity
+    return since > DORMANT_OLD_DAYS
+  }).length
+
   // Les coûts sont des données financières : pas pour la caisse ni la lecture seule
   // Valeur du stock : règle unique canViewCost (lib/permissions), et seulement une fois les coûts reçus du serveur
   const canSeeValue = canViewCost && costs !== null
@@ -274,7 +299,7 @@ export default function StockOverviewPage({ params: { locale } }: { params: { lo
   }), [datedLots, userShops, shop?.expiry_alert_days, categories])
 
   // Priorités stock : seulement celles qui ont quelque chose à montrer, par ordre d'importance —
-  // 1. lots périmés à traiter, 2. ruptures, 3. stock bas, 4. rupture proche, 5. lots qui expirent bientôt, 6. stock dormant,
+  // 1. lots périmés à traiter, 2. ruptures, 3. stock bas, 4. rupture proche, 5. lots qui expirent bientôt, 6. stock dormant, 7. surstock,
   // puis les promotions à revoir / en cours. Jamais « vendre » ni « promotion » pour un lot déjà périmé.
   const priorities = [
     lots.expired > 0 && {
@@ -321,6 +346,15 @@ export default function StockOverviewPage({ params: { locale } }: { params: { lo
         : t('stock_overview.opp_dormant_desc'),
       action: t('stock_overview.act_products'), onClick: () => goToProducts('dormant'),
     },
+    // Surstock (étape 15) : se vend, mais plus de 6 mois de stock au rythme actuel
+    kpis.surstock > 0 && {
+      key: 'surstock', tone: 'blue' as Tone, icon: Layers,
+      title: t('stock_overview.opp_surstock', { count: kpis.surstock }),
+      desc: canSeeValue
+        ? t('stock_overview.opp_surstock_desc_value', { amount: fmt(kpis.surstockValue) })
+        : t('stock_overview.opp_surstock_desc'),
+      action: t('stock_overview.act_products'), onClick: () => goToProducts('surstock'),
+    },
     kpis.promoStale > 0 && {
       key: 'promo_stale', tone: 'red' as Tone, icon: AlertTriangle,
       title: t('stock_overview.opp_promo_stale', { count: kpis.promoStale }),
@@ -365,7 +399,10 @@ export default function StockOverviewPage({ params: { locale } }: { params: { lo
             <KpiCard id="expiring" tone={alertTone(lots.expiring, 'orange')} icon={CalendarClock} label={t('stock_overview.kpi_expiring_lots')} value={lots.expiring} actionLabel={t('stock_overview.act_lots')} onClick={() => goToLots('expiring')} />
             <KpiCard
               id="dormant" className="col-span-2 sm:col-span-4 md:col-span-2 lg:col-span-4" tone={alertTone(kpis.dormant, 'blue')} icon={TrendingDown} label={t('stock_overview.kpi_dormant')} value={kpis.dormant}
-              hint={canSeeValue && kpis.dormant > 0 ? t('stock_overview.hint_immobilized', { amount: fmt(kpis.dormantValue) }) : undefined}
+              hint={kpis.dormant > 0 ? [
+                canSeeValue ? t('stock_overview.hint_immobilized', { amount: fmt(kpis.dormantValue) }) : null,
+                dormantOld ? t('stock_overview.hint_dormant_old', { count: dormantOld }) : null,
+              ].filter(Boolean).join(' · ') || undefined : undefined}
               actionLabel={t('stock_overview.open_products')}
               onClick={() => goToProducts('dormant')}
             />

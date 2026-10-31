@@ -243,6 +243,14 @@
     "viewer": "Observateur"
   },
   "products": {
+    "status_surstock": "Surstock",
+    "surstock_badge": "Surstock",
+    "surstock_note": "Surstock : au rythme actuel, ce stock tiendrait plus de 6 mois.",
+    "promo_suggested_surstock": "Prix suggéré : plus de 6 mois de stock au rythme actuel.",
+    "last_sale_days": "Dernière vente il y a {count, plural, one {# jour} other {# jours}}",
+    "last_sale_never": "Aucune vente depuis l'ajout ({date})",
+    "last_sale_over_year": "Aucune vente depuis plus d'un an",
+    "new_no_hindsight": "Ajouté il y a moins de 30 jours : pas encore assez de recul pour juger ses ventes.",
     "status_near_rupture": "Rupture proche",
     "near_rupture_badge": "Rupture proche",
     "near_rupture_incoming_badge": "Rupture proche · arrivage prévu",
@@ -317,7 +325,7 @@
     "card_out_of_stock": "Rupture",
     "card_low_stock": "Stock bas",
     "card_expiry": "Péremption",
-    "card_dormant": "Ventes lentes",
+    "card_dormant": "Sans vente (30 j)",
     "batches_title": "Lots du produit",
     "section_main": "Informations principales",
     "section_advanced_hint": "Photo du produit",
@@ -4146,6 +4154,10 @@
     "restored_no_photo": "Votre saisie a été restaurée (prise de vue annulée)."
   },
   "stock_overview": {
+    "hint_dormant_old": "{count, plural, one {dont # depuis plus de 90 jours} other {dont # depuis plus de 90 jours}}",
+    "opp_surstock": "{count, plural, one {# produit en surstock} other {# produits en surstock}}",
+    "opp_surstock_desc": "Plus de 6 mois de stock au rythme actuel : proposez une promotion ou un transfert.",
+    "opp_surstock_desc_value": "{amount} immobilisés : plus de 6 mois de stock au rythme actuel.",
     "opp_near_rupture": "{count, plural, one {# produit risque la rupture sous 7 jours} other {# produits risquent la rupture sous 7 jours}}",
     "opp_near_rupture_incoming_only": "{count, plural, one {# produit proche de la rupture, arrivage prévu} other {# produits proches de la rupture, arrivage prévu}}",
     "opp_near_rupture_desc": "Estimation au rythme des ventes des 30 derniers jours.",

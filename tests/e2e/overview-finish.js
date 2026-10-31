@@ -157,7 +157,11 @@ const rows = page => page.locator('[data-testid=stock-priorities] [data-priority
   await toggle.click()
   r = await rows(page)
   // Les promotions viennent APRÈS les cinq priorités de stock (jamais avant un lot périmé à traiter)
-  ok(base2.includes('expiring') && base2.includes('dormant') && r.join(',') === [...base2, 'promo_stale', 'promo'].join(','), `dépliées sur place, sans nouvel écran : ${r.join(' › ')}`)
+  // Ordre complet (étapes 13 et 15 : rupture proche après le stock bas, surstock après le stock dormant) ; les
+  // priorités sans carte de chiffre (rupture proche, surstock, promotions) sont attendues à leur place si présentes
+  const ORDER = ['expired_lots', 'out', 'low', 'near_rupture', 'expiring', 'dormant', 'surstock', 'promo_stale', 'promo']
+  const expected = ORDER.filter(id => base2.includes(id) || (['near_rupture', 'surstock', 'promo_stale', 'promo'].includes(id) && r.includes(id)))
+  ok(base2.includes('expiring') && base2.includes('dormant') && r.includes('promo_stale') && r.includes('promo') && r.join(',') === expected.join(','), `dépliées sur place, sans nouvel écran : ${r.join(' › ')}`)
   ok((await toggle.innerText()).trim() === 'Afficher moins' && await toggle.getAttribute('aria-expanded') === 'true' && /\/fr\/stock$/.test(new URL(page.url()).pathname), '« Afficher moins », même page')
   const t2 = await visibleText(page.locator('[data-testid=stock-priorities]'))
   // Textes des priorités non visibles par défaut : nombres EXACTEMENT égaux aux cartes (toutes les lignes existent ici)

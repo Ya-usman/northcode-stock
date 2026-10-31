@@ -49,10 +49,11 @@ import { isNeutralClick } from '@/lib/utils/open-on-click'
 import { PRODUCT_PUBLIC_COLUMNS } from '@/lib/products/columns'
 import { SUPPLIER_PUBLIC_COLUMNS } from '@/lib/suppliers/columns'
 import { fetchCosts, withCosts } from '@/lib/costs/client'
-import { fetchExpiryByProduct, fetchExpiredQtyByProduct, availableQty, isNearRupture, stockLevelOf, stockQuantities, fetchSoldQty30dForShops, readSignalsCache, shopRulesOf, writeSignalsCache } from '@/lib/stock/signals'
+import { fetchExpiryByProduct, fetchExpiredQtyByProduct, availableQty, isNearRupture, isDormant as isDormantRule, isSurstock as isSurstockRule, stockLevelOf, stockQuantities, fetchSoldQty30dForShops, readSignalsCache, shopRulesOf, writeSignalsCache } from '@/lib/stock/signals'
 import { shopToday } from '@/lib/stock/sellable'
 import { addDays } from '@/lib/stock/batch-status'
 import { fetchStockPipeline, type StockPipeline } from '@/lib/stock/pipeline'
+import { lastSaleLabel } from '@/lib/stock/last-sale'
 import { fetchReservedQtyByProduct } from '@/lib/stock/reservations'
 import { ProductThumbnail } from '@/components/stock/product-thumbnail'
 import { setPageCache, getPageCache } from '@/lib/offline/page-cache'
@@ -88,7 +89,7 @@ const BulkAddModal = dynamic(() => import('@/components/stock/bulk-add-modal').t
 
 
 // Ordre MÉTIER du filtre Statut (jamais alphabétique) ; « Archivé » s'ajoute pour qui gère le stock
-const STATUS_ORDER = ['ok', 'low', 'out', 'near_rupture', 'expiry', 'dormant', 'promo']
+const STATUS_ORDER = ['ok', 'low', 'out', 'near_rupture', 'expiry', 'dormant', 'surstock', 'promo']
 
 function StockBadge({ quantity, threshold }: { quantity: number; threshold: number }) {
   const t = useTranslations('status')
@@ -173,6 +174,8 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
   const [reservedQtyByProduct, setReservedQtyByProduct] = useState<Record<string, number>>(() => readSignalsCache(effectiveShopIds)?.reservedQtyByProduct ?? {})
   // Stock à venir (en transit, en commande) : null tant qu'il n'est ni en cache ni chargé
   const [pipeline, setPipeline] = useState<StockPipeline | null>(() => readSignalsCache(effectiveShopIds)?.pipeline ?? null)
+  // Dernière vente (365 jours au plus) des produits sans vente sur 30 jours ; null = aucune sur la période
+  const [lastSaleByProduct, setLastSaleByProduct] = useState<Record<string, string | null>>({})
   const [promoProduct, setPromoProduct] = useState<Product | null>(null)
   const [promoPrice, setPromoPrice] = useState('')
   const [promoUntil, setPromoUntil] = useState('')
@@ -540,7 +543,28 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
   }
   const isExpired = (p: Product) => { const exp = expiryByProduct[p.id]; return !!exp && exp < todayOf(p) }
   const isExpiringSoon = (p: Product) => { const exp = expiryByProduct[p.id]; return !!exp && exp >= todayOf(p) && exp <= getExpiryCutoffFor(p) }
-  const isDormant = (p: Product) => soldQtyLoaded && p.quantity > 0 && !(soldQtyByProduct[p.id] > 0)
+  // Écoulement (étape 15) : règles uniques de lib/stock/signals (délai de grâce de 30 jours pour un produit récent)
+  const flowCtx = { expiryByProduct: {}, soldQtyByProduct, soldQtyLoaded, expiredQtyByProduct }
+  const isDormant = (p: Product) => isDormantRule(p, flowCtx)
+  const isSurstock = (p: Product) => !isDormant(p) && isSurstockRule(p, flowCtx)
+  // Dernière vente des produits sans vente sur 30 jours (étape 15) : lue par le serveur (/api/stock/last-sale)
+  const dormantIdsKey = soldQtyLoaded ? products.filter(p => isDormant(p)).map(p => p.id).sort().join(',') : ''
+  const shopIdsKey = effectiveShopIds.join(',')
+  useEffect(() => {
+    if (!dormantIdsKey || !shopIdsKey) return
+    let cancelled = false
+    const ids = dormantIdsKey.split(',').slice(0, 200)
+    fetch(`/api/stock/last-sale?shop_ids=${encodeURIComponent(shopIdsKey)}&product_ids=${encodeURIComponent(ids.join(','))}`)
+      .then(r => (r.ok ? r.json() : { byProduct: {} }))
+      .then(j => { if (!cancelled) setLastSaleByProduct(prev => ({ ...prev, ...(j.byProduct || {}) })) })
+      .catch(() => {})
+    return () => { cancelled = true }
+  }, [dormantIdsKey, shopIdsKey])
+  // Écoulement d'un produit pour les cartes et le tableau : surstock, et phrase « dernière vente » d'un produit sans vente
+  const flowFor = (p: Product): { surstock: boolean; lastSale: string | null } => ({
+    surstock: isSurstock(p),
+    lastSale: isDormant(p) && p.id in lastSaleByProduct ? lastSaleLabel(t as any, locale, lastSaleByProduct[p.id], (p as any).created_at) : null,
+  })
   // Niveau de stock jugé sur le disponible (vendable − réservé ; expiredQtyByProduct = part NON VENDABLE) — lib/stock/signals
   const levelOf = (p: Product) => stockLevelOf(p, { shopRules: shopRulesOf(userShops), shopLowStockThreshold: shop?.low_stock_threshold, expiredQtyByProduct, reservedQtyByProduct })
   // Partagé produit/lot (les deux ont promo_price/promo_until) — un seul
@@ -555,6 +579,7 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
   // produit qui ne se vend juste pas. Purement une suggestion pré-remplie,
   // modifiable avant validation.
   const suggestPromo = (p: Product): { price: number; until: string; reason: string; key: 'expiry' | 'dormant' } | null => {
+    // Sans vente ou surstock : même raison « dormant » en base (écoulement lent, migration 094)
     const exp = expiryByProduct[p.id]
     if (isExpiringSoon(p) && exp) {
       const daysLeft = Math.round((new Date(exp).getTime() - new Date(todayOf(p)).getTime()) / 86_400_000)
@@ -567,6 +592,11 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
       const until = new Date(Date.now() + 14 * 86_400_000).toISOString().slice(0, 10)
       return { price, until, reason: t('products.promo_suggested_dormant'), key: 'dormant' }
     }
+    if (isSurstock(p)) {
+      const price = Math.max(1, Math.round(p.selling_price * 0.85))
+      const until = new Date(Date.now() + 14 * 86_400_000).toISOString().slice(0, 10)
+      return { price, until, reason: t('products.promo_suggested_surstock'), key: 'dormant' }
+    }
     return null
   }
 
@@ -577,7 +607,7 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
     const active = isPromoActive(p)
     if (!active || !p.promo_reason) return false
     if (p.promo_reason === 'expiry') return !isExpiringSoon(p)
-    if (p.promo_reason === 'dormant') return !isDormant(p)
+    if (p.promo_reason === 'dormant') return !isDormant(p) && !isSurstock(p)
     return false
   }
 
@@ -602,6 +632,7 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
         if (v === 'ok' || v === 'low' || v === 'out') return level === v
         if (v === 'expiry') return isExpired(p) || isExpiringSoon(p)
         if (v === 'dormant') return isDormant(p)
+        if (v === 'surstock') return isSurstock(p)
         if (v === 'near_rupture') return nearRuptureFor(p).near
         if (v === 'promo') return isPromoActive(p)
         return false
@@ -1125,6 +1156,7 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
     const expired = expiry ? expiry < todayOf(product) : false
     const expiringSoonBadge = expiry && !expired ? expiry <= getExpiryCutoffFor(product) : false
     const nearRupture = nearRuptureFor(product)
+    const flow = flowFor(product)
     return (
       <div
         key={product.id}
@@ -1168,10 +1200,12 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
               ) : (
                 <button type="button" onClick={() => openProductDetail(product)} data-product-name className="block max-w-full truncate rounded text-left text-sm font-medium hover:text-stockshop-blue hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:hover:text-blue-400">{product.name}</button>
               )}
-              {product.sku && (
-                <p className="text-[10px] font-mono text-muted-foreground truncate">{product.sku}</p>
-              )}
+              {/* Code-barres et pastilles sur une même ligne (passe à la ligne seulement faute de place) : une pastille
+                  d'écoulement (surstock, rupture proche) n'ajoute pas de ligne à la carte */}
               <div className="flex items-center gap-1 flex-wrap mt-0.5">
+                {product.sku && (
+                  <span className="min-w-0 max-w-full truncate text-[10px] font-mono text-muted-foreground">{product.sku}</span>
+                )}
                 {promoActive && (
                   <span className={`text-[10px] font-semibold rounded-full px-1.5 py-0.5 ${promoStale(product) ? 'bg-red-50 dark:bg-red-950/40 text-red-600 dark:text-red-400' : 'bg-stockshop-blue-muted dark:bg-blue-950/40 text-stockshop-blue dark:text-blue-400'}`}>
                     {promoStale(product) ? t('products.promo_stale_badge') : t('products.promo_badge')}
@@ -1198,7 +1232,15 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
                     {nearRupture.coveredByIncoming ? t('products.near_rupture_incoming_badge') : t('products.near_rupture_badge')}
                   </span>
                 )}
+                {flow.surstock && (
+                  <span data-surstock className="text-[10px] font-semibold rounded-full px-1.5 py-0.5 bg-stockshop-blue-muted dark:bg-blue-950/40 text-stockshop-blue dark:text-blue-400">
+                    {t('products.surstock_badge')}
+                  </span>
+                )}
               </div>
+              {flow.lastSale && (
+                <p data-last-sale className="mt-0.5 text-[11px] text-stockshop-blue dark:text-blue-400">{flow.lastSale}</p>
+              )}
             </div>
           </div>
           <StockBadge quantity={cardAvailable} threshold={threshold} />
@@ -1371,6 +1413,7 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
     soldQty: (p: Product) => (soldQtyLoaded ? soldQtyByProduct[p.id] || 0 : null),
     pipelineFor,
     nearRuptureFor,
+    flowFor,
     expiredQty: (p: Product) => expiredQtyByProduct[p.id] || 0,
     reservedQty: (p: Product) => reservedQtyByProduct[p.id] || 0,
     expiryFor: (p: Product) => {
@@ -1418,7 +1461,7 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
   )
   const statusLabels: Record<string, string> = {
     ok: t('status.in_stock'), low: t('status.low_stock'), out: t('status.out_of_stock'),
-    near_rupture: t('products.status_near_rupture'),
+    near_rupture: t('products.status_near_rupture'), surstock: t('products.status_surstock'),
     expiry: t('products.card_expiry'), dormant: t('products.card_dormant'), promo: t('products.promo_badge'),
     archived: t('products.tab_archived'),
   }

@@ -39,7 +39,7 @@ async function stockColumns(page) {
   const rows = await page.locator('table tbody tr').count()
   ok(rows === num(countText) && rows > 0, `A) ${rows} lignes au total = « ${countText.trim()} »`)
   const chips = await page.locator('table tbody tr td:nth-child(7) span').allInnerTexts()
-  ok(chips.every(c => /En stock|Stock faible|Rupture|Ventes lentes/.test(c)), `A) pastilles de statut (${[...new Set(chips)].join(', ')})`)
+  ok(chips.every(c => /En stock|Stock faible|Rupture|Sans vente|Surstock/.test(c)), `A) pastilles de statut (${[...new Set(chips)].join(', ')})`)
   const sales = await page.locator('table tbody tr td:nth-child(6)').allInnerTexts()
   ok(sales.every(s => /^\s*(\d+|—)\s*$/.test(s)), 'A) colonne Ventes 30 j renseignée (chiffre, ou tiret tant que non chargé)')
   const firstRowActions = await page.locator('table tbody tr').first().locator('td:last-child button').count()

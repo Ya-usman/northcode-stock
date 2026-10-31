@@ -4,7 +4,7 @@ import { createAdminClient } from '@/lib/supabase/server'
 import { getAuthedUser, checkShopRole } from '@/lib/api/shop-auth'
 import { canViewFeature, canWriteFeature, canViewCost } from '@/lib/api/role-permissions'
 import { getApiTranslator } from '@/lib/api/i18n'
-import { coverageInfo, fetchSoldQty30d, ruptureDateOf, stockLevelOf, stockQuantities } from '@/lib/stock/signals'
+import { coverageInfo, fetchLastSaleAt, fetchSoldQty30d, isNewProduct, ruptureDateOf, stockLevelOf, stockQuantities, SURSTOCK_DAYS } from '@/lib/stock/signals'
 import { loadStockPipeline } from '@/lib/stock/pipeline-load'
 
 // GET /api/stock/product-detail?shop_id=…&product_id=…[&today=AAAA-MM-JJ]
@@ -37,6 +37,13 @@ function salesBlock(q: { physical: number; expired: number; inTransit: number | 
     incoming,
     coverage_with_incoming: incoming > 0 ? coverageInfo(sellable + incoming, sold30d) : null,
   }
+}
+
+/** Surstock (étape 15) : se vend, mais le stock vendable tiendrait plus de 180 jours au rythme actuel */
+function surstockOf(q: { physical: number; expired: number }, sold30d: number): boolean {
+  if (!(sold30d > 0)) return false
+  const c = coverageInfo(q.physical - q.expired, sold30d)
+  return c.kind === 'over_year' || (c.kind === 'days' && c.days > SURSTOCK_DAYS)
 }
 
 export async function GET(request: Request) {
@@ -105,7 +112,11 @@ export async function GET(request: Request) {
       { id: productId, quantity: product.quantity, low_stock_threshold: product.low_stock_threshold },
       { shopLowStockThreshold: shopRes.data?.low_stock_threshold, expiredQtyByProduct: { [productId]: quantities.expired }, reservedQtyByProduct: { [productId]: quantities.reserved } },
     )
-    const status = level !== 'ok' ? level : quantities.physical > 0 && sold30d <= 0 ? 'dormant' : 'ok'
+    // Étape 15 : un produit créé il y a moins de 30 jours n'est jamais « sans vente » (délai de grâce)
+    const isNew = isNewProduct(product)
+    const status = level !== 'ok' ? level : quantities.physical > 0 && sold30d <= 0 && !isNew ? 'dormant' : 'ok'
+    // Dernière vente (365 jours au plus) : seulement quand il n'y en a aucune sur 30 jours
+    const lastSaleAt = quantities.physical > 0 && sold30d <= 0 ? (await fetchLastSaleAt(admin, [shopId], [productId]))[productId] ?? null : undefined
 
     let purchase: null | Record<string, unknown> = null
     if (canCost) {
@@ -135,7 +146,7 @@ export async function GET(request: Request) {
         id: r.id, source_ref: r.source_ref, label: r.label, quantity: Number(r.quantity),
         created_at: r.created_at, expires_at: r.expires_at, created_by_name: r.created_by ? authors[r.created_by] || null : null,
       })),
-      sales: salesBlock(quantities, sold30d, shopToday(shopRes.data)),
+      sales: { ...salesBlock(quantities, sold30d, shopToday(shopRes.data)), is_new: isNew, last_sale_at: lastSaleAt, surstock: !isNew && surstockOf(quantities, sold30d) },
       purchase,
       permissions: { cost: canCost, release: canRelease },
       today: shopToday(shopRes.data),

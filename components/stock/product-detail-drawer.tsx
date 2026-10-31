@@ -21,6 +21,7 @@ import { withTimeout } from '@/lib/utils/with-timeout'
 import { useOffline } from '@/lib/offline/use-offline'
 import { type CoverageInfo, type StockQuantities } from '@/lib/stock/signals'
 import { cn } from '@/lib/utils/cn'
+import { lastSaleLabel } from '@/lib/stock/last-sale'
 import { useAuthContext as useAuth } from '@/lib/contexts/auth-context'
 import { ElsewhereSheet, useElsewhere } from '@/components/stock/elsewhere/elsewhere-sheet'
 
@@ -49,7 +50,11 @@ interface ProductDetail {
   quantities: StockQuantities
   reservations: Reservation[]
   /** Étape 13 : date de rupture probable (estimation fiable seulement) et couverture avec les arrivages visibles */
-  sales: { sold30d: number; coverage: CoverageInfo; rupture_date?: string | null; incoming?: number; coverage_with_incoming?: CoverageInfo | null }
+  sales: {
+    sold30d: number; coverage: CoverageInfo; rupture_date?: string | null; incoming?: number; coverage_with_incoming?: CoverageInfo | null
+    /** Étape 15 : produit créé il y a moins de 30 jours (délai de grâce), dernière vente (absente = ventes sur 30 j), surstock */
+    is_new?: boolean; last_sale_at?: string | null; surstock?: boolean
+  }
   purchase: null | {
     buying_price: number
     stock_value: number
@@ -408,6 +413,16 @@ export function ProductDetailDrawer({
                         </p>
                       )}
                       {incomingCoverText(detail.sales) && <p data-testid="product-detail-incoming-cover">{incomingCoverText(detail.sales)}</p>}
+                    </div>
+                  )}
+                  {/* Écoulement (étape 15) : dernière vente d'un produit sans vente, produit récent, surstock */}
+                  {(detail.sales.last_sale_at !== undefined || (detail.sales.is_new && detail.sales.sold30d === 0) || detail.sales.surstock) && (
+                    <div className="col-span-2 space-y-1 text-xs leading-relaxed text-muted-foreground" data-testid="product-detail-flow">
+                      {detail.sales.last_sale_at !== undefined && (
+                        <p data-testid="product-detail-last-sale" className={cn(!detail.sales.is_new && 'font-medium text-stockshop-blue dark:text-blue-400')}>{lastSaleLabel(t as any, locale, detail.sales.last_sale_at ?? null, (product as any).created_at)}</p>
+                      )}
+                      {detail.sales.is_new && detail.sales.sold30d === 0 && <p data-testid="product-detail-new">{t('products.new_no_hindsight')}</p>}
+                      {detail.sales.surstock && <p data-testid="product-detail-surstock" className="font-medium text-stockshop-blue dark:text-blue-400">{t('products.surstock_note')}</p>}
                     </div>
                   )}
                 </div>
