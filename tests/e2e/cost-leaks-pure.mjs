@@ -1,7 +1,7 @@
-// Prix d'achat — deux fuites applicatives corrigées : réponse de POST /api/stock/inventory-count (value_delta) et
-// cache local des pages (lib/offline/page-cache.ts). Test PUR : faux localStorage, faux modules, aucun réseau ni base.
+// Prix d'achat : fuite du cache local des pages (lib/offline/page-cache.ts) corrigée ; l'ancienne route POST
+// /api/stock/inventory-count (fuite de value_delta) est retirée depuis le 31 oct. 2026.
+// Test PUR : faux localStorage, aucun réseau ni base.
 // Usage : node tests/e2e/cost-leaks-pure.mjs   (Node ≥ 23 : lecture directe du TypeScript)
-import { register } from 'node:module'
 
 const ROOT = new URL('../../', import.meta.url)
 let pass = 0, fail = 0
@@ -52,43 +52,11 @@ const removed = C.purgeCostCaches()
 ok(removed === 3 && !store.has('pc_a') && !store.has('pc_b') && store.has('pc_c') && !store.has('rq_cache_v1') && store.has('autre'),
    `purge au démarrage : transferts + bons + ancien cache Rapports supprimés, ventes conservées, hors cache non touché (${removed})`)
 
-// ── 2. POST /api/stock/inventory-count : value_delta absent sans droit au coût ──
-const MOCKS = {
-  'next/server': `export const NextResponse = { json: (body, init) => ({ body, status: init?.status ?? 200 }) }`,
-  '@/lib/supabase/server': `export const createAdminClient = async () => ({ rpc: async (fn, args) => { globalThis.__inv.calls.push([fn, args]); return { data: globalThis.__inv.result, error: null } } })`,
-  '@/lib/api/shop-auth': `export const getAuthedUser = async () => ({ user: { id: 'u1' }, supabase: {} }); export const checkShopRole = async () => globalThis.__inv.role`,
-  '@/lib/api/role-permissions': `export const canWriteFeature = async () => true; export const canViewFeature = async () => true; export const canViewCost = async () => globalThis.__inv.cost`,
-  '@/lib/api/i18n': `export const getApiTranslator = () => (k) => 'T:' + k`,
-}
-const hooks = `
-const MOCKS = ${JSON.stringify(MOCKS)}; const ROOT = ${JSON.stringify(ROOT.href)};
-export async function resolve(spec, ctx, next) {
-  if (spec in MOCKS) return { url: 'mock:' + spec, shortCircuit: true }
-  if (spec.startsWith('@/')) return next(new URL(spec.slice(2) + '.ts', ROOT).href, ctx)
-  return next(spec, ctx)
-}
-export async function load(url, ctx, next) {
-  if (url.startsWith('mock:')) return { format: 'module', source: MOCKS[url.slice(5)], shortCircuit: true }
-  return next(url, ctx)
-}`
-register('data:text/javascript,' + encodeURIComponent(hooks))
-const route = await import(new URL('app/api/stock/inventory-count/route.ts', ROOT).href)
-const RESULT = { adjusted_count: 2, value_delta: -37500, items: [{ product_id: 'p1', product_name: 'Riz', previous_qty: 10, new_qty: 7, reason_code: 'loss', reason_label: 'Perte' }], session_id: 's1' }
-async function post(role, cost) {
-  globalThis.__inv = { role, cost, calls: [], result: structuredClone(RESULT) }
-  const req = new Request('http://local/api/stock/inventory-count', { method: 'POST', body: JSON.stringify({ shop_id: 'shop1', items: [{ product_id: 'p1', counted_qty: 7 }] }) })
-  return { res: await route.POST(req), calls: globalThis.__inv.calls }
-}
-let r = await post('stock_manager', false)
-ok(r.res.status === 200 && r.calls.length === 1 && r.calls[0][0] === 'apply_inventory_count', 'sans droit au coût : l’inventaire est appliqué normalement (calcul interne conservé)')
-ok(!('value_delta' in r.res.body.data), 'sans droit au coût : value_delta ABSENT (ni null, ni 0)')
-ok(r.res.body.data.adjusted_count === 2 && r.res.body.data.session_id === 's1' && r.res.body.data.items[0].new_qty === 7 && r.res.body.data.items[0].previous_qty === 10,
-   'sans droit au coût : quantités théorique / comptée, écart en unités et motifs conservés')
-ok(!JSON.stringify(r.res.body).includes('37500'), 'sans droit au coût : la valeur n’apparaît nulle part dans la réponse')
-r = await post('manager', true)
-ok(r.res.status === 200 && r.res.body.data.value_delta === -37500, 'avec droit au coût : value_delta présent')
-r = await post('owner', true)
-ok(r.res.body.data.value_delta === -37500, 'propriétaire : value_delta présent')
+// ── 2. Ancienne route POST /api/stock/inventory-count : RETIRÉE le 31 oct. 2026 ──
+// Plus aucun écran ne l'appelait (les inventaires passent par /api/stock/inventory-sessions) ; elle modifiait le stock
+// directement. La fuite de value_delta qu'elle avait ne peut donc plus se produire : on vérifie qu'elle n'existe plus.
+const { existsSync } = await import('node:fs')
+ok(!existsSync(new URL('app/api/stock/inventory-count/route.ts', ROOT)), 'ancienne route d’inventaire direct retirée (plus de porte d’écriture hors inventaires par sessions)')
 
 console.log(`${pass} réussis, ${fail} échec(s)`)
 process.exit(fail ? 1 : 0)
