@@ -6,7 +6,8 @@ import { usePersistedFilters } from '@/lib/hooks/use-persisted-filters'
 import { useLocale, useTranslations } from 'next-intl'
 import { dateFnsLocale } from '@/lib/i18n/date-format'
 import { getPaymentMethodLabel } from '@/lib/saas/countries'
-import { Download, Receipt, TrendingDown, Banknote, X, Loader2 } from 'lucide-react'
+import { Download, Receipt, TrendingDown, Banknote } from 'lucide-react'
+import { PremiumDialog, PremiumDialogBody, PremiumDialogFooter } from '@/components/ui/premium-dialog'
 import {
   PieChart, Pie, Cell,
   Tooltip, ResponsiveContainer,
@@ -197,9 +198,13 @@ export default function ReportsPage() {
   const buildPdfParams = () => {
     const { start, end } = getDateRange()
     const dateRange = `${format(new Date(start), 'dd MMM yyyy', { locale: dateFnsLocale(locale) })} – ${format(new Date(end), 'dd MMM yyyy', { locale: dateFnsLocale(locale) })}`
+    // Nom du fichier : titre traduit + boutique + dates ISO (jamais l'anglais « Report », ni espaces / tiret long de la période)
+    const d1 = format(new Date(start), 'yyyy-MM-dd'), d2 = format(new Date(end), 'yyyy-MM-dd')
+    const safeShop = shop!.name.replace(/[\\/:*?"<>|]+/g, '').trim()
     return {
       shopName: shop!.name,
       dateRange,
+      fileName: `${t('reports.title')}-${safeShop}-${d1 === d2 ? d1 : `${d1}_${d2}`}.pdf`,
       labels: {
         businessReport: t('reports.pdf_business_report'),
         generatedBy: t('reports.pdf_generated_by'),
@@ -655,82 +660,46 @@ export default function ReportsPage() {
         </>
       )}
 
-      {/* PDF action sheet — mobile only */}
-      {pdfSheet && (
-        <div
-          className="fixed inset-0 z-50 flex flex-col justify-end bg-black/60 backdrop-blur-sm"
-          onClick={closePdfSheet}
-        >
-          <div
-            className="bg-background rounded-t-2xl shadow-2xl overflow-hidden"
-            onClick={e => e.stopPropagation()}
-          >
-            {/* Gradient header */}
-            <div
-              className="relative overflow-hidden px-5 pt-5 pb-4"
-              style={{ background: 'linear-gradient(135deg, #073e8a 0%, #0d52b8 100%)' }}
-            >
-              <div className="absolute -top-6 -right-6 h-24 w-24 rounded-full bg-white/5" />
-              <div className="absolute -bottom-4 -left-4 h-16 w-16 rounded-full bg-white/5" />
-              <div className="relative flex items-start justify-between gap-3">
-                <div className="min-w-0">
-                  <div className="flex items-center gap-2 mb-2">
-                    <div className="flex h-7 w-7 items-center justify-center rounded-full bg-white/15">
-                      <Download className="h-3.5 w-3.5 text-white" />
-                    </div>
-                    <span className="text-xs font-semibold text-blue-200 uppercase tracking-wider">{t('reports.title')}</span>
-                  </div>
-                  <p className="text-lg font-bold text-white leading-tight">{t('reports.pdf_ready')}</p>
-                  <p className="text-xs text-blue-200/70 mt-0.5 truncate max-w-[240px]">{pdfSheet.name}</p>
-                </div>
-                <button
-                  onClick={closePdfSheet}
-                  className="flex-shrink-0 flex h-8 w-8 items-center justify-center rounded-full bg-white/10 text-white/70 hover:bg-white/20 hover:text-white transition-colors"
-                >
-                  <X className="h-4 w-4" />
-                </button>
-              </div>
-            </div>
-            <div className="p-5 space-y-3 pb-10">
-
-            {/* Télécharger — même mécanisme que tous les autres exports de l'app */}
-            <button
-              disabled={downloading}
-              className="flex items-center gap-4 w-full p-4 rounded-xl bg-stockshop-blue-muted dark:bg-blue-950/40 text-stockshop-blue dark:text-blue-300 active:opacity-70 disabled:opacity-60"
-              onClick={async () => {
-                setDownloading(true)
-                try {
-                  await savePDF(pdfSheet.blob, pdfSheet.name)
-                  closePdfSheet()
-                } catch (err: any) {
-                  if (err?.name === 'OfflineError') {
-                    toast({ title: t('expenses.no_connection'), description: t('expenses.no_connection_download'), variant: 'destructive' })
-                  } else if (err?.name !== 'AbortError') {
-                    toast({ title: t('expenses.download_error'), description: String(err), variant: 'destructive' })
-                  }
-                } finally {
-                  setDownloading(false)
-                }
-              }}
-            >
-              <div className="h-10 w-10 flex items-center justify-center rounded-full bg-stockshop-blue-muted dark:bg-blue-900/50 flex-shrink-0">
-                {downloading ? <Loader2 className="h-5 w-5 animate-spin" /> : <Download className="h-5 w-5" />}
-              </div>
-              <div className="text-left">
-                <p className="font-semibold text-sm">{downloading ? t('reports.preparing') : t('actions.download')}</p>
-                <p className="text-xs opacity-70">{t('reports.save_to_files')}</p>
-              </div>
-            </button>
-
-
-
-            <button onClick={closePdfSheet} className="w-full py-2 text-sm text-muted-foreground">
-              Annuler
-            </button>
-          </div>
-        </div>
-      </div>
-      )}
+      {/* PDF prêt (téléphone, application web) : fenêtre commune (lot 6, 31 oct. 2026) au lieu d'un encadré fait
+          main que le retour Android ne fermait pas ; « Annuler » traduit */}
+      <PremiumDialog
+        open={!!pdfSheet}
+        onOpenChange={o => { if (!o) closePdfSheet() }}
+        category={t('reports.title')}
+        title={t('reports.pdf_ready')}
+        description={pdfSheet?.name}
+        icon={<Download className="h-4 w-4" />}
+        centered
+        testId="pdf-ready-dialog"
+      >
+        <PremiumDialogBody>
+          <p className="text-sm text-muted-foreground">{t('reports.save_to_files')}</p>
+        </PremiumDialogBody>
+        <PremiumDialogFooter
+          onCancel={closePdfSheet}
+          cancelLabel={t('actions.cancel')}
+          confirmLabel={downloading ? t('reports.preparing') : t('actions.download')}
+          confirmIcon={<Download className="h-4 w-4" />}
+          confirmLoading={downloading}
+          confirmDisabled={downloading || !pdfSheet}
+          onConfirm={async () => {
+            if (!pdfSheet) return
+            setDownloading(true)
+            try {
+              await savePDF(pdfSheet.blob, pdfSheet.name)
+              closePdfSheet()
+            } catch (err: any) {
+              if (err?.name === 'OfflineError') {
+                toast({ title: t('expenses.no_connection'), description: t('expenses.no_connection_download'), variant: 'destructive' })
+              } else if (err?.name !== 'AbortError') {
+                toast({ title: t('expenses.download_error'), description: String(err), variant: 'destructive' })
+              }
+            } finally {
+              setDownloading(false)
+            }
+          }}
+        />
+      </PremiumDialog>
     </div>
   )
 }

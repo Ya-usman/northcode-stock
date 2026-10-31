@@ -3,7 +3,7 @@
 import { useMemo, useState } from 'react'
 import { useLocale, useTranslations } from 'next-intl'
 import { Search, Check, ChevronDown, Globe } from 'lucide-react'
-import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog'
+import { PremiumDialog, PremiumDialogBody } from '@/components/ui/premium-dialog'
 import { COUNTRIES, type CountryCode, type CountryConfig } from '@/lib/saas/countries'
 import { cn } from '@/lib/utils/cn'
 
@@ -149,6 +149,7 @@ export function CountrySelect({ value, onChange, className, disabled }: CountryS
         type="button"
         disabled={disabled}
         onClick={() => setOpen(true)}
+        data-testid="country-select-trigger"
         className={cn(
           'w-full flex items-center gap-2 rounded-lg border border-border bg-background px-3 py-2 text-sm text-left transition-colors',
           'hover:border-stockshop-blue/50 focus:outline-none focus:ring-2 focus:ring-stockshop-blue/40',
@@ -170,18 +171,18 @@ export function CountrySelect({ value, onChange, className, disabled }: CountryS
         <ChevronDown className="h-4 w-4 text-muted-foreground flex-shrink-0" />
       </button>
 
-      <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="flex flex-col p-4 gap-3 max-w-sm max-sm:max-h-[85svh]">
-          <DialogTitle className="text-base">{t('select_country')}</DialogTitle>
+      {/* Fenêtre commune (lot 6, 31 oct. 2026) : même en-tête, croix, Échap et retour Android que le reste de
+          l'application ; ordinateur : focus sur la recherche, téléphone : pas de clavier qui surgit */}
+      <PremiumDialog open={open} onOpenChange={setOpen} title={t('select_country')} icon={<Globe className="h-4 w-4" />} testId="country-select-dialog">
+        <PremiumDialogBody className="flex min-h-0 flex-col space-y-0">
           <CountryPickerList
             value={value}
-            autoFocus
             onSelect={(code) => { onChange(code); setOpen(false) }}
             className="min-h-0 flex-1"
-            listClassName="max-h-[55vh]"
+            listClassName="max-h-[55dvh]"
           />
-        </DialogContent>
-      </Dialog>
+        </PremiumDialogBody>
+      </PremiumDialog>
     </>
   )
 }

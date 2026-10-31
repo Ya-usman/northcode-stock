@@ -772,6 +772,8 @@ export async function generateDebtReceiptPDFBlob(data: DebtReceiptData): Promise
 type ReportParams = {
   shopName: string
   dateRange: string
+  /** Nom du fichier (traduit, sans caractères interdits) ; sinon « Report-boutique-période.pdf » */
+  fileName?: string
   sections: { title: string; headers: string[]; rows: (string | number)[][] }[]
   labels?: {
     businessReport: string
@@ -907,7 +909,7 @@ async function buildReportDoc(params: ReportParams) {
     doc.text(`${lbl.page} ${i} ${lbl.of} ${pageCount}`, pageWidth - margin, 293, { align: 'right' })
   }
 
-  return { doc, fileName: `Report-${shopName}-${dateRange}.pdf` }
+  return { doc, fileName: params.fileName || `Report-${shopName}-${dateRange}.pdf` }
 }
 
 export async function generateReportPDF(params: ReportParams): Promise<void> {
