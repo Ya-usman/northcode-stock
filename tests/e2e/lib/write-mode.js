@@ -24,7 +24,7 @@ const SHOP_TABLES = [
   'inventory_sessions', 'notes', 'opening_balance_counters', 'product_batches', 'product_supplier_prices', 'products',
   'profiles', 'purchase_orders', 'sales', 'shop_members', 'shop_notes', 'shop_sale_counters', 'stock_movements',
   'stock_reservations', 'suppliers', 'support_contacts', 'subscriptions', 'push_subscriptions', 'admin_notifications',
-  'agent_commissions', 'currency_migration_log',
+  'agent_commissions', 'currency_migration_log', 'purchase_order_emails',
 ]
 const LINKED = new Set(['purchase_order_items', 'stock_transfers'])
 const COUNTERS = new Set(['shop_sale_counters', 'opening_balance_counters'])
