@@ -244,6 +244,8 @@
     "viewer": "Observateur"
   },
   "products": {
+    "journal_field_track_serials": "Suivi des numéros de série",
+    "col_location": "Emplacement",
     "journal_field_location": "Emplacement",
     "status_surstock": "Surstock",
     "surstock_badge": "Surstock",
@@ -469,6 +471,7 @@
     "bulk_archived_history": "{count, plural, one {# produit possède un historique : il a été archivé} other {# produits possèdent un historique : ils ont été archivés}} afin de conserver la traçabilité."
   },
   "sales": {
+    "review_reason_serial_unresolved": "Numéro de série manquant ou inconnu au moment de la synchronisation",
     "edit_details_section": "Client, paiement et note",
     "edit_qty_label": "Quantité : {name}",
     "edit_price_label": "Prix unitaire : {name}",
@@ -796,6 +799,7 @@
     "credit_limit_placeholder": "ex. 50000"
   },
   "suppliers": {
+    "po_load_error": "Impossible de charger les bons de commande.",
     "lead_card": "Livraison en {days} j",
     "lead_card_observed": "Livraison constatée {days} j",
     "lead_label": "Délai de livraison habituel (jours)",
@@ -944,6 +948,7 @@
     "to": "Au"
   },
   "transfers": {
+    "load_error": "Impossible de charger les transferts.",
     "in_transit_to": "En transit vers {shop}",
     "to_receive_at": "À réceptionner à {shop}",
     "receive_by_other": "Vous avez envoyé ce transfert : une autre personne de {shop} le réceptionne.",
@@ -1269,6 +1274,7 @@
     "client_debts_timeout": "Chargement des dettes clients trop lent : réessayez."
   },
   "receipt": {
+    "serial": "N° série",
     "receipt": "Reçu",
     "cashier": "Caissier",
     "customer": "Client",
@@ -3358,6 +3364,7 @@
       "invalid_expiry_date": "Date de péremption illisible : « {value} ». Écrivez-la JJ/MM/AAAA, ou laissez la case vide.",
       "invalid_quantity": "Quantité invalide : un nombre entier, 0 ou plus.",
       "invalid_threshold": "Seuil d’alerte invalide : un nombre entier.",
+      "location_too_long": "Emplacement trop long : 60 caractères au plus.",
       "unknown_unit": "Unité « {unit} » inconnue : choisissez-la dans la liste du modèle.",
       "sku_damaged": "Code-barres abîmé par Excel (ex. 5,9E+12) : mettez la colonne au format Texte et ressaisissez-le.",
       "sku_too_long": "Code-barres trop long.",
@@ -3425,6 +3432,11 @@
           "header": "Seuil d’alerte",
           "help": "Vous êtes prévenu quand le stock descend à ce nombre. Facultatif.",
           "example": "3"
+        },
+        "location": {
+          "header": "Emplacement",
+          "help": "Où se trouve le produit dans la boutique (rayon, étagère, réserve). Facultatif, 60 caractères au plus.",
+          "example": "Rayon 3, étagère B"
         },
         "expiry_date": {
           "header": "Date de péremption",
@@ -3890,6 +3902,16 @@
     "zero_lot_meta": "épuisé · {initial} {unit} au départ"
   },
   "api_errors": {
+    "serial_remove_not_surplus": "Ce numéro ne peut être retiré que si le registre compte plus de numéros que d’unités en stock.",
+    "transfer_serial_tracked_unsupported": "« {product} » est suivi par numéro de série : son transfert n’est pas encore possible.",
+    "serial_count_mismatch": "« {product} » : il faut un numéro de série par unité.",
+    "serial_taken": "Le numéro {serial} est déjà enregistré dans cette boutique.",
+    "serial_invalid": "Numéro de série invalide : {serial}",
+    "serial_duplicate_input": "Le même numéro de série est saisi deux fois.",
+    "serial_exceeds_stock": "Plus de numéros que d’unités en stock.",
+    "serial_not_in_stock": "Le numéro {serial} n’est pas en stock pour ce produit.",
+    "serial_product_not_tracked": "Ce produit n’est pas suivi par numéro de série.",
+    "sale_has_serials_not_editable": "Cette vente contient des produits suivis par numéro de série : annulez-la puis refaites-la.",
     "transfer_receive_wrong_shop": "La réception se fait depuis la boutique d’arrivée : passez sur {shop} en haut de l’écran.",
     "transfer_receive_own_send": "Vous avez envoyé ce transfert : une autre personne de la boutique d’arrivée doit le réceptionner.",
     "location_too_long": "L’emplacement ne peut pas dépasser 60 caractères.",
@@ -5383,5 +5405,59 @@
     "pack_line": "{packs} {pack} de {count} ({total} {base})",
     "pack_line_unit": "{pack} de {count} ({total} {base})",
     "packs_count": "Soit {packs} {pack} de {count}"
+  },
+  "serials": {
+    "surplus": "{count, plural, one {# numéro de plus que le stock : retirez celui qui n’est plus en boutique} other {# numéros de plus que le stock : retirez ceux qui ne sont plus en boutique}}",
+    "remove_action": "Retirer",
+    "remove_reason_placeholder": "Motif (perdu, cassé…)",
+    "title": "Numéros de série",
+    "hint": "Un numéro par unité : téléphones (IMEI), appareils, électroménager.",
+    "track_label": "Suivre les numéros de série",
+    "track_hint": "Chaque unité reçue et vendue porte son numéro. Utile pour la garantie et le service après-vente.",
+    "tracking_on": "Suivi des numéros activé",
+    "tracking_off": "Suivi des numéros désactivé",
+    "error": "Impossible d’enregistrer.",
+    "count_line": "{inStock} numéros en stock pour {quantity, plural, one {# unité} other {# unités}}",
+    "missing": "{count, plural, one {# unité n’a pas encore de numéro} other {# unités n’ont pas encore de numéro}}",
+    "number_existing": "Numéroter le stock existant",
+    "entry_many_placeholder": "Un numéro par ligne (scanner ou saisir)",
+    "entry_count": "{count} sur {max} au plus",
+    "save": "Enregistrer",
+    "cancel": "Annuler",
+    "added": "{count, plural, one {# numéro enregistré} other {# numéros enregistrés}}",
+    "tab_in_stock": "En stock ({count})",
+    "tab_sold": "Vendus ({count})",
+    "empty_in_stock": "Aucun numéro en stock.",
+    "empty_sold": "Aucun numéro vendu.",
+    "correct": "Corriger",
+    "received_line": "Reçu le {date}",
+    "sold_line": "Vendu le {date} · {sale} · {customer}",
+    "no_customer": "Client de passage",
+    "category": "Numéros de série",
+    "hint_online": "Choisissez ou scannez un numéro par unité vendue.",
+    "hint_offline": "Hors connexion : scannez ou saisissez les numéros. Ils seront vérifiés à la synchronisation.",
+    "search_placeholder": "Chercher ou scanner un numéro",
+    "entry_placeholder": "Scanner ou saisir un numéro, puis Entrée",
+    "max_reached": "{count, plural, one {# unité vendable au plus} other {# unités vendables au plus}}",
+    "invalid": "Numéro invalide.",
+    "not_in_stock": "Le numéro {serial} n’est pas en stock pour ce produit.",
+    "remove": "Retirer {serial}",
+    "loading": "Chargement des numéros…",
+    "none_in_stock": "Aucun numéro en stock pour ce produit.",
+    "confirm": "{count, plural, one {Valider # numéro} other {Valider # numéros}}",
+    "confirm_none": "Retirer du panier",
+    "cart_button": "{count, plural, one {# numéro} other {# numéros}}",
+    "scanned_toast": "{name} ajouté ({serial})",
+    "restock_needs_connection": "Produit suivi par numéro de série : le réapprovisionnement demande une connexion.",
+    "restock_none": "Saisissez au moins un numéro de série.",
+    "restock_label": "Numéros de série reçus",
+    "restock_count": "{count, plural, =0 {Aucun numéro} one {# numéro, soit # unité} other {# numéros, soit # unités}}",
+    "receive_mismatch": "« {product} » : il faut un numéro de série par unité reçue.",
+    "history_line": "N° de série : {serials}",
+    "search_title": "Numéros de série trouvés",
+    "status_in_stock": "En stock",
+    "status_sold": "Vendu",
+    "status_in_transit": "En transit",
+    "status_removed": "Retiré"
   }
 }

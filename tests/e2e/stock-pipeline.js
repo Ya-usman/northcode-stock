@@ -83,10 +83,9 @@ async function cookieFor(email) {
       const { browser, page } = await session({ width, height, scale: 1, locale })
       const setShop = id => page.context().addInitScript(([shop]) => { try { localStorage.setItem('active_shop_id', shop); localStorage.setItem('dashboard_shop_filter', shop); localStorage.setItem('stock_table_columns', JSON.stringify(['physical', 'inTransit', 'onOrder'])) } catch {} }, [id])
       await setShop(AKWA)
-      await page.goto(`${BASE}/${locale}/stock`, { waitUntil: 'domcontentloaded', timeout: 120000 }); await page.waitForTimeout(8000)
-      // La section « Stock à venir » arrive après les produits (route du pipeline) : sous charge, au-delà de 8 s. On
-      // attend qu'elle soit affichée (jusqu'à 40 s) avant de la lire ; la vérification elle-même ne change pas.
-      await page.waitForFunction(s => (document.querySelector('main')?.innerText || '').replace(/\n+/g, ' | ').includes(s), W.units(ORDER_UNITS), { timeout: 40000 }).catch(() => {})
+      await page.goto(`${BASE}/${locale}/stock`, { waitUntil: 'domcontentloaded', timeout: 120000 })
+      // Repère déterministe : le bloc « Stock à venir » relu du serveur pendant cette visite (data-fresh), pas un délai fixe
+      await page.locator('[data-testid="stock-incoming"][data-fresh="true"]').waitFor({ timeout: 90000 }).catch(() => {})
       let text = await page.evaluate(() => document.querySelector('main').innerText.replace(/\n+/g, ' | '))
       check(`Vue d'ensemble Akwa : section « Stock à venir », ${ORDER_UNITS} unités en commande, ${ORDER_COUNT} bon(s)`, text.includes(W.incoming) && text.includes(W.units(ORDER_UNITS)) && text.includes(W.pos(ORDER_COUNT)), text.slice(0, 400))
       check('Vue d\'ensemble Akwa : en transit affiché sans rien en route', text.includes('0 | ' + W.cardTransitLabel) && text.includes(W.none), text.slice(0, 400))
@@ -95,7 +94,8 @@ async function cookieFor(email) {
       check('carte « En commande » : le chiffre tient sur une ligne', valueLines === 1, String(valueLines))
       if (locale === 'fr' || name === 'telephone') await page.screenshot({ path: `${OUT}/${locale}-${name}-vue.png`, fullPage: true })
       // Clic sur la carte « En commande » → bons de commande des fournisseurs
-      await page.locator('main button').filter({ hasText: W.cardOrderLabel }).first().click(); await page.waitForTimeout(3500)
+      await page.locator('main button').filter({ hasText: W.cardOrderLabel }).first().click()
+      await page.waitForURL(/\/suppliers\?view=purchase_orders/, { timeout: 30000 }).catch(() => {})
       check('carte « En commande » : ouvre les bons de commande', /\/suppliers\?view=purchase_orders/.test(page.url()), page.url())
 
       await page.goto(`${BASE}/${locale}/stock/products`, { waitUntil: 'domcontentloaded', timeout: 120000 }); await page.waitForTimeout(8000)
@@ -127,11 +127,13 @@ async function cookieFor(email) {
       if (name === 'ordinateur' || (locale === 'fr' && name === 'telephone')) {
         const s2 = await session({ width, height, scale: 1, locale })
         await s2.page.context().addInitScript(([shop]) => { try { localStorage.setItem('active_shop_id', shop); localStorage.setItem('dashboard_shop_filter', shop); localStorage.setItem('stock_table_columns', JSON.stringify(['inTransit', 'onOrder'])) } catch {} }, [BASTOS])
-        await s2.page.goto(`${BASE}/${locale}/stock`, { waitUntil: 'domcontentloaded', timeout: 120000 }); await s2.page.waitForTimeout(8000)
-        await s2.page.waitForFunction(s => (document.querySelector('main')?.innerText || '').replace(/\n+/g, ' | ').includes(s), W.units34, { timeout: 40000 }).catch(() => {})
+        await s2.page.goto(`${BASE}/${locale}/stock`, { waitUntil: 'domcontentloaded', timeout: 120000 })
+        // Repère déterministe : le bloc « Stock à venir » relu du serveur pendant cette visite (data-fresh), pas un délai fixe
+        await s2.page.locator('[data-testid="stock-incoming"][data-fresh="true"]').waitFor({ timeout: 90000 }).catch(() => {})
         text = await s2.page.evaluate(() => document.querySelector('main').innerText.replace(/\n+/g, ' | '))
         check('Vue d\'ensemble Bastos : 34 unités en transit, 1 transfert à recevoir', text.includes(W.units34) && text.includes(W.tr1), text.slice(0, 400))
-        await s2.page.locator('main button').filter({ hasText: W.cardTransitLabel }).first().click(); await s2.page.waitForTimeout(3500)
+        await s2.page.locator('main button').filter({ hasText: W.cardTransitLabel }).first().click()
+        await s2.page.waitForURL(/\/stock\/transfers/, { timeout: 30000 }).catch(() => {})
         check('carte « En transit » : ouvre les transferts', /\/stock\/transfers/.test(s2.page.url()), s2.page.url())
         if (name === 'ordinateur') {
           await s2.page.goto(`${BASE}/${locale}/stock/products`, { waitUntil: 'domcontentloaded', timeout: 120000 }); await s2.page.waitForTimeout(8000)

@@ -8,6 +8,7 @@ import { checkRateLimit } from '@/lib/rate-limit'
 import { getApiTranslator } from '@/lib/api/i18n'
 import { shopClosedResponse } from '@/lib/api/shop-hours'
 import { saleStockErrorResponse } from '@/lib/api/stock-errors'
+import { serialErrorResponse, withCleanSerials, withSaleSerials } from '@/lib/api/serials'
 
 // POST /api/sales/checkout — checkout atomique en ligne. Résout/crée le
 // client, insère vente + articles + paiement(s), renvoie la vente complète
@@ -74,12 +75,15 @@ export async function POST(request: Request) {
       p_paystack_reference: paystack_reference || null,
       p_client_request_id: client_request_id,
       // Coût d'achat de chaque ligne : lu en base, ce que la caisse envoie est ignoré (lib/api/sale-cost)
-      p_items: await withServerCost(admin, shop_id, items),
+      // Numéros de série (198) : nettoyés ici, contrôlés par complete_sale (refus si incomplets ou pas en stock)
+      p_items: await withServerCost(admin, shop_id, withCleanSerials(items)),
       p_payments: payments || [],
       p_due_date: due_date || null,
     })
 
     if (error) {
+      const serialErr = serialErrorResponse(error, t)
+      if (serialErr) return NextResponse.json(serialErr.body, { status: serialErr.status })
       // Stock physique (P0001) ou vendable (P0030, lots périmés exclus — migration 178) : message lisible
       const stockErr = saleStockErrorResponse(error, items, t)
       if (stockErr) return NextResponse.json(stockErr.body, { status: stockErr.status })
@@ -87,7 +91,8 @@ export async function POST(request: Request) {
     }
 
     // La vente est renvoyée pour le reçu, sans le coût d'achat de ses lignes
-    return NextResponse.json({ success: true, ...data, ...(data?.sale ? { sale: withoutCost(data.sale) } : {}) })
+    // Numéros vendus joints aux lignes (ticket)
+    return NextResponse.json({ success: true, ...data, ...(data?.sale ? { sale: withoutCost(await withSaleSerials(admin, data.sale)) } : {}) })
   } catch (err: any) {
     return NextResponse.json({ error: err.message }, { status: 500 })
   }

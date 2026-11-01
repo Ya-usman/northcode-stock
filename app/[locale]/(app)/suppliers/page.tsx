@@ -240,6 +240,7 @@ export default function SuppliersPage() {
 
   // ── Bons de commande ─────────────────────────────────────────────────────
   const [purchaseOrders, setPurchaseOrders] = useState<any[]>([])
+  const [poState, setPoState] = useState<'loading' | 'ready' | 'error'>('loading')
   const [showPoDialog, setShowPoDialog] = useState(false)
   const [poSupplierId, setPoSupplierId] = useState('')
   const [poShowAll, setPoShowAll] = useState(false)
@@ -277,6 +278,10 @@ export default function SuppliersPage() {
   const [receivingPo, setReceivingPo] = useState<any | null>(null)
   const [receiveQuantities, setReceiveQuantities] = useState<Record<string, string>>({})
   const [receiveExpiryDates, setReceiveExpiryDates] = useState<Record<string, string>>({})
+  // Produit suivi (étape 11) : numéros reçus par ligne (un par unité), saisis ou scannés
+  const [receiveSerials, setReceiveSerials] = useState<Record<string, string>>({})
+  const serialsOf = (raw: string | undefined) => (raw || '').split(/[\n\r,;]+/).map(s => s.trim()).filter(Boolean)
+  const trackedLine = (it: any) => !!it.product_id && !!(products as any[]).find(p => p.id === it.product_id)?.track_serials
   const pastExpiry = usePastExpiryConfirm()
   const [receiveNotes, setReceiveNotes] = useState<Record<string, string>>({})
   const [receivePaymentStatus, setReceivePaymentStatus] = useState<'paid' | 'partial' | 'credit'>('credit')
@@ -340,7 +345,7 @@ export default function SuppliersPage() {
       // a while can never leave `loading` stuck true forever.
       const [suppliersRes, productsRes] = await withTimeout(Promise.all([
         supabase.from('suppliers').select(SUPPLIER_PUBLIC_COLUMNS).in('shop_id', effectiveShopIds).order('name'),
-        supabase.from('products').select('id, name, selling_price, quantity, unit, supplier_id, shop_id').in('shop_id', effectiveShopIds).eq('is_active', true),
+        supabase.from('products').select('id, name, selling_price, quantity, unit, supplier_id, shop_id, track_serials').in('shop_id', effectiveShopIds).eq('is_active', true),
       ]), 20_000, 'Chargement des fournisseurs trop lent : réessayez.')
       // A transient auth/RLS hiccup can resolve with data: null instead of
       // throwing — check explicitly so the catch below preserves the cache
@@ -395,15 +400,17 @@ export default function SuppliersPage() {
     try {
       // Bons de toutes les boutiques du contexte (avant : boutique active cachée seulement)
       const res = await withTimeout(fetch(`/api/purchase-orders?shop_ids=${scopeKey}`), 20_000)
-      if (!res.ok) return
+      if (!res.ok) throw new Error('purchase_orders')
       const json = await res.json()
       setPurchaseOrders(json.data || [])
+      setPoState('ready')
     } catch {
-      // silencieux
+      // Échec : on garde la liste connue ; sans liste connue, message + « Réessayer » (jamais « aucun bon » trompeur)
+      setPoState(prev => (prev === 'ready' ? 'ready' : 'error'))
     }
   }
 
-  useEffect(() => { fetchSuppliers(); fetchProductPrices(); fetchPurchaseOrders() }, [effectiveShopIds.join(',')]) // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { setPoState('loading'); fetchSuppliers(); fetchProductPrices(); fetchPurchaseOrders() }, [effectiveShopIds.join(',')]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Changement de contexte : toute création ou action en cours est fermée — aucune boutique précédente reprise
   const scopeKeyRef = useRef(scopeKey)
@@ -862,9 +869,11 @@ export default function SuppliersPage() {
   const openReceivePo = (po: any) => {
     const quantities: Record<string, string> = {}
     for (const it of po.purchase_order_items || []) {
-      quantities[it.id] = String(it.quantity_ordered)
+      // Produit suivi : la quantité reçue vient des numéros saisis (0 au départ)
+      quantities[it.id] = trackedLine(it) ? '0' : String(it.quantity_ordered)
     }
     setReceiveQuantities(quantities)
+    setReceiveSerials({})
     setReceiveExpiryDates({})
     setReceiveNotes({})
     setReceivePaymentStatus('credit')
@@ -884,6 +893,9 @@ export default function SuppliersPage() {
     // Une date de péremption déjà passée sur une ligne reçue : avertissement et confirmation, jamais interdite
     const datesReceived = (receivingPo.purchase_order_items || []).filter((it: any) => Number(receiveQuantities[it.id]) > 0).map((it: any) => receiveExpiryDates[it.id])
     if (!(await pastExpiry.confirm(datesReceived))) return
+    // Produit suivi : autant de numéros que d'unités reçues (le serveur revérifie)
+    const mismatch = (receivingPo.purchase_order_items || []).find((it: any) => trackedLine(it) && serialsOf(receiveSerials[it.id]).length !== (Number(receiveQuantities[it.id]) || 0))
+    if (mismatch) { toast({ title: t('serials.receive_mismatch', { product: mismatch.product_name }), variant: 'destructive' }); return }
     setReceivingLoading(true)
     try {
       const items = (receivingPo.purchase_order_items || []).map((it: any) => ({
@@ -893,6 +905,7 @@ export default function SuppliersPage() {
         unit_price: it.unit_price,
         expiry_date: receiveExpiryDates[it.id] || null,
         receipt_note: receiveNotes[it.id] || null,
+        ...(trackedLine(it) ? { serials: serialsOf(receiveSerials[it.id]) } : {}),
       }))
       const canPay = canPaySuppliersIn(receivingPo.shop_id)
       const paymentAmount = !canPay ? 0 : receivePaymentStatus === 'paid'
@@ -1404,7 +1417,14 @@ export default function SuppliersPage() {
             </>
           )}
 
-          {purchaseOrders.length === 0 ? (
+          {poState === 'loading' && purchaseOrders.length === 0 ? (
+            <div className="space-y-2" data-testid="po-loading">{[...Array(3)].map((_, i) => <Skeleton key={i} className="h-24 rounded-xl" />)}</div>
+          ) : poState === 'error' && purchaseOrders.length === 0 ? (
+            <div className="flex flex-col items-center gap-3 px-6 py-8 text-center text-sm text-muted-foreground" data-testid="po-load-error">
+              <p>{t('suppliers.po_load_error')}</p>
+              <Button variant="outline" className="h-11" onClick={() => { setPoState('loading'); fetchPurchaseOrders() }}>{t('actions.retry')}</Button>
+            </div>
+          ) : purchaseOrders.length === 0 ? (
             <div className="flex h-32 items-center justify-center text-muted-foreground text-sm">
               {t('suppliers.no_purchase_orders')}
             </div>
@@ -2110,6 +2130,15 @@ export default function SuppliersPage() {
                           aria-label={it.product_name}
                         />
                       </div>
+                      {trackedLine(it) && (
+                        // Un numéro par unité reçue : la quantité suit le nombre de numéros
+                        <div className="space-y-1" data-testid="po-receive-serials">
+                          <textarea value={receiveSerials[it.id] ?? ''} rows={3} aria-label={t('serials.restock_label')}
+                            onChange={e => { const v = e.target.value; setReceiveTouched(true); setReceiveSerials(prev => ({ ...prev, [it.id]: v })); setReceiveQuantities(prev => ({ ...prev, [it.id]: String(serialsOf(v).length) })) }}
+                            placeholder={t('serials.entry_many_placeholder')} className="w-full rounded-md border bg-background px-2.5 py-1.5 font-mono text-xs placeholder:font-sans" />
+                          <p className="text-[11px] text-muted-foreground">{t('serials.restock_count', { count: serialsOf(receiveSerials[it.id]).length })}</p>
+                        </div>
+                      )}
                       <ExpiryDateField
                         compact id={`po-expiry-${it.id}`}
                         value={receiveExpiryDates[it.id] ?? ''}

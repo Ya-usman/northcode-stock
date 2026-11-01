@@ -7,11 +7,13 @@ import { costVisible } from '@/lib/api/cost-fields'
 import { canPaySupplierDebt } from '@/lib/api/supplier-access'
 import { getApiTranslator } from '@/lib/api/i18n'
 import { productsOutsideShop } from '@/lib/api/shop-objects'
+import { serialErrorResponse, withCleanSerials } from '@/lib/api/serials'
 
 // POST /api/purchase-orders/receive — verify received quantities and restock
 // in one atomic transaction (apply_purchase_order_receipt), instead of a
 // blind status flip followed by a separate manual restock.
-// body: { shop_id, purchase_order_id, items: [{item_id, product_id, quantity_received, unit_price, expiry_date, receipt_note}], payment_amount?, payment_full?, payment_method? }
+// body: { shop_id, purchase_order_id, items: [{item_id, product_id, quantity_received, unit_price, expiry_date, receipt_note, serials?}], payment_amount?, payment_full?, payment_method? }
+// serials (197) : produit suivi par numéro de série = un numéro par unité reçue, contrôlés par apply_purchase_order_receipt
 export async function POST(request: Request) {
   const t = getApiTranslator(request)
   try {
@@ -64,9 +66,12 @@ export async function POST(request: Request) {
       p_shop_id: shop_id,
       p_po_id: purchase_order_id,
       p_performed_by: user.id,
-      p_items: items,
+      p_items: withCleanSerials(items),
     })
-    if (error) return NextResponse.json({ error: error.message }, { status: 400 })
+    if (error) {
+      const se = serialErrorResponse(error, t)
+      return se ? NextResponse.json(se.body, { status: se.status }) : NextResponse.json({ error: error.message }, { status: 400 })
+    }
 
     const { data: actorProfile } = await (admin as any).from('profiles').select('full_name').eq('id', user.id).single()
 

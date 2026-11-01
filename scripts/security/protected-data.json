@@ -23,7 +23,8 @@
     "stock_transfer_allocations",
     "stock_transfer_tokens",
     "stock_transfer_requests",
-    "product_packagings"
+    "product_packagings",
+    "product_serials"
   ],
   "sourceRoots": [
     "app",

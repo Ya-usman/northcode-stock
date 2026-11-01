@@ -6,7 +6,7 @@
 export const PRODUCT_PUBLIC_COLUMNS = [
   'id', 'shop_id', 'name', 'name_hausa', 'sku', 'category_id', 'supplier_id',
   'selling_price', 'quantity', 'unit', 'low_stock_threshold', 'image_url', 'is_active',
-  'promo_price', 'promo_until', 'promo_start', 'promo_reason', 'is_favorite', 'location',
+  'promo_price', 'promo_until', 'promo_start', 'promo_reason', 'is_favorite', 'location', 'track_serials',
   'created_at', 'updated_at',
 ].join(', ')
 

@@ -25,6 +25,28 @@ const DOMAIN = new URL(BASE).hostname
 const OUT = process.env.CAPTURE_OUT || path.join(__dirname, '..', 'out'); fs.mkdirSync(OUT, { recursive: true })
 const SECURE = BASE.startsWith('https')
 
+// Session Supabase par compte, réutilisée d'un navigateur et d'un test à l'autre tant qu'il lui reste plus de 10 min
+// (1er nov. 2026) : avant, une connexion par fenêtre — des centaines par suite complète, jusqu'à la limite de Supabase
+// (« Request rate limit reached »). Le jeton n'a pas à être renouvelé pendant un test (aucune rotation concurrente).
+// Fichier local dans out/ (ignoré par git), jamais affiché.
+const SESSION_CACHE = path.join(OUT, '.session-cache.json')
+async function cachedSession(email) {
+  let cache = {}
+  try { cache = JSON.parse(fs.readFileSync(SESSION_CACHE, 'utf8')) } catch {}
+  const hit = cache[`${REF}:${email}`]
+  if (hit && Number(hit.expires_at) * 1000 - Date.now() > 10 * 60 * 1000) return hit
+  const admin = createClient(env.NEXT_PUBLIC_SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY, { auth: { persistSession: false } })
+  const anon = createClient(env.NEXT_PUBLIC_SUPABASE_URL, env.NEXT_PUBLIC_SUPABASE_ANON_KEY, { auth: { persistSession: false } })
+  const { data: link, error: linkErr } = await admin.auth.admin.generateLink({ type: 'magiclink', email })
+  if (linkErr) throw new Error('lien magique : ' + linkErr.message)
+  const { data, error } = await anon.auth.verifyOtp({ token_hash: link.properties.hashed_token, type: 'email' })
+  if (error) throw new Error('connexion : ' + error.message)
+  try { cache = JSON.parse(fs.readFileSync(SESSION_CACHE, 'utf8')) } catch {}
+  cache[`${REF}:${email}`] = data.session
+  try { fs.writeFileSync(SESSION_CACHE, JSON.stringify(cache), { mode: 0o600 }) } catch {}
+  return data.session
+}
+
 // Compte par défaut : démonstration Boutique Alpha (admin@northcode.ng). Marché Soleil : CAPTURE_EMAIL=ghislainx123@gmail.com.
 // mobile : par défaut, largeur < 900 px.
 // write : poignée du mode ÉCRITURE (lib/write-mode.js, enableWrite) — seules les écritures qu'elle autorise passent
@@ -32,13 +54,7 @@ const SECURE = BASE.startsWith('https')
 async function session({ width = 1366, height = 900, scale = 1, locale = 'fr', email = process.env.CAPTURE_EMAIL || 'admin@northcode.ng', mobile, write = null } = {}) {
   if (write && (!LOCAL || process.env.CAPTURE_PROD_READONLY)) throw new Error('mode écriture : serveur local uniquement')
   const isMobile = mobile === undefined ? width < 900 : !!mobile
-  const admin = createClient(env.NEXT_PUBLIC_SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY, { auth: { persistSession: false } })
-  const anon = createClient(env.NEXT_PUBLIC_SUPABASE_URL, env.NEXT_PUBLIC_SUPABASE_ANON_KEY, { auth: { persistSession: false } })
-  const { data: link, error: linkErr } = await admin.auth.admin.generateLink({ type: 'magiclink', email })
-  if (linkErr) throw new Error('lien magique : ' + linkErr.message)
-  const { data, error } = await anon.auth.verifyOtp({ token_hash: link.properties.hashed_token, type: 'email' })
-  if (error) throw new Error('connexion : ' + error.message)
-  const value = 'base64-' + Buffer.from(JSON.stringify(data.session)).toString('base64url')
+  const value = 'base64-' + Buffer.from(JSON.stringify(await cachedSession(email))).toString('base64url')
   const browser = await chromium.launch({ channel: 'msedge', headless: true })
   const ctx = await browser.newContext({ viewport: { width, height }, deviceScaleFactor: scale, isMobile, hasTouch: true, serviceWorkers: 'block', locale: locale === 'fr' ? 'fr-FR' : 'en-US', ...(process.env.CAPTURE_TZ ? { timezoneId: process.env.CAPTURE_TZ } : {}) })
   const parts = []; for (let i = 0; i < value.length; i += 3180) parts.push(value.slice(i, i + 3180))

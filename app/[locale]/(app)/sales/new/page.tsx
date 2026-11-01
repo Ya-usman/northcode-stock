@@ -6,7 +6,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import {
   Search, Plus, Minus, Trash2, CheckCircle, MessageCircle, Printer, Share2,
   Scan, X, User, Clock, PauseCircle, PlayCircle, Edit2, ShoppingCart, ChevronUp, ChevronRight, Star, ArrowLeft,
-  AlertTriangle, CreditCard, Coins, ShoppingBag, FileText, Store, Tag, TrendingUp,
+  AlertTriangle, CreditCard, Coins, ShoppingBag, FileText, Store, Tag, TrendingUp, Hash,
 } from 'lucide-react'
 import { readTicketSettings } from '@/lib/receipt/print-settings'
 import { printSaleTicket, ticketErrorKey } from '@/lib/receipt/print-ticket'
@@ -52,6 +52,7 @@ import { allocateCheckout, outstandingDebt } from '@/lib/utils/checkout-allocati
 import { revalidateHeldCart, heldAgeDays, HELD_STALE_DAYS, type HeldCartChange } from '@/lib/utils/held-sales'
 import { PRODUCT_PUBLIC_COLUMNS, withoutProductCost } from '@/lib/products/columns'
 import { useUnitLabel } from '@/lib/products/use-unit-label'
+import { SerialPicker } from '@/components/sales/serial-picker'
 import { fetchReservationRows, reservedByProduct, releasedHeldRefs, readSyncedAt, markReservationPending, flushReservations, type ReservationRow } from '@/lib/stock/reservations'
 import { clearPageCache, clearPageCacheByPrefix } from '@/lib/offline/page-cache'
 import { cashSuggestions } from '@/lib/utils/cash-suggestions'
@@ -239,6 +240,8 @@ function PosScreen({ params: { locale: _locale } }: { params: { locale: string }
   const sellableOf = (product: Product) => sellableStock(Number(product.quantity), lotsRef.current[product.id] || [], shopToday(shop))
   const [categories, setCategories] = useState<Category[]>([])
   const [cart, setCart] = useState<CartItem[]>([])
+  // Produit suivi dont on choisit les numéros de série (fenêtre de la caisse)
+  const [serialFor, setSerialFor] = useState<Product | null>(null)
   // Tour guidé « Faire une vente » : un article vient d'entrer dans le panier
   const cartLenRef = useRef(0)
   useEffect(() => {
@@ -582,7 +585,7 @@ function PosScreen({ params: { locale: _locale } }: { params: { locale: string }
     return () => window.removeEventListener('keydown', handleKeyDown)
   }, [products])
 
-  const handleBarcodeScan = useCallback((code: string) => {
+  const handleBarcodeScan = useCallback(async (code: string) => {
     // Code exact d'abord ; un code partiel n'ajoute un produit que s'il n'en désigne qu'un seul (jamais au hasard)
     const c = code.toLowerCase()
     const partial = products.filter(p => p.sku?.toLowerCase().includes(c))
@@ -595,8 +598,23 @@ function PosScreen({ params: { locale: _locale } }: { params: { locale: string }
     } else if (partial.length > 1) {
       toast({ title: t('toast.barcode_ambiguous', { code, count: partial.length }), variant: 'destructive' })
     } else {
-      // Code d'un colis (étape 9) : la caisse vend à l'unité, on le dit au lieu de « code non trouvé »
+      // Numéro de série scanné (étape 11, ex. IMEI) : le produit suivi est ajouté avec ce numéro
       const shopId = shop?.id
+      if (shopId && isOnline) {
+        const hit = await fetch(`/api/products/serials?shop_id=${shopId}&serial=${encodeURIComponent(code)}`).then(r => (r.ok ? r.json() : null)).catch(() => null)
+        const prod = hit?.data ? products.find(p => p.id === hit.data.product_id) : null
+        if (prod && hit?.data?.serial) {
+          const current = cartRef.current.find(i => i.product.id === prod.id)?.serials ?? []
+          if (!current.some(s => s.toUpperCase() === hit.data.serial.toUpperCase())) {
+            if (current.length >= sellableOf(prod).sellable) { toast({ title: t('toast.max_stock', { qty: current.length, unit: unitLabel(prod.unit || 'piece', current.length) }), variant: 'destructive' }); return }
+            applySerials(prod, [...current, hit.data.serial])
+          }
+          setScanFlash(true); setTimeout(() => setScanFlash(false), 600)
+          toast({ title: t('serials.scanned_toast', { name: prod.name, serial: hit.data.serial }), variant: 'success' })
+          return
+        }
+      }
+      // Code d'un colis (étape 9) : la caisse vend à l'unité, on le dit au lieu de « code non trouvé »
       const lookup = shopId && isOnline
         ? fetch(`/api/products/packagings?shop_id=${shopId}&barcode=${encodeURIComponent(code)}`).then(r => (r.ok ? r.json() : null)).catch(() => null)
         : Promise.resolve(null)
@@ -629,8 +647,21 @@ function PosScreen({ params: { locale: _locale } }: { params: { locale: string }
       toast({ title: t('sales.expired_stock_title', { name: product.name }), description: t('sales.expired_stock_desc'), variant: 'destructive' })
       return false
     }
+    // Produit suivi par numéro de série : on choisit (ou scanne) les numéros, la quantité suit
+    if (product.track_serials) { setSerialFor(product); return true }
     addToCartNow(product)
     return true
+  }
+
+  // Numéros choisis pour un produit suivi : la ligne du panier porte un numéro par unité
+  const applySerials = (product: Product, serials: string[]) => {
+    setCart(prev => {
+      const existing = prev.find(i => i.product.id === product.id)
+      if (!serials.length) return prev.filter(i => i.product.id !== product.id)
+      const price = existing ? existing.unit_price : effectivePrice(product, frontBatchPromo)
+      const line = { ...(existing ?? { product }), product, quantity: serials.length, unit_price: price, subtotal: serials.length * price, serials }
+      return existing ? prev.map(i => (i.product.id === product.id ? line : i)) : [...prev, line]
+    })
   }
 
   const addToCartNow = (product: Product) => {
@@ -1373,6 +1404,7 @@ ${normalize(p.sku ?? '')}`.includes(outHereQuery)).slice(0, 20), [outHere, outHe
               unit_price: item.unit_price,
               original_price: item.product.selling_price,
               subtotal: item.quantity * item.unit_price,
+              ...(item.serials?.length ? { serials: item.serials } : {}),
             })),
             payments: paymentsPayload,
             // Champs historiques, gardés cohérents avec `payments`.
@@ -1435,6 +1467,7 @@ ${normalize(p.sku ?? '')}`.includes(outHereQuery)).slice(0, 20), [outHere, outHe
           unit_price: item.unit_price,
           original_price: item.product.selling_price,
           subtotal: item.quantity * item.unit_price,
+          ...(item.serials?.length ? { serials: item.serials } : {}),
         })),
       } as any)
       // Vente en attente reprise puis validée HORS LIGNE : elle doit quitter
@@ -1515,6 +1548,8 @@ ${normalize(p.sku ?? '')}`.includes(outHereQuery)).slice(0, 20), [outHere, outHe
               unit_price: item.unit_price,
               // Pas de prix d'achat : le serveur le lit lui-même (lib/api/sale-cost)
               original_price: item.product.selling_price,
+              // Produit suivi : un numéro par unité, revérifiés par le serveur (complete_sale, migration 198)
+              ...(item.serials?.length ? { serials: item.serials } : {}),
             })),
             payments: paymentsPayload,
           })
@@ -1774,7 +1809,7 @@ ${normalize(p.sku ?? '')}`.includes(outHereQuery)).slice(0, 20), [outHere, outHe
           saleNumber: sale.sale_number,
           createdAt: sale.created_at,
           items: ((sale as any).sale_items || []).map((i: any) => ({
-            name: i.product_name, qty: Number(i.quantity), unitPrice: Number(i.unit_price), subtotal: Number(i.subtotal),
+            name: i.product_name, qty: Number(i.quantity), unitPrice: Number(i.unit_price), subtotal: Number(i.subtotal), serials: i.serials,
           })),
           subtotal: Number(sale.subtotal), discount: Number(sale.discount), tax: Number(sale.tax), total: Number(sale.total),
           amountPaid: Number(sale.amount_paid), balance: Number(sale.balance),
@@ -1907,6 +1942,14 @@ ${normalize(p.sku ?? '')}`.includes(outHereQuery)).slice(0, 20), [outHere, outHe
           Scan
         </button>
       </div>
+
+      <SerialPicker
+        open={!!serialFor} onOpenChange={o => { if (!o) setSerialFor(null) }}
+        product={serialFor} shopId={shop?.id ?? null} isOnline={isOnline}
+        initial={serialFor ? (cart.find(i => i.product.id === serialFor.id)?.serials ?? []) : []}
+        max={serialFor ? sellableOf(serialFor).sellable : 0}
+        onConfirm={serials => { if (serialFor) applySerials(serialFor, serials) }}
+      />
 
       {showCameraScanner && (
         <BarcodeScanner
@@ -2175,8 +2218,19 @@ ${normalize(p.sku ?? '')}`.includes(outHereQuery)).slice(0, 20), [outHere, outHe
                           )}
                         </button>
                       </div>
+                      {/* Produit suivi : numéros de série de la ligne */}
+                      {item.serials?.length ? (
+                        <p className="truncate font-mono text-[11px] text-muted-foreground" data-testid="cart-serials-list">{item.serials.join(' · ')}</p>
+                      ) : null}
                       {/* Ligne 3 : − qté + groupés dans un seul bloc, sous-total à droite */}
                       <div className="flex items-center justify-between gap-2">
+                        {item.product.track_serials ? (
+                          // Quantité = nombre de numéros : on les choisit dans la fenêtre (ajout, retrait)
+                          <button type="button" onClick={() => setSerialFor(item.product)} data-testid="cart-serials"
+                            className="flex h-9 items-center gap-1.5 rounded-lg border border-input px-3 text-sm font-medium text-stockshop-blue hover:bg-stockshop-blue-muted dark:text-blue-400 dark:hover:bg-blue-950/40">
+                            <Hash className="h-3.5 w-3.5" aria-hidden="true" />{t('serials.cart_button', { count: item.quantity })}
+                          </button>
+                        ) : (
                         <div className="flex items-center overflow-hidden rounded-lg border border-input">
                           <button
                             type="button"
@@ -2210,6 +2264,7 @@ ${normalize(p.sku ?? '')}`.includes(outHereQuery)).slice(0, 20), [outHere, outHe
                             <Plus className="h-3.5 w-3.5" />
                           </button>
                         </div>
+                        )}
                         <p className="text-right text-sm font-bold tabular-nums">{formatNaira(item.subtotal)}</p>
                       </div>
                     </div>

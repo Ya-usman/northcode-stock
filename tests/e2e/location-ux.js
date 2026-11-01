@@ -14,6 +14,8 @@ const PRODUCT = 'Aspirateur Roweta', LOC = 'Rayon 2, étagère A'
 let pass = 0, fail = 0
 const ok = (c, m, x) => { c ? pass++ : fail++; console.log(`  ${c ? 'ok   ' : 'ÉCHEC'} ${m}${!c && x !== undefined ? ' → ' + JSON.stringify(x).slice(0, 300) : ''}`) }
 const wait = ms => new Promise(r => setTimeout(r, ms))
+// Fermeture du navigateur après un téléchargement : rejet « has been closed » sans conséquence
+process.on('unhandledRejection', e => { if (/has been closed/.test(String(e && e.message))) return; console.error('ERREUR', e); process.exit(1) })
 
 ;(async () => {
   for (const [locale, width, height] of [['fr', 390, 844], ['ha', 390, 844], ['fr', 1366, 900]]) {
@@ -48,6 +50,36 @@ const wait = ms => new Promise(r => setTimeout(r, ms))
     await field.scrollIntoViewIfNeeded().catch(() => {})
     await page.screenshot({ path: `${OUT}/location-${locale}-${width}-form.png` })
     await page.keyboard.press('Escape'); await wait(600)
+
+    if (width > 1000) {
+      // Tableau : colonne facultative « Emplacement » (bouton « Colonnes »), valeur du produit
+      for (let i = 0; i < 4 && (await drawer.count()); i++) { await page.keyboard.press('Escape'); await wait(500) }
+      await page.getByRole('button', { name: /^Colonnes/ }).click()
+      const pop = page.locator('[data-radix-popper-content-wrapper]').first(); await pop.waitFor({ timeout: 5000 })
+      const labels = (await pop.locator('label').allInnerTexts()).map(x => x.trim())
+      ok(labels.includes('Emplacement'), `« Colonnes » propose « Emplacement » (${labels.join(' / ')})`)
+      await pop.getByLabel('Emplacement', { exact: true }).check(); await page.keyboard.press('Escape'); await wait(500)
+      const cell = page.locator('tr', { hasText: PRODUCT }).locator('[data-testid="product-row-location"]').first()
+      ok((await cell.count()) === 1 && (await cell.innerText()).trim() === LOC, `tableau : colonne Emplacement « ${(await cell.innerText().catch(() => '')).trim()} »`)
+      await page.screenshot({ path: `${OUT}/location-fr-1366-table.png` })
+      // Export Excel : colonne « Emplacement » avec la valeur du produit
+      await page.getByLabel(m.products.search_placeholder).first().fill(''); await wait(800)
+      await page.locator('[data-testid="products-more-actions"]').first().click(); await wait(500)
+      const dl = page.waitForEvent('download', { timeout: 30000 }).catch(() => null)
+      await page.locator('[data-testid="export-xlsx"]').first().click().catch(() => {})
+      const d = await dl
+      if (!d) ok(false, 'export Excel : aucun téléchargement')
+      else {
+        const file = `${OUT}/location-export.xlsx`; await d.saveAs(file)
+        const ExcelJS = require(require('path').resolve(__dirname, '../..') + '/node_modules/exceljs')
+        const wb = new ExcelJS.Workbook(); await wb.xlsx.readFile(file)
+        const rows = []; wb.worksheets[0].eachRow(r => rows.push(r.values.slice(1).map(v => (v && typeof v === 'object' && 'result' in v ? v.result : v))))
+        const head = rows.find(r => r.some(c => String(c) === 'Emplacement')) || []
+        const col = head.indexOf('Emplacement')
+        const row = rows.find(r => r[0] === PRODUCT)
+        ok(col >= 0 && row && row[col] === LOC, `export Excel : colonne « Emplacement », « ${row ? row[col] : '?'} » pour ${PRODUCT}`)
+      }
+    }
     ok(!writes.length, `aucune écriture envoyée (${writes.length})`, writes)
     ok(!errors.length, 'aucune erreur JavaScript', errors)
     await s.browser.close()

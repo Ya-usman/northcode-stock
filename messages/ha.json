@@ -244,6 +244,8 @@
     "viewer": "Mai Kallo"
   },
   "products": {
+    "journal_field_track_serials": "Bin lambobin serial",
+    "col_location": "Wuri",
     "journal_field_location": "Wuri",
     "status_surstock": "Kaya sun yi yawa",
     "surstock_badge": "Kaya sun yi yawa",
@@ -469,6 +471,7 @@
     "bulk_archived_history": "{count, plural, one {Kaya # yana da tarihi: an ajiye shi} other {Kaya # suna da tarihi: an ajiye su}} don a kiyaye bin diddigi."
   },
   "sales": {
+    "review_reason_serial_unresolved": "Lambar serial ta ɓace ko ba a san ta ba lokacin daidaitawa",
     "edit_details_section": "Abokin ciniki, biyan kuɗi da bayani",
     "edit_qty_label": "Adadi: {name}",
     "edit_price_label": "Farashin guda: {name}",
@@ -796,6 +799,7 @@
     "credit_limit_placeholder": "misali 50000"
   },
   "suppliers": {
+    "po_load_error": "Ba a iya loda odar saye ba.",
     "lead_card": "Isarwa: kwana {days}",
     "lead_card_observed": "Isarwar da aka gani: kwana {days}",
     "lead_label": "Lokacin isarwa na kullum (kwanaki)",
@@ -944,6 +948,7 @@
     "to": "Zuwa"
   },
   "transfers": {
+    "load_error": "Ba a iya loda canja-wurin ba.",
     "in_transit_to": "Ana kai shi zuwa {shop}",
     "to_receive_at": "Za a karɓa a {shop}",
     "receive_by_other": "Kai ne ka aika wannan canja-wuri: wani mutum na {shop} ne zai karɓa.",
@@ -1269,6 +1274,7 @@
     "client_debts_timeout": "Loda bashin abokan ciniki yana ɗaukar lokaci mai yawa: sake gwadawa."
   },
   "receipt": {
+    "serial": "Lambar serial",
     "receipt": "Rasiti",
     "cashier": "Ma'aunin Kudi",
     "customer": "Abokin ciniki",
@@ -3358,6 +3364,7 @@
       "invalid_expiry_date": "Ba a iya karanta ranar ƙarewa ba: « {value} ». Rubuta ta RR/WW/SSSS, ko bar akwatin babu komai.",
       "invalid_quantity": "Adadi bai dace ba: cikakkiyar lamba, 0 ko sama.",
       "invalid_threshold": "Iyakar faɗakarwa ba ta dace ba: cikakkiyar lamba.",
+      "location_too_long": "Wurin ya yi tsawo: haruffa 60 a mafi yawa.",
       "unknown_unit": "Ba a san ma’auni “{unit}” ba: zaɓe shi daga jerin samfurin.",
       "sku_damaged": "Excel ya lalata lambar barcode (misali 5,9E+12): sanya shafin a tsarin Rubutu kuma ka sake rubuta shi.",
       "sku_too_long": "Lambar barcode ta yi tsawo.",
@@ -3425,6 +3432,11 @@
           "header": "Iyakar faɗakarwa",
           "help": "Za a faɗakar da kai idan kaya sun ragu zuwa wannan lamba. Ba tilas ba.",
           "example": "3"
+        },
+        "location": {
+          "header": "Wuri",
+          "help": "Inda kayan yake a shago (layi, shiryayye, ma’aji). Ba dole ba, haruffa 60 a mafi yawa.",
+          "example": "Layi 3, shiryayye B"
         },
         "expiry_date": {
           "header": "Ranar ƙarewa",
@@ -3890,6 +3902,16 @@
     "zero_lot_meta": "ya ƙare · {initial} {unit} a farko"
   },
   "api_errors": {
+    "serial_remove_not_surplus": "Ana iya cire lamba ne kawai idan rajista tana da lambobi fiye da kayan da ke hannu.",
+    "transfer_serial_tracked_unsupported": "« {product} » ana bin lambobin serial ɗinsa: ba za a iya canja wurinsa ba tukuna.",
+    "serial_count_mismatch": "« {product} »: ana bukatar lambar serial ɗaya ga kowane guda.",
+    "serial_taken": "Lambar {serial} tana nan a rajistar wannan shago.",
+    "serial_invalid": "Lambar serial ba ta dace ba: {serial}",
+    "serial_duplicate_input": "An rubuta lambar serial ɗaya sau biyu.",
+    "serial_exceeds_stock": "Lambobi sun fi guda da ke hannu.",
+    "serial_not_in_stock": "Lambar {serial} ba ta hannu don wannan kaya.",
+    "serial_product_not_tracked": "Ba a bin lambobin serial na wannan kaya.",
+    "sale_has_serials_not_editable": "Wannan sayarwa tana da kayan da ake bin lambobin serial: soke ta sannan a sake yi.",
     "transfer_receive_wrong_shop": "Ana karɓa ne daga shagon da aka aika wa kaya: koma {shop} a saman allo.",
     "transfer_receive_own_send": "Kai ne ka aika wannan canja-wuri: dole wani mutum na shagon da zai karɓa ya karɓe shi.",
     "location_too_long": "Wurin ba zai wuce haruffa 60 ba.",
@@ -5383,5 +5405,59 @@
     "pack_line": "{pack} {packs} na {count} ({base} {total})",
     "pack_line_unit": "{pack} na {count} ({base} {total})",
     "packs_count": "Wato {pack} {packs} na {count}"
+  },
+  "serials": {
+    "surplus": "Lambobi {count} sun fi kayan da ke hannu: cire waɗanda ba sa shago",
+    "remove_action": "Cire",
+    "remove_reason_placeholder": "Dalili (ya ɓace, ya karye…)",
+    "title": "Lambobin serial",
+    "hint": "Lamba ɗaya ga kowane guda: wayoyi (IMEI), na’urori, kayan gida.",
+    "track_label": "Bi lambobin serial",
+    "track_hint": "Kowane guda da aka karɓa ko aka sayar yana da lambarsa. Yana taimakawa wajen garanti da gyara.",
+    "tracking_on": "An kunna bin lambobi",
+    "tracking_off": "An kashe bin lambobi",
+    "error": "Ba a iya ajiyewa ba.",
+    "count_line": "Lambobi {inStock} a hannu don guda {quantity}",
+    "missing": "Guda {count} ba su da lamba tukuna",
+    "number_existing": "Sanya lambobi ga kayan da ke hannu",
+    "entry_many_placeholder": "Lamba ɗaya a kowane layi (scan ko rubuta)",
+    "entry_count": "{count} cikin {max} a mafi yawa",
+    "save": "Ajiye",
+    "cancel": "Soke",
+    "added": "An ajiye lambobi {count}",
+    "tab_in_stock": "A hannu ({count})",
+    "tab_sold": "An sayar ({count})",
+    "empty_in_stock": "Babu lamba a hannu.",
+    "empty_sold": "Babu lambar da aka sayar.",
+    "correct": "Gyara",
+    "received_line": "An karɓa ranar {date}",
+    "sold_line": "An sayar ranar {date} · {sale} · {customer}",
+    "no_customer": "Mai saye na wucewa",
+    "category": "Lambobin serial",
+    "hint_online": "Zaɓi ko scan lamba ɗaya ga kowane guda da aka sayar.",
+    "hint_offline": "Babu intanet: scan ko rubuta lambobin. Za a duba su lokacin daidaitawa.",
+    "search_placeholder": "Nemi ko scan lamba",
+    "entry_placeholder": "Scan ko rubuta lamba, sannan Enter",
+    "max_reached": "Guda {count} da za a iya sayarwa a mafi yawa",
+    "invalid": "Lambar ba ta dace ba.",
+    "not_in_stock": "Lambar {serial} ba ta hannu don wannan kaya.",
+    "remove": "Cire {serial}",
+    "loading": "Ana loda lambobi…",
+    "none_in_stock": "Babu lamba a hannu don wannan kaya.",
+    "confirm": "Tabbatar da lambobi {count}",
+    "confirm_none": "Cire daga kwando",
+    "cart_button": "Lambobi {count}",
+    "scanned_toast": "An ƙara {name} ({serial})",
+    "restock_needs_connection": "Ana bin lambobin serial na wannan kaya: sake cika kaya yana bukatar intanet.",
+    "restock_none": "Rubuta aƙalla lambar serial ɗaya.",
+    "restock_label": "Lambobin serial da aka karɓa",
+    "restock_count": "Lambobi {count}, wato guda {count}",
+    "receive_mismatch": "« {product} »: ana bukatar lambar serial ɗaya ga kowane guda da aka karɓa.",
+    "history_line": "Lambar serial: {serials}",
+    "search_title": "Lambobin serial da aka samu",
+    "status_in_stock": "A hannu",
+    "status_sold": "An sayar",
+    "status_in_transit": "A kan hanya",
+    "status_removed": "An cire"
   }
 }

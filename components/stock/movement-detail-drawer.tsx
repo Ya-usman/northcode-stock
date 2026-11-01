@@ -119,7 +119,8 @@ export function MovementDetailDrawer({ movement, onClose, showShop, onViewProduc
       // la boutique ACTIVE alors que l'Historique lit sous son contexte → « Aujourd'hui » masquait la vente)
       router.push(`/${locale}/sales/history?sale_id=${encodeURIComponent(found.id)}`)
     } else if (found.kind === 'purchase_order') {
-      presetPersistedFilters('purchase_orders', shop?.id, { search: found.ref, status: '', dateFrom: '', dateTo: '' })
+      // Même contexte que celui que lit la page Fournisseurs (avant : boutique active, ignoré en « Toutes »)
+      presetPersistedFilters('purchase_orders', filterScope, { search: found.ref, status: '', dateFrom: '', dateTo: '' })
       router.push(`/${locale}/suppliers?view=purchase_orders`)
     } else {
       presetPersistedFilters('transfers_v1', filterScope, { search: found.ref, statuses: [], sources: [], destinations: [], products: [], creators: [], period: 'all' })

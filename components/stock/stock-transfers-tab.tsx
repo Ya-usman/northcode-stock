@@ -60,6 +60,8 @@ export function StockTransfersTab() {
   const [rows, setRows] = useState<TransferListRow[]>(() => getPageCache<TransferListRow[]>(`transfers_${scopeKey}`) || [])
   const [workflow, setWorkflow] = useState(false)
   const [loading, setLoading] = useState(() => !getPageCache(`transfers_${scopeKey}`))
+  // Échec du chargement sans données connues : message + « Réessayer » (jamais « aucun transfert » trompeur)
+  const [loadError, setLoadError] = useState(false)
   const [saved, setFilter] = usePersistedFilters('transfers_v1', filterScope, FILTER_DEFAULTS, { keepPerScope: true })
   const filters: TransferFilters = { statuses: saved.statuses, sources: saved.sources, destinations: saved.destinations, products: saved.products, creators: saved.creators, period: saved.period }
 
@@ -88,12 +90,13 @@ export function StockTransfersTab() {
     if (!isOnline) { if (!cached) setLoading(false); return }
     try {
       const res = await withTimeout(fetch(`/api/stock-transfers?shop_ids=${scopeKey}`), 20_000, tRoot('transfers.load_timeout'))
-      if (!res.ok) return
+      if (!res.ok) throw new Error('transfers')
       const json = await res.json()
       setRows(json.data || [])
       setWorkflow(!!json.workflow)
       setPageCache(cacheKey, json.data || [])
-    } catch { /* cache déjà appliqué */ } finally { setLoading(false) }
+      setLoadError(false)
+    } catch { if (!cached) setLoadError(true) /* sinon : cache déjà appliqué */ } finally { setLoading(false) }
   }
   useEffect(() => { fetchRows() }, [scopeKey]) // eslint-disable-line react-hooks/exhaustive-deps
   // Changement de contexte : panneaux en cours fermés
@@ -248,6 +251,11 @@ export function StockTransfersTab() {
 
       {loading ? (
         <div className="space-y-3">{[...Array(3)].map((_, i) => <Skeleton key={i} className="h-44 rounded-xl" />)}</div>
+      ) : loadError && rows.length === 0 ? (
+        <div className="flex flex-col items-center gap-3 px-6 py-8 text-center text-sm text-muted-foreground" data-testid="transfers-load-error">
+          <p>{tRoot('transfers.load_error')}</p>
+          <Button variant="outline" className="h-11" onClick={() => { setLoading(true); fetchRows() }}>{tRoot('actions.retry')}</Button>
+        </div>
       ) : list.length === 0 ? (
         <div className="flex h-32 items-center justify-center px-6 text-center text-sm text-muted-foreground">
           {rows.length === 0 ? tRoot('transfers.no_transfers') : tRoot('transfers.no_search_results')}

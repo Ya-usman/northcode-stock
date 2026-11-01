@@ -4,6 +4,7 @@ import { getAuthedUser, checkShopRole } from '@/lib/api/shop-auth'
 import { canWriteFeature } from '@/lib/api/role-permissions'
 import { getApiTranslator } from '@/lib/api/i18n'
 import { isUuid, transferError, transferWorkflowAvailable } from '@/lib/api/transfers'
+import { trackedProductNames } from '@/lib/api/serials'
 
 // POST /api/stock-transfers/send — envoie un BROUILLON (migration 188) : stock et lots de la boutique source diminuent
 // (stock vendable seulement, lots FEFO), jeton de QR créé, journal écrit par la base. Renvoyer est sans effet.
@@ -24,6 +25,10 @@ export async function POST(request: Request) {
     const role = await checkShopRole(supabase, user.id, tr.source_shop_id)
     if (!role || !(await canWriteFeature(supabase, role, tr.source_shop_id, 'transfers')))
       return NextResponse.json({ error: t('permission_denied') }, { status: 403 })
+
+    // Produit suivi par numéro de série : transfert pas encore pris en charge (lot C), refus explicite
+    const tracked = await trackedProductNames(admin, ((await admin.from('stock_transfer_items').select('source_product_id').eq('transfer_id', transfer_id)).data || []).map((x: any) => x.source_product_id))
+    if (tracked.length) return NextResponse.json({ error: t('transfer_serial_tracked_unsupported', { product: tracked[0] }), code: 'transfer_serial_tracked_unsupported' }, { status: 400 })
 
     const { data, error } = await admin.rpc('send_stock_transfer_draft', { p_transfer_id: transfer_id, p_source: tr.source_shop_id, p_user: user.id })
     if (error) {

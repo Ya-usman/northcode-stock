@@ -7,6 +7,7 @@ import { writeAuditLog, getClientIp } from '@/lib/api/audit'
 import { getApiTranslator } from '@/lib/api/i18n'
 import { notifyRequester } from '@/lib/api/transfer-requests'
 import { loadNames, ownSendBlocked, transferError, transferWorkflowAvailable } from '@/lib/api/transfers'
+import { trackedProductNames } from '@/lib/api/serials'
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
@@ -114,6 +115,9 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: t('permission_denied') }, { status: 403 })
 
     const admin = await createAdminClient() as any
+    // Produit suivi par numéro de série : transfert pas encore pris en charge (lot C), refus explicite
+    const tracked = await trackedProductNames(admin, cleanItems.map(it => it.product_id))
+    if (tracked.length) return NextResponse.json({ error: t('transfer_serial_tracked_unsupported', { product: tracked[0] }), code: 'transfer_serial_tracked_unsupported' }, { status: 400 })
     let linked: any = null
     if (request_id != null) {
       if (!UUID.test(String(request_id))) return NextResponse.json({ error: t('invalid_data') }, { status: 400 })

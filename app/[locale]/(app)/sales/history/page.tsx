@@ -133,6 +133,7 @@ export default function SalesHistoryPage() {
     const saleShop = userShops.find(x => x.id === s.shop_id)
     if (!saleShop) return
     const code = resolveCurrencyCode(saleShop.currency, saleShop.country)
+    const serialsByItem = hasTracked(s) ? await loadSaleSerials(sale.id) : {}
     try {
       await printSaleTicket({
         settings: readTicketSettings(),
@@ -144,7 +145,7 @@ export default function SalesHistoryPage() {
           receiptUrl: receiptUrl(sale.receipt_token),
           saleNumber: sale.sale_number,
           createdAt: sale.created_at,
-          items: (s.sale_items || []).map((i: any) => ({ name: i.product_name, qty: Number(i.quantity), unitPrice: Number(i.unit_price), subtotal: Number(i.subtotal) })),
+          items: (s.sale_items || []).map((i: any) => ({ name: i.product_name, qty: Number(i.quantity), unitPrice: Number(i.unit_price), subtotal: Number(i.subtotal), serials: serialsByItem[i.id] })),
           subtotal: Number(sale.subtotal), discount: Number(sale.discount), tax: Number(sale.tax), total: Number(sale.total),
           amountPaid: Number(sale.amount_paid), balance: Number(sale.balance),
           paymentLabel: (sale.payment_method as string) === 'mixed' ? t('receipt.method_mixed') : payMethodLabel(sale.payment_method, s.shop_id),
@@ -225,6 +226,16 @@ export default function SalesHistoryPage() {
   const [sales, setSales] = useState<Sale[]>(() => getPageCache<Sale[]>(_salesCacheKey) || [])
   const [loading, setLoading] = useState(() => !getPageCache(_salesCacheKey))
   const [expandedId, setExpandedId] = useState<string | null>(null)
+  // Numéros de série vendus (étape 11), par vente puis par ligne : chargés à l'ouverture du détail ou à l'impression
+  const [saleSerials, setSaleSerials] = useState<Record<string, Record<string, string[]>>>({})
+  const loadSaleSerials = async (saleId: string): Promise<Record<string, string[]>> => {
+    if (saleSerials[saleId]) return saleSerials[saleId]
+    const j = await fetch(`/api/products/serials?sale_id=${saleId}`).then(r => (r.ok ? r.json() : null)).catch(() => null)
+    const map: Record<string, string[]> = j?.data || {}
+    setSaleSerials(prev => ({ ...prev, [saleId]: map }))
+    return map
+  }
+  const hasTracked = (sale: any) => (sale?.sale_items || []).some((i: any) => i.products?.track_serials)
 
   // Dialog state
   const [dialog, setDialog] = useState<{ type: DialogType; sale: Sale } | null>(null)
@@ -342,7 +353,7 @@ export default function SalesHistoryPage() {
   const buildSalesQuery = (start: Date, end: Date, offset: number, searchMode = false) => {
     let query = supabase
       .from('sales')
-      .select('*, customers(name, phone), sale_items(product_id, product_name, quantity, unit_price, subtotal, stock_shortfall, products(image_url))')
+      .select('*, customers(name, phone), sale_items(id, product_id, product_name, quantity, unit_price, subtotal, stock_shortfall, products(image_url, track_serials))')
       .in('shop_id', effectiveShopIds)
       .gte('created_at', start.toISOString())
       .lte('created_at', end.toISOString())
@@ -419,8 +430,13 @@ export default function SalesHistoryPage() {
     return map
   }
 
+  // Chargements successifs (filtres par défaut puis vente ciblée, changement rapide de période…) : seule la réponse
+  // au DERNIER est appliquée — avant (1er nov. 2026), une réponse arrivée en retard écrasait la liste plus récente
+  const fetchSeq = useRef(0)
   const fetchSales = async () => {
     if (!effectiveShopIds.length) return
+    const seq = ++fetchSeq.current
+    const stale = () => seq !== fetchSeq.current
     setSalesOffset(0)
     const isSearchMode = search.trim().length > 0
     const customSuffix = dateFilter === 'custom' ? `_${customStart}_${customEnd}` : ''
@@ -461,6 +477,7 @@ export default function SalesHistoryPage() {
         cashierShopIds.length && !mixed ? buildCollectedQuery(start, end, cashierShopIds, true) : buildCollectedQuery(start, end, mixed ? otherShopIds : effectiveShopIds),
         mixed ? buildCollectedQuery(start, end, cashierShopIds, true) : Promise.resolve({ data: [], error: null }),
       ]), 20_000, 'Chargement des ventes trop lent : réessayez.')
+      if (stale()) return
       // A transient auth/RLS hiccup can resolve statsResult/collectedResult
       // with data: null instead of throwing — without this, listResult.error
       // alone let a failure limited to just these two silently reset the
@@ -474,7 +491,9 @@ export default function SalesHistoryPage() {
       const collectedRows = [...(collectedResult.data || []), ...(collectedMine.data || [])] as Array<{ amount: number }>
       setSales(salesData)
       setHasMoreSales(!isSearchMode && salesData.length === PAGE_SIZE)
-      setCashierMap(await enrichCashiers(salesData))
+      const cashiers = await enrichCashiers(salesData)
+      if (stale()) return
+      setCashierMap(cashiers)
       setPageCache(cacheKey, salesData)
       setPeriodStats({
         count:     statsRows.length,
@@ -491,7 +510,7 @@ export default function SalesHistoryPage() {
     } catch {
       // cache already applied if available
     } finally {
-      setLoading(false)
+      if (!stale()) setLoading(false)
     }
   }
 
@@ -926,7 +945,7 @@ export default function SalesHistoryPage() {
       <Fragment key={sale.id}>
         <TableRow
           className={`cursor-pointer ${isCancelled ? 'opacity-50 bg-red-50/30 dark:bg-red-950/20' : 'hover:bg-muted/30'}`}
-          onClick={() => setExpandedId(expandedId === sale.id ? null : sale.id)}
+          onClick={() => { const next = expandedId === sale.id ? null : sale.id; setExpandedId(next); if (next && hasTracked(sale)) loadSaleSerials(sale.id) }}
           data-sale-row={sale.id} data-sale-shop={saleShopId} aria-expanded={expandedId === sale.id}
         >
           <TableCell className="font-mono text-xs font-medium text-stockshop-blue dark:text-blue-400">
@@ -980,7 +999,12 @@ export default function SalesHistoryPage() {
                         // eslint-disable-next-line @next/next/no-img-element
                         <img src={item.products.image_url} alt={item.product_name} loading="lazy" decoding="async" className="h-8 w-8 rounded object-cover border border-border shrink-0" />
                       )}
-                      <span className="truncate">{item.product_name} × {item.quantity} @ {fmtS(item.unit_price)}</span>
+                      <span className="min-w-0">
+                        <span className="block truncate">{item.product_name} × {item.quantity} @ {fmtS(item.unit_price)}</span>
+                        {saleSerials[sale.id]?.[item.id]?.length ? (
+                          <span className="block truncate font-mono text-[10px] text-muted-foreground" data-testid="history-serials">{t('serials.history_line', { serials: saleSerials[sale.id][item.id].join(', ') })}</span>
+                        ) : null}
+                      </span>
                       {Number(item.stock_shortfall) > 0 && (
                         <span className="shrink-0 text-[10px] font-semibold text-amber-700 dark:text-amber-300">{t('sales.review_shortfall', { count: item.stock_shortfall })}</span>
                       )}

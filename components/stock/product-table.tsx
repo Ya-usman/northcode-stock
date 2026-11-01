@@ -28,15 +28,16 @@ import { isNeutralClick } from '@/lib/utils/open-on-click'
 
 export type ProductSortKey =
   | 'name' | 'sku' | 'price' | 'quantity' | 'sold' | 'status'
-  | 'category' | 'cost' | 'stockValue' | 'coverage' | 'supplier'
+  | 'category' | 'cost' | 'stockValue' | 'coverage' | 'supplier' | 'location'
 export interface ProductSort { key: ProductSortKey; dir: 'asc' | 'desc' }
 export type ProductStatus = 'out' | 'low' | 'dormant' | 'ok'
 
 /** Colonnes optionnelles, dans l'ordre d'affichage (après les colonnes fixes) */
-export type ProductColumnKey = 'category' | 'supplier' | 'cost' | 'stockValue' | 'physical' | 'reserved' | 'inTransit' | 'onOrder' | 'coverage'
+export type ProductColumnKey = 'category' | 'supplier' | 'location' | 'cost' | 'stockValue' | 'physical' | 'reserved' | 'inTransit' | 'onOrder' | 'coverage'
 export const OPTIONAL_COLUMNS: { key: ProductColumnKey; labelKey: string; fullRightsOnly?: boolean }[] = [
   { key: 'category', labelKey: 'products.col_category' },
   { key: 'supplier', labelKey: 'products.col_supplier' },
+  { key: 'location', labelKey: 'products.col_location' },   // étape 10 (migration 196)
   { key: 'cost', labelKey: 'products.col_cost', fullRightsOnly: true },
   { key: 'stockValue', labelKey: 'products.col_stock_value', fullRightsOnly: true },
   { key: 'physical', labelKey: 'products.col_physical' },
@@ -148,6 +149,8 @@ export function ProductTable({
         case 'status': return STATUS_RANK[statusFor(p)]
         case 'category': return p.categories?.name || ''
         case 'supplier': return p.suppliers?.name || ''
+        // Sans emplacement : en fin de liste dans l'ordre croissant
+        case 'location': return p.location || '\uffff'
         case 'cost': return Number(p.buying_price || 0)
         case 'stockValue': return Number(p.quantity) * Number(p.buying_price || 0)
         case 'coverage': {
@@ -175,7 +178,7 @@ export function ProductTable({
   }, [selectedHere, allSelected])
 
   const toggleSort = (key: ProductSortKey) => {
-    const textual = key === 'name' || key === 'sku' || key === 'category' || key === 'supplier'
+    const textual = key === 'name' || key === 'sku' || key === 'category' || key === 'supplier' || key === 'location'
     if (sort.key === key) onSortChange({ key, dir: sort.dir === 'asc' ? 'desc' : 'asc' })
     else onSortChange({ key, dir: textual ? 'asc' : 'desc' })
   }
@@ -233,6 +236,7 @@ export function ProductTable({
             {renderHeader({ sortKey: 'sku', label: t('products.col_sku'), className: 'hidden sm:table-cell' })}
             {show('category') && renderHeader({ sortKey: 'category', label: t('products.col_category') })}
             {show('supplier') && renderHeader({ sortKey: 'supplier', label: t('products.col_supplier') })}
+            {show('location') && renderHeader({ sortKey: 'location', label: t('products.col_location') })}
             {renderHeader({ sortKey: 'price', label: t('products.col_price'), align: 'right' })}
             {show('cost') && renderHeader({ sortKey: 'cost', label: t('products.col_cost'), align: 'right' })}
             {renderHeader({ sortKey: 'quantity', label: t('products.col_available'), align: 'right' })}
@@ -336,6 +340,9 @@ export function ProductTable({
                 )}
                 {show('supplier') && (
                   <td className={cn('max-w-[180px] truncate', CELL)}>{product.suppliers?.name || dash}</td>
+                )}
+                {show('location') && (
+                  <td className={cn('max-w-[180px] truncate', CELL)} data-testid="product-row-location">{product.location || dash}</td>
                 )}
                 <td className={CELL_NUM}>
                   {promoActive && product.promo_price ? (

@@ -63,6 +63,8 @@ export interface TicketLabels {
   scanHint: string
   /** « 3 articles » sous la liste. */
   itemCount: (n: number) => string
+  /** « N° série » devant les numéros d'un produit suivi (étape 11) */
+  serial?: string
 }
 
 /** Libellés depuis next-intl (`t` de useTranslations()). */
@@ -89,6 +91,7 @@ export function ticketLabelsFromT(t: (key: string, values?: Record<string, strin
     totalCollected: t('receipt.total_collected'),
     thankYou: t('receipt.thank_you'),
     seeYouSoon: t('receipt.see_you_soon'),
+    serial: t('receipt.serial'),
     generatedBy: t('receipt.generated_by'),
     poweredBy: t('receipt.powered_by'),
     scanHint: t('receipt.scan_hint'),
@@ -102,6 +105,8 @@ export interface TicketItem {
   qty: number
   unitPrice: number
   subtotal: number
+  /** Numéros de série vendus (produit suivi, étape 11) : une ligne sous l'article */
+  serials?: string[]
 }
 
 export interface TicketData {
@@ -196,11 +201,13 @@ export function buildSaleTicket(d: TicketData, width: TicketWidth): TicketLine[]
     push({ kind: 'rule' })
     d.items.forEach((it, i) => {
       push({ kind: 'cols', cells: [String(i + 1), it.name, String(it.qty), short(it.unitPrice), short(it.subtotal)], widths, aligns, size: 'sm' })
+      if (it.serials?.length) push({ kind: 'text', text: `   ${L.serial ?? 'S/N'} : ${it.serials.join(', ')}`, size: 'sm' })
     })
   } else {
     d.items.forEach((it, i) => {
       push({ kind: 'text', text: `${i + 1}. ${it.name}`, size: 'md' })
       push({ kind: 'row', left: `  ${it.qty} × ${short(it.unitPrice)}`, right: d.fmt(it.subtotal), size: 'sm' })
+      if (it.serials?.length) push({ kind: 'text', text: `  ${L.serial ?? 'S/N'} : ${it.serials.join(', ')}`, size: 'sm' })
     })
   }
   // Nombre d'unités ; une quantité décimale (1,5 kg) compte pour un article

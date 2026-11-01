@@ -66,6 +66,7 @@ const FIELD_KEYS: Record<string, string> = {
   promo_until: 'products.journal_field_promo_until',
   promo_start: 'activity_journal.field_promo_start',
   location: 'products.journal_field_location',
+  track_serials: 'products.journal_field_track_serials',
   unit: 'products.unit',
   quantity: 'products.quantity',
 }
@@ -167,6 +168,7 @@ export function ProductActivityJournal({ open, onOpenChange, shopId, shopLabel, 
     if (v === null || v === undefined || v === '') return '—'
     if (PRICE_FIELDS.has(key)) return formatMoney(Number(v))
     if (DATE_FIELDS.has(key)) return new Date(String(v)).toLocaleDateString(locale)
+    if (typeof v === 'boolean') return t(v ? 'shop_detail.yes' : 'shop_detail.no' as any)
     return String(v)
   }
   const fmtTime = (iso: string) => new Date(iso).toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' })

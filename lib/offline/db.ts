@@ -99,6 +99,8 @@ export interface PendingSaleItem {
   unit_price: number
   original_price?: number | null
   subtotal: number
+  /** Numéros de série saisis hors ligne (étape 11) : vérifiés à la synchronisation */
+  serials?: string[]
 }
 
 export interface PendingSale {

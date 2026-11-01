@@ -52,7 +52,9 @@ const card = page => page.locator('[data-testid="transfer-card"]', { hasText: RE
       ok(!receive && !sw, 'carte : ni « Réceptionner » ni « Passer sur »')
       ok(/^En transit vers .*Bastos/.test(waiting), `carte : « ${waiting} »`)
       await c.locator('[data-testid="transfer-view"]').click()
-      await page.getByTestId('transfer-detail').waitFor({ timeout: 15000 }); await wait(2500)
+      await page.getByTestId('transfer-detail').waitFor({ timeout: 15000 })
+      // Détail relu du serveur après l'ouverture : on attend son pied (bouton QR) plutôt qu'un délai fixe
+      await page.getByTestId('detail-qr').waitFor({ timeout: 15000 }).catch(() => {}); await wait(500)
       ok(await page.getByTestId('detail-receive').count() === 0 && await page.getByTestId('detail-switch').count() === 0, 'détail : ni « Réceptionner » ni « Passer sur »')
       ok(await page.getByTestId('detail-qr').count() === 1, 'détail : le QR du bon reste disponible')
       await page.screenshot({ path: `${__dirname}/out/transfer-akwa-detail.png` })

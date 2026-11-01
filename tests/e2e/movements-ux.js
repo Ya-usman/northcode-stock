@@ -141,7 +141,12 @@ async function openMovement(page, locale, m) {
     check(`recherche par ${label} — « ${q} » : ${Math.min(500, want.length)} mouvement(s)`, r.status === 200 && want.length > 0 === r.json.movements.length > 0 && matchTop(r.json.movements, want), `reçu ${r.json?.movements?.length}, attendu ${want.length}`)
   }
   check(`« sale » ne ramène pas les ${parts.sale.length} ventes`, W.search('sale').length < parts.sale.length / 2, W.search('sale').length)
-  const pq = W.product[saleM.product_id].name.slice(0, 4)
+  // Recherche à partir du produit qui a le PLUS de ventes (1er nov. 2026 : avant, celui de la dernière vente — un produit
+  // TEST récent ne ramenait que 3 lignes, liste trop courte pour vérifier la position de défilement plus bas)
+  const saleCount = {}
+  for (const m of parts.sale) if (W.product[m.product_id]) saleCount[m.product_id] = (saleCount[m.product_id] || 0) + 1
+  const busiest = Object.entries(saleCount).sort((a, b) => b[1] - a[1])[0]?.[0] ?? saleM.product_id
+  const pq = W.product[busiest].name.slice(0, 4)
   const combo = await api(`&kind=sale&q=${encodeURIComponent(pq)}`)
   check(`recherche + type : « ${pq} » dans « Ventes » — ${W.search(pq, parts.sale).length} mouvement(s), que des ventes`, sameIds(combo.json.movements.map(m => m.id).sort(), top(W.search(pq, parts.sale)).sort()) && combo.json.movements.every(m => m.type === 'sale'), combo.json?.movements?.length)
   const combo2 = await api(`&product_id=${retM.product_id}&q=${encodeURIComponent(retM.view.origin.ref)}`)
@@ -521,7 +526,10 @@ async function openMovement(page, locale, m) {
     const y0m = await o.page.evaluate(() => window.scrollY + (document.querySelector('main') ? document.querySelector('main').scrollTop : 0))
     await o.page.touchscreen.tap(first.x + first.w * 0.8, first.y + first.h / 2)
     const opened = await drawer(o.page).waitFor({ timeout: 10000 }).then(() => true).catch(() => false)
-    await o.page.waitForTimeout(1800)
+    // Le pied d'actions dépend de l'origine relue par le serveur après l'ouverture : on l'attend (repère précis)
+    // plutôt qu'un délai fixe de 1,8 s, trop court sous la charge de la suite complète
+    if (opened) await drawer(o.page).locator('[data-testid="movement-detail-actions"]').waitFor({ timeout: 15000 }).catch(() => {})
+    await o.page.waitForTimeout(400)
     const box = opened ? await drawer(o.page).boundingBox() : { x: 0, y: 0, width: 0, height: 0 }
     const m = byId[first.id]
     if (wd < 640) check(`${kind} : toucher la ligne ouvre le détail en plein écran (${Math.round(box.width)} × ${Math.round(box.height)} px), pied d’actions visible`, opened && box.width >= wd - 1 && box.height >= hg - 1 && box.x === 0 && (await drawer(o.page).locator('[data-testid="movement-detail-actions"]').isVisible()) && (await dtext(o.page)).includes(W.product[m.product_id].name), JSON.stringify(box))

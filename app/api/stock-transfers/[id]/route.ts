@@ -4,6 +4,7 @@ import { createAdminClient } from '@/lib/supabase/server'
 import { getAuthedUser, checkShopRole } from '@/lib/api/shop-auth'
 import { getApiTranslator } from '@/lib/api/i18n'
 import { isUuid, loadAllocations, loadNames, ownSendBlocked, senderOf, transferError, transferWorkflowAvailable } from '@/lib/api/transfers'
+import { trackedProductNames } from '@/lib/api/serials'
 
 /** Droits de la personne sur les deux boutiques RÉELLES du transfert (jamais celles envoyées par le navigateur) */
 async function rightsOn(supabase: any, userId: string, shopIds: string[]) {
@@ -126,6 +127,10 @@ export async function PATCH(request: Request, { params }: { params: { id: string
     const role = await checkShopRole(supabase, user.id, tr.source_shop_id)
     if (!role || !(await canWriteFeature(supabase, role, tr.source_shop_id, 'transfers')))
       return NextResponse.json({ error: t('permission_denied') }, { status: 403 })
+
+    // Produit suivi par numéro de série : transfert pas encore pris en charge (lot C), refus explicite
+    const tracked = await trackedProductNames(admin, items.map((it: any) => it?.product_id))
+    if (tracked.length) return NextResponse.json({ error: t('transfer_serial_tracked_unsupported', { product: tracked[0] }), code: 'transfer_serial_tracked_unsupported' }, { status: 400 })
 
     const { data, error } = await admin.rpc('update_stock_transfer_draft', {
       p_transfer_id: params.id, p_source: tr.source_shop_id, p_dest: destination_shop_id, p_user: user.id, p_notes: notes || null,

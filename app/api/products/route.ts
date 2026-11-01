@@ -7,6 +7,7 @@ import { costVisible } from '@/lib/api/cost-fields'
 import { getApiTranslator } from '@/lib/api/i18n'
 import { classifyBarcode } from '@/lib/products/barcode'
 import { normalizeLocation } from '@/lib/products/location'
+import { cleanSerials, serialErrorResponse } from '@/lib/api/serials'
 import { productsWithHistory } from '@/lib/api/product-history'
 
 // Écriture de la fiche produit = niveau « modification » de Produits / Stock
@@ -264,12 +265,13 @@ export async function PATCH(request: Request) {
       'name', 'description', 'selling_price', 'buying_price', 'sku',
       'category_id', 'unit', 'image_url', 'low_stock_threshold', 'barcode',
       'supplier_name', 'supplier_id', 'promo_price', 'promo_until', 'promo_start', 'promo_reason',
-      'is_favorite', 'location',
+      'is_favorite', 'location', 'track_serials',
     ])
     const safeUpdates: Record<string, unknown> = Object.fromEntries(
       Object.entries(updates).filter(([k]) => PATCHABLE.has(k))
     )
     if ('is_favorite' in safeUpdates) safeUpdates.is_favorite = Boolean(safeUpdates.is_favorite)
+    if ('track_serials' in safeUpdates) safeUpdates.track_serials = Boolean(safeUpdates.track_serials)
     // Prix d'achat : modifiable seulement avec le droit au coût — sinon ignoré (jamais écrit en silence)
     const seesCost = !favoriteOnly && await canViewCost(supabase, role, shop_id)
     if (!seesCost) delete safeUpdates.buying_price
@@ -293,7 +295,7 @@ export async function PATCH(request: Request) {
       return NextResponse.json({ error: t('supplier_wrong_shop'), field: 'supplier_id' }, { status: 400 })
 
     // Snapshot avant modification, pour le journal d'audit
-    const TRACKED_FIELDS = ['name', 'selling_price', 'buying_price', 'low_stock_threshold', 'sku', 'category_id', 'supplier_id', 'promo_price', 'promo_until', 'promo_start', 'location'] as const
+    const TRACKED_FIELDS = ['name', 'selling_price', 'buying_price', 'low_stock_threshold', 'sku', 'category_id', 'supplier_id', 'promo_price', 'promo_until', 'promo_start', 'location', 'track_serials'] as const
     const trackedChange = TRACKED_FIELDS.some(f => f in safeUpdates)
     let before: Record<string, unknown> | null = null
     if (trackedChange) {
@@ -553,7 +555,7 @@ export async function PUT(request: Request) {
     if (!user) return NextResponse.json({ error: t('not_authenticated') }, { status: 401 })
     // supplier_name et performed_by envoyés par l'appareil ne sont plus crus : le nom vient de la fiche
     // fournisseur vérifiée, l'auteur est la personne connectée
-    const { product_id, shop_id, quantity_to_add, supplier_id, buying_price, expiry_date, notes } = await request.json()
+    const { product_id, shop_id, quantity_to_add, supplier_id, buying_price, expiry_date, notes, serials } = await request.json()
     const performed_by = user.id
     if (!product_id || !shop_id) return NextResponse.json({ error: t('product_shop_id_required') }, { status: 400 })
     if (!Number.isFinite(Number(quantity_to_add)) || Number(quantity_to_add) <= 0)
@@ -568,7 +570,7 @@ export async function PUT(request: Request) {
     // when an offline sync flushes a stale quantity.
     const { data: product, error: fetchError } = await (admin as any)
       .from('products')
-      .select('name, quantity, buying_price, shop_id')
+      .select('name, quantity, buying_price, shop_id, track_serials')
       .eq('id', product_id)
       .eq('shop_id', shop_id)
       .single()
@@ -603,6 +605,22 @@ export async function PUT(request: Request) {
       updatePayload.buying_price = newBuyingPrice
     }
 
+    // Produit suivi par numéro de série (197) : un numéro par unité, et TOUT en une transaction SQL (stock, coût moyen,
+    // mouvement, lot, numéros) — un numéro refusé n'écrit rien
+    if (product.track_serials) {
+      const list = cleanSerials(serials)
+      if (!list || list.length !== addQty) return NextResponse.json({ error: t('serial_count_mismatch', { product: product.name }), code: 'serial_count_mismatch' }, { status: 400 })
+      const { data: res, error: rpcError } = await (admin as any).rpc('restock_serial_units', {
+        p_shop: shop_id, p_product: product_id, p_user: performed_by, p_serials: list, p_unit_price: enteredPrice,
+        p_expiry: expiry_date || null, p_supplier: supplier_id || null, p_notes: notes || null,
+        p_reason: supplier_name ? `Restock from ${supplier_name}` : 'Restock',
+      })
+      if (rpcError) {
+        const se = serialErrorResponse(rpcError, t)
+        return se ? NextResponse.json(se.body, { status: se.status }) : NextResponse.json({ error: rpcError.message }, { status: 400 })
+      }
+      newBuyingPrice = enteredPrice !== null ? Number(res?.price_to) : null
+    } else {
     // Optimistic lock: if quantity changed between our read and this update,
     // the .eq('quantity', prevQty) filter matches 0 rows → data is null → 409.
     const { data: updated, error: updateError } = await (admin as any)
@@ -642,6 +660,7 @@ export async function PUT(request: Request) {
       expiry_date: expiry_date || null,
       source: 'restock',
     })
+    }
 
     // Feed the supplier price comparator with what was actually paid — purely
     // informational (doesn't switch the product's current supplier, that

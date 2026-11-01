@@ -119,6 +119,8 @@ export default function StockOverviewPage({ params: { locale } }: { params: { lo
   useEffect(() => { setLevelReady(levelCached()) }, [effectiveShopIds.join(',')]) // eslint-disable-line react-hooks/exhaustive-deps
   // Stock à venir (en transit, en commande) : null tant qu'il n'est ni en cache ni chargé
   const [pipeline, setPipeline] = useState<StockPipeline | null>(() => readSignalsCache(effectiveShopIds)?.pipeline ?? null)
+  // « En route » relu du serveur pendant cette visite (et pas seulement le cache) : repère data-fresh pour les tests
+  const [pipelineFresh, setPipelineFresh] = useState(false)
   // Lots datés encore en stock : cartes « Lots périmés » / « Expirent bientôt » en nombre de LOTS
   const [datedLots, setDatedLots] = useState<DatedLot[]>([])
 
@@ -178,28 +180,28 @@ export default function StockOverviewPage({ params: { locale } }: { params: { lo
     }
     // Échec : on affiche quand même (dernier état connu), plutôt que « … » sans fin
     setLevelReady(true)
-    try {
-      const expiry = await fetchExpiryByProduct(supabase, effectiveShopIds)
-      setExpiryByProduct(expiry)
-      writeSignalsCache(effectiveShopIds, { expiryByProduct: expiry })
-    } catch { /* idem */ }
-    try {
-      const sold = await fetchSoldQty30dForShops(effectiveShopIds)
-      setSoldQtyByProduct(sold)
-      setSoldQtyLoaded(true)
-      writeSignalsCache(effectiveShopIds, { soldQtyByProduct: sold })
-    } catch { /* idem */ }
-    try {
-      setDatedLots(await fetchDatedLots(supabase, effectiveShopIds))
-    } catch { /* idem */ }
-    try {
-      const incoming = await fetchStockPipeline(effectiveShopIds)
-      setPipeline(incoming)
-      writeSignalsCache(effectiveShopIds, { pipeline: incoming })
-    } catch { /* idem */ }
+    // Signaux indépendants les uns des autres : chargés EN PARALLÈLE (avant le 1er nov. 2026, l'un après l'autre :
+    // le stock « en route » arrivait en dernier, parfois très tard) ; chacun s'affiche dès qu'il arrive
+    await Promise.allSettled([
+      fetchExpiryByProduct(supabase, effectiveShopIds).then(expiry => {
+        setExpiryByProduct(expiry)
+        writeSignalsCache(effectiveShopIds, { expiryByProduct: expiry })
+      }),
+      fetchSoldQty30dForShops(effectiveShopIds).then(sold => {
+        setSoldQtyByProduct(sold)
+        setSoldQtyLoaded(true)
+        writeSignalsCache(effectiveShopIds, { soldQtyByProduct: sold })
+      }),
+      fetchDatedLots(supabase, effectiveShopIds).then(setDatedLots),
+      fetchStockPipeline(effectiveShopIds).then(incoming => {
+        setPipeline(incoming)
+        setPipelineFresh(true)
+        writeSignalsCache(effectiveShopIds, { pipeline: incoming })
+      }),
+    ])
   }
 
-  useEffect(() => { fetchAll() }, [effectiveShopIds.join(',')]) // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { setPipelineFresh(false); fetchAll() }, [effectiveShopIds.join(',')]) // eslint-disable-line react-hooks/exhaustive-deps
   // Routes cibles des cartes préchargées : la navigation n'attend ni le code
   // de la page ni son rendu serveur
   useEffect(() => {
@@ -410,7 +412,7 @@ export default function StockOverviewPage({ params: { locale } }: { params: { lo
 
           {/* Stock à venir : ce qui n'est pas encore en rayon mais arrive (transferts envoyés, commandes envoyées) */}
           {(showTransit || showOnOrder) && pipeline && (
-            <section aria-label={t('stock_overview.incoming_label')} className="space-y-2">
+            <section aria-label={t('stock_overview.incoming_label')} className="space-y-2" data-testid="stock-incoming" data-fresh={pipelineFresh ? 'true' : 'false'}>
               <h2 className="text-sm font-semibold">{t('stock_overview.incoming_label')}</h2>
               <div className="grid grid-cols-2 gap-3">
                 {showTransit && (

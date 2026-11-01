@@ -22,7 +22,8 @@ export interface TemplateTexts {
 const COLUMNS: { field: ImportField; width: number; validation?: TemplateColumn['validation'] }[] = [
   { field: 'name', width: 36 }, { field: 'selling_price', width: 15, validation: 'decimal' }, { field: 'buying_price', width: 15, validation: 'decimal' },
   { field: 'quantity', width: 17, validation: 'whole' }, { field: 'unit', width: 18, validation: 'list' }, { field: 'sku', width: 22, validation: 'text' },
-  { field: 'low_stock_threshold', width: 17, validation: 'whole' }, { field: 'expiry_date', width: 18, validation: 'date' },
+  { field: 'low_stock_threshold', width: 17, validation: 'whole' }, { field: 'location', width: 22, validation: 'text' },
+  { field: 'expiry_date', width: 18, validation: 'date' },
 ]
 
 /** Description complète du modèle produits (réutilisée par l'écran d'import commun) */

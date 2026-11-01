@@ -9,7 +9,7 @@ import { usePersistedFilters } from '@/lib/hooks/use-persisted-filters'
 import { normalize } from '@/lib/utils/normalize'
 import { useTranslations } from 'next-intl'
 import { useUnitLabel } from '@/lib/products/use-unit-label'
-import { dateLocaleTag } from '@/lib/i18n/date-format'
+import { dateLocaleTag, formatLocaleDate } from '@/lib/i18n/date-format'
 import type { ProductFieldError } from '@/components/stock/product-form'
 import dynamic from 'next/dynamic'
 import { Plus, Search, Edit2, Package, ArrowDown, FileDown, Settings2, Trash2, Store, RotateCcw, Archive, Upload, CheckSquare, Square, AlertTriangle, History, Tag, CalendarClock, ShoppingCart, X, LayoutGrid, List, SlidersHorizontal, ChevronDown, MoreHorizontal, Zap, Columns3, FileSpreadsheet } from 'lucide-react'
@@ -215,6 +215,11 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
   // Conditionnements d'achat du produit (étape 9) : « Saisir en » pièces ou en colis ; '' = unité de base
   const [restockPacks, setRestockPacks] = useState<Packaging[]>([])
   const [restockPackId, setRestockPackId] = useState('')
+  // Produit suivi (étape 11) : numéros reçus, un par ligne (saisie ou scan)
+  const [restockSerials, setRestockSerials] = useState('')
+  const restockSerialList = restockSerials.split(/[\n\r,;]+/).map(s => s.trim()).filter(Boolean)
+  const restockTracked = !!restockProduct?.track_serials
+  useEffect(() => { setRestockSerials('') }, [restockProduct?.id])
   const [saving, setSaving] = useState(false)
   const [archivedProducts, setArchivedProducts] = useState<Product[]>([])
   const [deleteConfirmProduct, setDeleteConfirmProduct] = useState<Product | null>(null)
@@ -473,6 +478,19 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
       setLoadingBatches(false)
     }
   }
+  // Numéro de série cherché (étape 11) : en ligne, à partir de 4 caractères, dans les boutiques du contexte
+  const [serialHits, setSerialHits] = useState<any[]>([])
+  useEffect(() => {
+    const q = search.trim()
+    if (q.length < 4 || !isOnline || !effectiveShopIds.length) { setSerialHits([]); return }
+    let cancelled = false
+    const timer = setTimeout(() => {
+      fetch(`/api/products/serials?shop_ids=${effectiveShopIds.join(',')}&q=${encodeURIComponent(q)}`)
+        .then(r => (r.ok ? r.json() : null)).then(j => { if (!cancelled) setSerialHits(j?.data || []) }).catch(() => {})
+    }, 400)
+    return () => { cancelled = true; clearTimeout(timer) }
+  }, [search, isOnline, effectiveShopIds.join(',')]) // eslint-disable-line react-hooks/exhaustive-deps
+
   const openProductDetail = (product: Product, section: ProductDetailSection = 'top') => {
     setDetailSection(section)
     setBatchesProduct(product)
@@ -770,9 +788,12 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
   const onRestock = async (data: RestockFormData) => {
     if (!restockProduct || !shop?.id) return
     if (!(await pastExpiry.confirm([data.expiry_date]))) return
+    // Produit suivi (étape 11) : en ligne seulement (le serveur vérifie chaque numéro) ; quantité = nombre de numéros
+    if (restockTracked && !navigator.onLine) { toast({ title: t('serials.restock_needs_connection'), variant: 'destructive' }); return }
     // Saisie en colis (étape 9) : quantité et prix d'achat ramenés à l'unité de base ; le serveur ne voit que l'unité de base
-    const pack = restockPack
-    const qty = pack ? packToBase(Number(data.quantity), pack.units_per_pack) : Number(data.quantity)
+    const pack = restockTracked ? null : restockPack
+    const qty = restockTracked ? restockSerialList.length : pack ? packToBase(Number(data.quantity), pack.units_per_pack) : Number(data.quantity)
+    if (restockTracked && qty < 1) { toast({ title: t('serials.restock_none'), variant: 'destructive' }); return }
     const unitPrice = pack && data.buying_price ? packPriceToUnit(Number(data.buying_price), pack.units_per_pack) : data.buying_price
     setSaving(true)
 
@@ -824,6 +845,7 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
           expiry_date: data.expiry_date || null,
           notes: data.notes || null,
           performed_by: profile!.id,
+          ...(restockTracked ? { serials: restockSerialList } : {}),
         }),
       }))
       const json = await res.json()
@@ -837,6 +859,7 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
     }
     setShowRestockModal(false)
     restockForm.reset()
+    setRestockSerials('')
     fetchProducts()
   }
 
@@ -988,13 +1011,13 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
       columns: [
         { header: col('name') }, { header: `${col('selling_price')} (${currencySymbol})`, type: 'money' }, { header: `${col('buying_price')} (${currencySymbol})`, type: 'money' },
         { header: col('quantity'), type: 'int' }, { header: col('unit') }, { header: col('sku') }, { header: col('low_stock_threshold'), type: 'int' },
-        { header: t('exports.col_category') }, { header: t('exports.col_status') },
+        { header: col('location') }, { header: t('exports.col_category') }, { header: t('exports.col_status') },
       ],
       rows: filtered.map(p => {
         const threshold = p.low_stock_threshold || shopById[p.shop_id]?.low_stock_threshold || shop?.low_stock_threshold || 10
         const level = levelOf(p)
         const status = level === 'out' ? t('status.out_of_stock') : level === 'low' ? t('status.low_stock') : t('status.in_stock')
-        return [p.name, p.selling_price, p.buying_price, p.quantity, unitLabel(p.unit || 'piece'), p.sku || '', p.low_stock_threshold ?? '', (p as any).categories?.name || '', status]
+        return [p.name, p.selling_price, p.buying_price, p.quantity, unitLabel(p.unit || 'piece'), p.sku || '', p.low_stock_threshold ?? '', p.location || '', (p as any).categories?.name || '', status]
       }),
     }, format)
   }
@@ -1653,6 +1676,36 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
           </div>
         </div>
 
+        {/* Numéros de série trouvés par la recherche (étape 11) : produit, statut, vente */}
+        {serialHits.length > 0 && (
+          <div className="space-y-1.5 rounded-xl border bg-card p-3" data-testid="serial-hits">
+            <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">{t('serials.search_title')}</p>
+            <ul className="divide-y">
+              {serialHits.map(h => {
+                const prod = products.find(p => p.id === h.product_id)
+                return (
+                  <li key={h.id}>
+                    <button type="button" disabled={!prod} onClick={() => prod && openProductDetail(prod)} className="flex w-full items-start justify-between gap-3 py-2 text-left text-sm disabled:cursor-default">
+                      <span className="min-w-0">
+                        <span className="block font-mono font-medium">{h.serial}</span>
+                        <span className="block truncate text-xs text-muted-foreground">{h.product_name}{multiShopAccount ? ` · ${shopById[h.shop_id]?.name ?? ''}` : ''}</span>
+                      </span>
+                      <span className="shrink-0 text-right text-xs">
+                        {h.status === 'sold' ? (
+                          <>
+                            <span className="block font-medium">{t('serials.status_sold')}</span>
+                            <span className="block text-muted-foreground">{[h.sold_at ? formatLocaleDate(h.sold_at, locale, { day: '2-digit', month: '2-digit', year: 'numeric' }) : '', h.sale?.sale_number || '', h.sale?.customer_name || ''].filter(Boolean).join(' · ')}</span>
+                          </>
+                        ) : <span className="font-medium text-green-700 dark:text-green-400">{t(`serials.status_${h.status}` as any)}</span>}
+                      </span>
+                    </button>
+                  </li>
+                )
+              })}
+            </ul>
+          </div>
+        )}
+
         {/* Compteur à gauche ; à droite, ce qui règle l'affichage (jamais au premier plan) */}
         <div className="flex min-h-9 items-center justify-between gap-2">
           <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1 text-sm text-muted-foreground">
@@ -2062,6 +2115,16 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
         <form onSubmit={restockForm.handleSubmit(onRestock)}>
           <PremiumDialogBody>
             <input type="hidden" {...restockForm.register('product_id')} />
+            {restockTracked ? (
+              // Produit suivi : un numéro par unité reçue (scanner ou saisir, un par ligne)
+              <div className="space-y-1.5" data-testid="restock-serials">
+                <Label htmlFor="restock-serials-input">{t('serials.restock_label')} *</Label>
+                <textarea id="restock-serials-input" value={restockSerials} rows={4}
+                  onChange={e => { setRestockSerials(e.target.value); const n = e.target.value.split(/[\n\r,;]+/).map(s => s.trim()).filter(Boolean).length; restockForm.setValue('quantity', Math.max(n, 1) as any, { shouldDirty: true }) }}
+                  placeholder={t('serials.entry_many_placeholder')} className="w-full rounded-md border bg-background px-3 py-2 font-mono text-sm placeholder:font-sans" />
+                <p className="text-xs text-muted-foreground" data-testid="restock-serials-count">{t('serials.restock_count', { count: restockSerialList.length })}</p>
+              </div>
+            ) : (<>
             {restockPacks.length > 0 && (
               <div className="space-y-1.5" data-testid="restock-pack">
                 <Label>{t('packaging.enter_in')}</Label>
@@ -2081,6 +2144,7 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
                 <p className="text-xs text-muted-foreground" data-testid="restock-equivalent">{t('packaging.equals', { count: packToBase(Number(restockForm.watch('quantity')), restockPack.units_per_pack), base: unitLabelFor(restockProduct?.unit || 'piece', packToBase(Number(restockForm.watch('quantity')), restockPack.units_per_pack)) })}</p>
               )}
             </div>
+            </>)}
             <div className="space-y-1.5">
               <Label>{t('products.supplier')}</Label>
               <Select value={restockForm.watch('supplier_id') || undefined} onValueChange={v => restockForm.setValue('supplier_id', v, { shouldDirty: true })}>

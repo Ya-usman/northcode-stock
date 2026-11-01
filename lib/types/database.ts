@@ -234,6 +234,8 @@ export interface Product {
   sku: string | null
   /** Emplacement dans la boutique (étape 10, migration 196) */
   location?: string | null
+  /** Suivi par numéro de série (étape 11, migration 197) */
+  track_serials?: boolean
   category_id: string | null
   supplier_id: string | null
   /** Prix d'achat : ABSENT quand la personne n'a pas le droit de le voir (lib/permissions → canViewCost).
@@ -352,6 +354,8 @@ export interface CartItem {
   quantity: number
   unit_price: number
   subtotal: number
+  /** Produit suivi (étape 11) : un numéro de série par unité ; quantity = serials.length */
+  serials?: string[]
 }
 
 // Dashboard metrics

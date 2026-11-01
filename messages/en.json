@@ -244,6 +244,8 @@
     "viewer": "Viewer"
   },
   "products": {
+    "journal_field_track_serials": "Serial number tracking",
+    "col_location": "Location",
     "journal_field_location": "Location",
     "status_surstock": "Overstock",
     "surstock_badge": "Overstock",
@@ -469,6 +471,7 @@
     "bulk_archived_history": "{count, plural, one {# product has a history: it was archived} other {# products have a history: they were archived}} to keep traceability."
   },
   "sales": {
+    "review_reason_serial_unresolved": "Serial number missing or unknown when the sale synced",
     "edit_details_section": "Customer, payment and note",
     "edit_qty_label": "Quantity: {name}",
     "edit_price_label": "Unit price: {name}",
@@ -796,6 +799,7 @@
     "credit_limit_placeholder": "e.g. 50000"
   },
   "suppliers": {
+    "po_load_error": "Could not load the purchase orders.",
     "lead_card": "Delivery {days} d",
     "lead_card_observed": "Observed delivery {days} d",
     "lead_label": "Usual delivery time (days)",
@@ -944,6 +948,7 @@
     "to": "To"
   },
   "transfers": {
+    "load_error": "Could not load the transfers.",
     "in_transit_to": "In transit to {shop}",
     "to_receive_at": "To receive at {shop}",
     "receive_by_other": "You sent this transfer: another person at {shop} receives it.",
@@ -1269,6 +1274,7 @@
     "client_debts_timeout": "Customer debts are taking too long to load: try again."
   },
   "receipt": {
+    "serial": "S/N",
     "receipt": "Receipt",
     "cashier": "Cashier",
     "customer": "Customer",
@@ -3358,6 +3364,7 @@
       "invalid_expiry_date": "Unreadable expiry date: “{value}”. Write it DD/MM/YYYY, or leave the cell empty.",
       "invalid_quantity": "Invalid quantity: a whole number, 0 or more.",
       "invalid_threshold": "Invalid alert threshold: a whole number.",
+      "location_too_long": "Location too long: 60 characters at most.",
       "unknown_unit": "Unknown unit “{unit}”: pick one from the template list.",
       "sku_damaged": "Barcode damaged by Excel (e.g. 5.9E+12): set the column to Text format and type it again.",
       "sku_too_long": "Barcode too long.",
@@ -3425,6 +3432,11 @@
           "header": "Alert threshold",
           "help": "You are alerted when stock falls to this number. Optional.",
           "example": "3"
+        },
+        "location": {
+          "header": "Location",
+          "help": "Where the product is in the shop (aisle, shelf, storeroom). Optional, 60 characters at most.",
+          "example": "Aisle 3, shelf B"
         },
         "expiry_date": {
           "header": "Expiry date",
@@ -3890,6 +3902,16 @@
     "zero_lot_meta": "depleted · {initial} {unit} initially"
   },
   "api_errors": {
+    "serial_remove_not_surplus": "A number can only be removed when the register holds more numbers than units in stock.",
+    "transfer_serial_tracked_unsupported": "\"{product}\" is tracked by serial number: it cannot be transferred yet.",
+    "serial_count_mismatch": "\"{product}\": one serial number is needed per unit.",
+    "serial_taken": "Number {serial} is already registered in this shop.",
+    "serial_invalid": "Invalid serial number: {serial}",
+    "serial_duplicate_input": "The same serial number is entered twice.",
+    "serial_exceeds_stock": "More numbers than units in stock.",
+    "serial_not_in_stock": "Number {serial} is not in stock for this product.",
+    "serial_product_not_tracked": "This product is not tracked by serial number.",
+    "sale_has_serials_not_editable": "This sale contains products tracked by serial number: cancel it and make it again.",
     "transfer_receive_wrong_shop": "Receiving is done from the destination shop: switch to {shop} at the top of the screen.",
     "transfer_receive_own_send": "You sent this transfer: another person at the destination shop must receive it.",
     "location_too_long": "The location cannot be longer than 60 characters.",
@@ -5383,5 +5405,59 @@
     "pack_line": "{packs} {pack} of {count} ({total} {base})",
     "pack_line_unit": "{pack} of {count} ({total} {base})",
     "packs_count": "That is {packs} {pack} of {count}"
+  },
+  "serials": {
+    "surplus": "{count, plural, one {# number more than the stock: remove the one no longer in the shop} other {# numbers more than the stock: remove those no longer in the shop}}",
+    "remove_action": "Remove",
+    "remove_reason_placeholder": "Reason (lost, broken…)",
+    "title": "Serial numbers",
+    "hint": "One number per unit: phones (IMEI), devices, appliances.",
+    "track_label": "Track serial numbers",
+    "track_hint": "Each unit received and sold carries its number. Useful for warranty and after-sales service.",
+    "tracking_on": "Serial tracking on",
+    "tracking_off": "Serial tracking off",
+    "error": "Could not save.",
+    "count_line": "{inStock} serial numbers in stock for {quantity, plural, one {# unit} other {# units}}",
+    "missing": "{count, plural, one {# unit has no number yet} other {# units have no number yet}}",
+    "number_existing": "Number existing stock",
+    "entry_many_placeholder": "One number per line (scan or type)",
+    "entry_count": "{count} of {max} at most",
+    "save": "Save",
+    "cancel": "Cancel",
+    "added": "{count, plural, one {# number saved} other {# numbers saved}}",
+    "tab_in_stock": "In stock ({count})",
+    "tab_sold": "Sold ({count})",
+    "empty_in_stock": "No number in stock.",
+    "empty_sold": "No number sold.",
+    "correct": "Correct",
+    "received_line": "Received on {date}",
+    "sold_line": "Sold on {date} · {sale} · {customer}",
+    "no_customer": "Walk-in customer",
+    "category": "Serial numbers",
+    "hint_online": "Choose or scan one number per unit sold.",
+    "hint_offline": "Offline: scan or type the numbers. They will be checked when the sale syncs.",
+    "search_placeholder": "Search or scan a number",
+    "entry_placeholder": "Scan or type a number, then Enter",
+    "max_reached": "{count, plural, one {# sellable unit at most} other {# sellable units at most}}",
+    "invalid": "Invalid number.",
+    "not_in_stock": "Number {serial} is not in stock for this product.",
+    "remove": "Remove {serial}",
+    "loading": "Loading numbers…",
+    "none_in_stock": "No number in stock for this product.",
+    "confirm": "{count, plural, one {Confirm # number} other {Confirm # numbers}}",
+    "confirm_none": "Remove from cart",
+    "cart_button": "{count, plural, one {# number} other {# numbers}}",
+    "scanned_toast": "{name} added ({serial})",
+    "restock_needs_connection": "Product tracked by serial number: restocking needs a connection.",
+    "restock_none": "Enter at least one serial number.",
+    "restock_label": "Serial numbers received",
+    "restock_count": "{count, plural, =0 {No number} one {# number, that is # unit} other {# numbers, that is # units}}",
+    "receive_mismatch": "\"{product}\": one serial number is needed per unit received.",
+    "history_line": "Serial no.: {serials}",
+    "search_title": "Serial numbers found",
+    "status_in_stock": "In stock",
+    "status_sold": "Sold",
+    "status_in_transit": "In transit",
+    "status_removed": "Removed"
   }
 }

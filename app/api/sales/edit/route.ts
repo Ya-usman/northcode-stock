@@ -32,6 +32,16 @@ export async function POST(request: Request) {
     if (sale.sale_status === 'cancelled') return NextResponse.json({ error: t('sale_is_cancelled') }, { status: 400 })
     // Reprise de dette : se gère depuis Crédits (pas d'articles à modifier)
     if (sale.sale_status === 'opening') return NextResponse.json({ error: t('opening_not_editable') }, { status: 400 })
+    // Numéros de série (198) : une vente qui en contient, ou une modification qui ajouterait un produit suivi, ne se
+    // modifie pas (edit_sale efface puis recrée les lignes) : on l'annule puis on la refait
+    {
+      const { data: lineIds } = await admin.from('sale_items').select('id').eq('sale_id', sale_id)
+      const ids = (lineIds || []).map((l: any) => l.id)
+      const { count: sold } = ids.length ? await admin.from('product_serials').select('id', { count: 'exact', head: true }).in('sale_item_id', ids) : { count: 0 }
+      const pids = Array.from(new Set(items.map((i: any) => i?.product_id).filter(Boolean)))
+      const { count: tracked } = pids.length ? await admin.from('products').select('id', { count: 'exact', head: true }).in('id', pids).eq('track_serials', true) : { count: 0 }
+      if ((sold || 0) > 0 || (tracked || 0) > 0) return NextResponse.json({ error: t('sale_has_serials_not_editable'), code: 'sale_has_serials_not_editable' }, { status: 400 })
+    }
 
     // Verify caller has access (owner/manager/shop_manager always; cashier only today's own)
     const { data: memberRow } = await supabase
