@@ -61,7 +61,7 @@ const card = page => page.locator('[data-testid="transfer-card"]', { hasText: RE
     } else {
       ok(!receive && sw, 'carte : « Passer sur … », pas de réception directe')
       ok(/^À réceptionner à .*Bastos/.test(waiting) && /Bastos/.test(await c.locator('[data-testid="transfer-switch"]').innerText()), `carte : « ${waiting} » · « ${(await c.locator('[data-testid="transfer-switch"]').innerText()).trim()} »`)
-      await c.scrollIntoViewIfNeeded(); await c.screenshot({ path: `${__dirname}/out/transfer-all-card.png` })
+      await c.evaluate(el => el.scrollIntoView({ block: 'center' })); await wait(400); await c.screenshot({ path: `${__dirname}/out/transfer-all-card.png` })
       await c.locator('[data-testid="transfer-switch"]').click(); await wait(3500)
       const filter = await page.evaluate(() => localStorage.getItem('dashboard_shop_filter'))
       const c2 = card(page)
@@ -91,7 +91,9 @@ const card = page => page.locator('[data-testid="transfer-card"]', { hasText: RE
   }
 
   console.log('\nServeur (lignes invalides EXPRÈS : aucune réception ne peut aboutir)')
-  {
+  // Production en lecture seule : aucun envoi, même voué au refus
+  if (process.env.CAPTURE_PROD_READONLY === '1') console.log('  info  production : partie serveur non jouée (aucun envoi en ligne)')
+  else {
     const s = await session({ width: 390, height: 844, scale: 1, locale: 'fr' })
     await s.page.goto(`${BASE}/fr/stock/transfers`, { waitUntil: 'domcontentloaded', timeout: 120000 })
     const post = acting => s.page.request.post(`${BASE}/api/stock-transfers/receive`, { data: { transfer_id: tr.id, acting_shop_id: acting, items: [{ transfer_item_id: 'pas-un-id', quantity_received: -1 }] } })
