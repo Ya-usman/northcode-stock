@@ -944,6 +944,11 @@
     "to": "To"
   },
   "transfers": {
+    "in_transit_to": "In transit to {shop}",
+    "to_receive_at": "To receive at {shop}",
+    "receive_by_other": "You sent this transfer: another person at {shop} receives it.",
+    "switch_to_shop": "Switch to {shop}",
+    "also_sender": "also sent it",
     "kpi_all": "All",
     "kpi_in_transit": "In transit",
     "kpi_received": "Received",
@@ -3885,6 +3890,8 @@
     "zero_lot_meta": "depleted · {initial} {unit} initially"
   },
   "api_errors": {
+    "transfer_receive_wrong_shop": "Receiving is done from the destination shop: switch to {shop} at the top of the screen.",
+    "transfer_receive_own_send": "You sent this transfer: another person at the destination shop must receive it.",
     "location_too_long": "The location cannot be longer than 60 characters.",
     "packaging_invalid_unit": "Choose the pack type.",
     "packaging_invalid_units": "Units per pack must be a whole number between 2 and 100,000.",

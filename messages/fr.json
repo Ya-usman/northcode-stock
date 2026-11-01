@@ -944,6 +944,11 @@
     "to": "Au"
   },
   "transfers": {
+    "in_transit_to": "En transit vers {shop}",
+    "to_receive_at": "À réceptionner à {shop}",
+    "receive_by_other": "Vous avez envoyé ce transfert : une autre personne de {shop} le réceptionne.",
+    "switch_to_shop": "Passer sur {shop}",
+    "also_sender": "a aussi fait l’envoi",
     "kpi_all": "Tous",
     "kpi_in_transit": "En transit",
     "kpi_received": "Reçus",
@@ -3885,6 +3890,8 @@
     "zero_lot_meta": "épuisé · {initial} {unit} au départ"
   },
   "api_errors": {
+    "transfer_receive_wrong_shop": "La réception se fait depuis la boutique d’arrivée : passez sur {shop} en haut de l’écran.",
+    "transfer_receive_own_send": "Vous avez envoyé ce transfert : une autre personne de la boutique d’arrivée doit le réceptionner.",
     "location_too_long": "L’emplacement ne peut pas dépasser 60 caractères.",
     "packaging_invalid_unit": "Choisissez le type de colis.",
     "packaging_invalid_units": "Le nombre d’unités par colis doit être un entier entre 2 et 100 000.",

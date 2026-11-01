@@ -80,6 +80,17 @@ export async function loadNames(admin: any, ids: (string | null | undefined)[]):
 // ── QR ────────────────────────────────────────────────────────────────────────────────────────────────────────────
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 export const isUuid = (v: unknown): v is string => typeof v === 'string' && UUID.test(v)
+
+// Séparation des rôles à la réception (1er nov. 2026) : qui a ENVOYÉ un transfert ne le réceptionne pas lui-même
+// (celui qui envoie déclare, celui qui reçoit confirme), sauf le propriétaire et le gérant, qui gèrent parfois seuls
+// plusieurs boutiques ; leur réception reste signalée « aussi expéditeur » dans l'historique.
+export const SELF_RECEIVE_ROLES = new Set(['owner', 'super_admin', 'manager'])
+export function senderOf(tr: { sent_by?: string | null; created_by?: string | null }): string | null {
+  return tr.sent_by ?? tr.created_by ?? null
+}
+export function ownSendBlocked(tr: { sent_by?: string | null; created_by?: string | null }, userId: string, role: string | null | undefined): boolean {
+  return senderOf(tr) === userId && !SELF_RECEIVE_ROLES.has(String(role || ''))
+}
 const TOKEN = /^[0-9a-f]{64}$/
 
 /** Contenu du QR : une adresse qui ouvre l'écran de réception (appareil photo ou scanner de l'application) */

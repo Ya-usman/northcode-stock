@@ -3,16 +3,16 @@ import { canViewCost, canViewFeature, canWriteFeature } from '@/lib/api/role-per
 import { createAdminClient } from '@/lib/supabase/server'
 import { getAuthedUser, checkShopRole } from '@/lib/api/shop-auth'
 import { getApiTranslator } from '@/lib/api/i18n'
-import { isUuid, loadAllocations, loadNames, transferError, transferWorkflowAvailable } from '@/lib/api/transfers'
+import { isUuid, loadAllocations, loadNames, ownSendBlocked, senderOf, transferError, transferWorkflowAvailable } from '@/lib/api/transfers'
 
 /** Droits de la personne sur les deux boutiques RÉELLES du transfert (jamais celles envoyées par le navigateur) */
 async function rightsOn(supabase: any, userId: string, shopIds: string[]) {
-  const out: Record<string, { view: boolean; write: boolean; cost: boolean }> = {}
+  const out: Record<string, { view: boolean; write: boolean; cost: boolean; role: string | null }> = {}
   for (const id of shopIds) {
     const role = await checkShopRole(supabase, userId, id)
     out[id] = role
-      ? { view: await canViewFeature(supabase, role, id, 'transfers'), write: await canWriteFeature(supabase, role, id, 'transfers'), cost: await canViewCost(supabase, role, id) }
-      : { view: false, write: false, cost: false }
+      ? { view: await canViewFeature(supabase, role, id, 'transfers'), write: await canWriteFeature(supabase, role, id, 'transfers'), cost: await canViewCost(supabase, role, id), role }
+      : { view: false, write: false, cost: false, role: null }
   }
   return out
 }
@@ -69,7 +69,9 @@ export async function GET(request: Request, { params }: { params: { id: string }
     const history = [
       { event: 'created', at: tr.created_at, by: names[tr.created_by] || null },
       ...(tr.status !== 'draft' && (tr.sent_at || tr.created_at) ? [{ event: 'sent', at: tr.sent_at || tr.created_at, by: names[tr.sent_by ?? tr.created_by] || null }] : []),
-      ...(tr.received_at ? [{ event: tr.has_discrepancy ? 'received_with_discrepancy' : 'received', at: tr.received_at, by: names[tr.received_by] || null }] : []),
+      ...(tr.received_at ? [{ event: tr.has_discrepancy ? 'received_with_discrepancy' : 'received', at: tr.received_at, by: names[tr.received_by] || null,
+        // Réception faite par l'expéditeur lui-même (propriétaire / gérant) : signalée
+        by_sender: !!tr.received_by && tr.received_by === senderOf(tr) }] : []),
       ...(tr.cancelled_at ? [{ event: 'cancelled', at: tr.cancelled_at, by: names[tr.cancelled_by] || null }] : []),
     ]
     const sentTotal = items.reduce((n, it) => n + (Number(it.quantity_sent) || 0), 0)
@@ -93,7 +95,8 @@ export async function GET(request: Request, { params }: { params: { id: string }
         units_missing: receivedTotal == null ? 0 : Math.max(0, sentTotal - receivedTotal),
         history,
         can_view_cost: showCost,
-        can_receive: tr.status === 'sent' && dst.write,
+        can_receive: tr.status === 'sent' && dst.write && !ownSendBlocked(tr, user.id, dst.role),
+        receive_by_other: tr.status === 'sent' && dst.write && ownSendBlocked(tr, user.id, dst.role),
         can_send: tr.status === 'draft' && src.write && workflow,
         can_edit: tr.status === 'draft' && src.write && workflow,
         can_cancel: (tr.status === 'draft' || tr.status === 'sent') && src.write,

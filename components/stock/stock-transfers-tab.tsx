@@ -122,6 +122,11 @@ export function StockTransfersTab() {
     setCreate({ source, draft: { id: tr.id, destination_shop_id: tr.destination_shop_id, notes: tr.notes, updated_at: tr.updated_at, items: tr.stock_transfer_items } })
   }
   const goReceive = (tr: { id: string }) => router.push(`/${locale}/stock/transfers/${tr.id}/receive`)
+  // Réception : seulement depuis la boutique d'arrivée choisie en haut (le serveur l'exige aussi, acting_shop_id).
+  // En « Toutes », « Passer sur … » choisit la boutique d'arrivée, comme le sélecteur de l'en-tête.
+  const activeShopId = scope.isAllShops ? null : scope.shopIds[0] ?? null
+  const { setDashboardShopFilter, switchShop } = useAuth()
+  const switchTo = (shopId: string) => { setDashboardShopFilter(shopId); switchShop(shopId); setDetailId(null) }
   const sendDraft = async (tr: any) => {
     setBusy(`send:${tr.id}`)
     try {
@@ -250,16 +255,17 @@ export function StockTransfersTab() {
       ) : (
         <div className="space-y-3" data-testid="transfers-list">
           {list.map(tr => (
-            <TransferCard key={tr.id} tr={tr as TransferListRow} onOpen={() => setDetailId(tr.id)} onReceive={() => goReceive(tr)} menu={menuFor(tr as TransferListRow)} />
+            <TransferCard key={tr.id} tr={tr as TransferListRow} activeShopId={activeShopId} onOpen={() => setDetailId(tr.id)} onReceive={() => goReceive(tr)}
+              onSwitchToDestination={() => switchTo(tr.destination_shop_id)} menu={menuFor(tr as TransferListRow)} />
           ))}
         </div>
       )}
 
       <TransferFiltersDrawer open={filtersOpen} onOpenChange={setFiltersOpen} value={filters} onApply={next => setFilter(next)} options={options} />
-      <TransferScanDialog open={scanOpen} onOpenChange={setScanOpen} activeShopId={scope.isAllShops ? null : scope.shopIds[0] ?? null} />
+      <TransferScanDialog open={scanOpen} onOpenChange={setScanOpen} activeShopId={activeShopId} />
       <TransferQrDialog transfer={qrFor} onOpenChange={open => { if (!open) setQrFor(null) }} />
       <TransferDetailDrawer
-        id={detailId} onOpenChange={open => { if (!open) setDetailId(null) }} busy={busy}
+        id={detailId} onOpenChange={open => { if (!open) setDetailId(null) }} busy={busy} activeShopId={activeShopId} onSwitchToDestination={tr => switchTo(tr.destination_shop_id)}
         onReceive={goReceive} onSend={sendDraft} onEdit={openEdit} onCancel={cancelTransfer} onShowQr={tr => setQrFor({ id: tr.id, reference: tr.reference })}
       />
       <TransferCreateDrawer

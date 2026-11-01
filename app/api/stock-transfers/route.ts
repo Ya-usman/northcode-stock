@@ -6,7 +6,7 @@ import { getAuthedUser, checkShopRole } from '@/lib/api/shop-auth'
 import { writeAuditLog, getClientIp } from '@/lib/api/audit'
 import { getApiTranslator } from '@/lib/api/i18n'
 import { notifyRequester } from '@/lib/api/transfer-requests'
-import { loadNames, transferError, transferWorkflowAvailable } from '@/lib/api/transfers'
+import { loadNames, ownSendBlocked, transferError, transferWorkflowAvailable } from '@/lib/api/transfers'
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
@@ -27,8 +27,10 @@ export async function GET(request: Request) {
     const allowed: string[] = []
     const costShops = new Set<string>()
     const writeShops = new Set<string>()
+    const roleBy: Record<string, string> = {}
     for (const id of Array.from(new Set(requested))) {
       const role = await checkShopRole(supabase, user.id, id)
+      if (role) roleBy[id] = role
       if (!role || !(await canViewFeature(supabase, role, id, 'transfers'))) continue
       allowed.push(id)
       if (await canViewCost(supabase, role, id)) costShops.add(id)
@@ -75,7 +77,9 @@ export async function GET(request: Request) {
         units_received: unitsReceived,
         units_missing: unitsReceived == null ? 0 : Math.max(0, unitsSent - unitsReceived),
         // Ce que la personne peut faire (le serveur revérifie à chaque action)
-        can_receive: x.status === 'sent' && writeShops.has(x.destination_shop_id),
+        can_receive: x.status === 'sent' && writeShops.has(x.destination_shop_id) && !ownSendBlocked(x, user.id, roleBy[x.destination_shop_id]),
+        // Droit sur l'arrivée, mais envoyé par cette personne : une autre personne de l'arrivée réceptionne
+        receive_by_other: x.status === 'sent' && writeShops.has(x.destination_shop_id) && ownSendBlocked(x, user.id, roleBy[x.destination_shop_id]),
         can_manage_source: writeShops.has(x.source_shop_id),
       }
     })

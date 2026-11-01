@@ -4,15 +4,17 @@
 // détail), référence + statut, trajet avec icônes boutique, « 2 produits · 18 unités », date selon le statut,
 // bandeau « En attente de réception · En transit depuis N jours » (orange à partir de 2 jours), action principale
 // (« Réceptionner » pour la boutique d'ARRIVÉE seulement, sinon « Voir le détail ») et menu « … » (actions secondaires).
+// Réception (1er nov. 2026) : seulement quand la boutique choisie en haut EST l'arrivée ; en « Toutes », « À réceptionner
+// à … » + « Passer sur … » ; dans la boutique de départ, « En transit vers … ».
 import { forwardRef } from 'react'
 import { useLocale, useTranslations } from 'next-intl'
-import { ArrowRight, CalendarDays, CheckCircle2, ChevronRight, Clock, Eye, FileEdit, MoreHorizontal, Package, QrCode, Truck, XCircle } from 'lucide-react'
+import { ArrowRight, ArrowRightLeft, CalendarDays, CheckCircle2, ChevronRight, Clock, Eye, FileEdit, MoreHorizontal, Package, QrCode, Truck, XCircle } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { ShopMark } from '@/components/shops/shop-mark'
 import { useShopLook } from '@/lib/shops/use-shop-look'
 import { cn } from '@/lib/utils/cn'
 import { formatLocaleDate, formatLocaleTime } from '@/lib/i18n/date-format'
-import { isLateTransit, transferTotals, transitDays, type TransferRow } from '@/lib/stock/transfers-view'
+import { isLateTransit, receiveMode, transferTotals, transitDays, type TransferRow } from '@/lib/stock/transfers-view'
 
 export const TRANSFER_STATUS_STYLE: Record<string, string> = {
   draft: 'bg-muted text-muted-foreground',
@@ -29,8 +31,11 @@ export interface TransferListRow extends TransferRow {
   has_discrepancy?: boolean
   units_missing?: number
   can_receive?: boolean
+  /** Droit sur l'arrivée, mais envoyé par cette personne : une autre personne réceptionne */
+  receive_by_other?: boolean
   can_manage_source?: boolean
 }
+
 
 export function TransferStatusBadge({ status }: { status: string }) {
   const t = useTranslations('transfers')
@@ -42,10 +47,14 @@ export function TransferStatusBadge({ status }: { status: string }) {
   )
 }
 
-export function TransferCard({ tr, onOpen, onReceive, menu }: {
+export function TransferCard({ tr, onOpen, onReceive, onSwitchToDestination, activeShopId = null, menu }: {
   tr: TransferListRow
   onOpen: () => void
   onReceive: () => void
+  /** « Toutes » : passer sur la boutique d'arrivée (la réception se fait depuis elle) */
+  onSwitchToDestination?: () => void
+  /** Boutique choisie en haut de l'écran (null = « Toutes ») */
+  activeShopId?: string | null
   /** Menu « … » (rendu par la page : il dépend des droits et des actions disponibles) */
   menu: React.ReactNode
 }) {
@@ -59,6 +68,11 @@ export function TransferCard({ tr, onOpen, onReceive, menu }: {
   const { products, units } = transferTotals(tr)
   const days = transitDays(tr)
   const late = isLateTransit(days)
+  const mode = receiveMode(tr, activeShopId)
+  const waiting = activeShopId && activeShopId === tr.source_shop_id ? t('in_transit_to', { shop: dst.label })
+    : tr.receive_by_other ? t('receive_by_other', { shop: dst.label })
+    : mode === 'switch' ? t('to_receive_at', { shop: dst.label })
+    : t('waiting_reception')
 
   const dateLine = tr.status === 'received' && tr.received_at
     ? t('received_on', { date: fmtDate(tr.received_at), time: fmtTime(tr.received_at) })
@@ -112,16 +126,20 @@ export function TransferCard({ tr, onOpen, onReceive, menu }: {
             late ? 'bg-orange-50 text-orange-700 dark:bg-orange-950/30 dark:text-orange-400' : 'bg-muted/60 text-muted-foreground')}
             data-testid="transfer-waiting">
             <Clock className="h-4 w-4 shrink-0" aria-hidden="true" />
-            <span>{t('waiting_reception')}</span>
+            <span>{waiting}</span>
             {late && <><span aria-hidden="true">·</span><span>{t('in_transit_since', { count: days ?? 0 })}</span></>}
           </p>
         )}
       </div>
 
       <div className="flex items-center gap-2 px-4 pb-4">
-        {tr.status === 'sent' && tr.can_receive ? (
+        {mode === 'receive' ? (
           <Button variant="stockshop" className="h-11 flex-1 gap-2 sm:flex-none" onClick={onReceive} data-testid="transfer-receive">
             <QrCode className="h-4 w-4" aria-hidden="true" />{t('receive_cta')}
+          </Button>
+        ) : mode === 'switch' && onSwitchToDestination ? (
+          <Button variant="outline" className="h-11 flex-1 gap-2 sm:flex-none" onClick={onSwitchToDestination} data-testid="transfer-switch">
+            <ArrowRightLeft className="h-4 w-4" aria-hidden="true" />{t('switch_to_shop', { shop: dst.label })}
           </Button>
         ) : (
           <Button variant="outline" className="h-11 flex-1 gap-2 sm:flex-none" onClick={onOpen} data-testid="transfer-view">

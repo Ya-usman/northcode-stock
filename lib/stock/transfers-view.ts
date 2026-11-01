@@ -131,3 +131,11 @@ export function scanArticle(
   if (!open) return { result: 'full', item_id: matches[0].item_id }
   return { result: 'added', item_id: open.item_id }
 }
+
+/** Réception (1er nov. 2026) : ce que la boutique choisie en haut permet pour un transfert en transit.
+ *  'receive' = boutique d'arrivée choisie ; 'switch' = « Toutes » (passer sur l'arrivée) ; 'none' = départ ou sans droit */
+export function receiveMode(tr: { status: string; can_receive?: boolean; destination_shop_id: string }, activeShopId: string | null): 'receive' | 'switch' | 'none' {
+  if (tr.status !== 'sent' || !tr.can_receive) return 'none'
+  if (activeShopId === tr.destination_shop_id) return 'receive'
+  return activeShopId ? 'none' : 'switch'
+}

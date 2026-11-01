@@ -4,30 +4,39 @@ import { getAuthedUser, checkShopRole } from '@/lib/api/shop-auth'
 import { canWriteFeature } from '@/lib/api/role-permissions'
 import { writeAuditLog, getClientIp } from '@/lib/api/audit'
 import { getApiTranslator } from '@/lib/api/i18n'
-import { DISCREPANCY_CATEGORIES, isUuid, loadNames, transferError, transferWorkflowAvailable } from '@/lib/api/transfers'
+import { DISCREPANCY_CATEGORIES, isUuid, loadNames, ownSendBlocked, transferError, transferWorkflowAvailable } from '@/lib/api/transfers'
 
 // POST /api/stock-transfers/receive — réception DÉFINITIVE (migration 188, une seule opération) : toutes les lignes,
 // quantité reçue entre 0 et l'envoyé ; le manque est un écart enregistré (cause et précision facultatives) ; stock et
 // lots d'arrivée mis à jour ; journal écrit par la base. receipt_key : un renvoi par le même appareil n'est pas
 // rejoué ; une seconde réception reçoit « déjà réceptionné » (date, personne). La boutique de DESTINATION est relue en
 // base ; droit « Transferts » en modification sur elle. Avant la 188 : ancienne réception (receive_stock_transfer).
-// body: { transfer_id, receipt_key?, items: [{transfer_item_id, quantity_received, destination_product_id?,
+// Boutique qui réceptionne (1er nov. 2026) : acting_shop_id = la boutique choisie en haut de l'écran, qui DOIT être la
+// destination (jamais depuis la boutique de départ ni « Toutes ») ; qui a envoyé le transfert ne le réceptionne pas
+// lui-même, sauf propriétaire / gérant (ownSendBlocked).
+// body: { transfer_id, acting_shop_id, receipt_key?, items: [{transfer_item_id, quantity_received, destination_product_id?,
 //   discrepancy_category?, discrepancy_detail?}] }
 export async function POST(request: Request) {
   const t = getApiTranslator(request)
   try {
     const { user, supabase } = await getAuthedUser()
     if (!user) return NextResponse.json({ error: t('not_authenticated') }, { status: 401 })
-    const { transfer_id, items, receipt_key } = await request.json()
+    const { transfer_id, items, receipt_key, acting_shop_id } = await request.json()
     if (!isUuid(transfer_id)) return NextResponse.json({ error: t('transfer_destination_id_required') }, { status: 400 })
     if (!Array.isArray(items) || items.length === 0) return NextResponse.json({ error: t('at_least_one_line_required') }, { status: 400 })
 
     const admin = await createAdminClient() as any
-    const { data: tr } = await admin.from('stock_transfers').select('destination_shop_id, reference').eq('id', transfer_id).maybeSingle()
+    const { data: tr } = await admin.from('stock_transfers').select('destination_shop_id, reference, sent_by, created_by').eq('id', transfer_id).maybeSingle()
     if (!tr) return NextResponse.json({ error: t('transfer_not_found') }, { status: 404 })
     const role = await checkShopRole(supabase, user.id, tr.destination_shop_id)
     if (!role || !(await canWriteFeature(supabase, role, tr.destination_shop_id, 'transfers')))
       return NextResponse.json({ error: t('permission_denied') }, { status: 403 })
+    if (acting_shop_id !== tr.destination_shop_id) {
+      const { data: dest } = await admin.from('shops').select('name').eq('id', tr.destination_shop_id).maybeSingle()
+      return NextResponse.json({ error: t('transfer_receive_wrong_shop', { shop: dest?.name || '' }), code: 'transfer_receive_wrong_shop', destination_shop_name: dest?.name ?? null }, { status: 409 })
+    }
+    if (ownSendBlocked(tr, user.id, role))
+      return NextResponse.json({ error: t('transfer_receive_own_send'), code: 'transfer_receive_own_send' }, { status: 403 })
 
     const workflow = await transferWorkflowAvailable(admin)
     const lines = items.map((it: any) => ({

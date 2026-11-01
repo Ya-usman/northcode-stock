@@ -5,7 +5,7 @@
 // réceptionné, annulé, avec qui et quand). Actions selon les droits renvoyés par le serveur (qui revérifie tout).
 import { useEffect, useState } from 'react'
 import { useLocale, useTranslations } from 'next-intl'
-import { ArrowRight, Ban, CheckCircle2, Clock, FileEdit, History, Loader2, Package, QrCode, Send, Truck, XCircle } from 'lucide-react'
+import { ArrowRight, ArrowRightLeft, Ban, CheckCircle2, Clock, FileEdit, History, Loader2, Package, QrCode, Send, Truck, XCircle } from 'lucide-react'
 import { AppDrawer } from '@/components/ui/app-drawer'
 import { Button } from '@/components/ui/button'
 import { ShopMark } from '@/components/shops/shop-mark'
@@ -15,11 +15,16 @@ import { useUnitLabel } from '@/lib/products/use-unit-label'
 import { cn } from '@/lib/utils/cn'
 import { formatCurrency } from '@/lib/utils/currency'
 import { TransferStatusBadge } from './transfer-card'
+import { receiveMode } from '@/lib/stock/transfers-view'
 
 const HISTORY_ICON: Record<string, typeof Truck> = { created: FileEdit, sent: Truck, received: CheckCircle2, received_with_discrepancy: CheckCircle2, cancelled: XCircle }
 
-export function TransferDetailDrawer({ id, onOpenChange, onReceive, onSend, onEdit, onCancel, onShowQr, busy }: {
+export function TransferDetailDrawer({ id, onOpenChange, onReceive, onSend, onEdit, onCancel, onShowQr, busy, activeShopId = null, onSwitchToDestination }: {
   id: string | null
+  /** Boutique choisie en haut de l'écran (null = « Toutes ») : on ne réceptionne que depuis la boutique d'arrivée */
+  activeShopId?: string | null
+  /** « Toutes » : passer sur la boutique d'arrivée pour réceptionner */
+  onSwitchToDestination?: (tr: any) => void
   onOpenChange: (open: boolean) => void
   onReceive: (tr: any) => void
   onSend: (tr: any) => void
@@ -41,10 +46,12 @@ export function TransferDetailDrawer({ id, onOpenChange, onReceive, onSend, onEd
     fetch(`/api/stock-transfers/${id}`).then(async res => {
       const json = await res.json().catch(() => ({}))
       if (cancelled) return
-      if (!res.ok) setError(json.error || 'Erreur'); else setTr(json.data)
+      if (!res.ok) setError(json.error || 'Erreur')
+      else setTr(json.data)
     }).catch(e => { if (!cancelled) setError(e.message) })
     return () => { cancelled = true }
   }, [id])
+  const mode = tr ? receiveMode(tr, activeShopId) : 'none'
 
   const dShort = (iso: string) => formatLocaleDate(iso, locale, { day: '2-digit', month: '2-digit', year: 'numeric' })
   const dLong = (iso: string) => formatLocaleDate(iso, locale, { day: 'numeric', month: 'short', year: 'numeric' })
@@ -61,7 +68,15 @@ export function TransferDetailDrawer({ id, onOpenChange, onReceive, onSend, onEd
       testId="transfer-detail"
       footer={tr && (tr.can_receive || tr.can_send || tr.can_edit || tr.can_cancel || tr.status === 'sent') ? () => (
         <div className="flex flex-col gap-2">
-          {tr.can_receive && (
+          {mode === 'switch' && onSwitchToDestination && (
+            <Button variant="outline" className="h-11 w-full gap-2" onClick={() => onSwitchToDestination(tr)} data-testid="detail-switch">
+              <ArrowRightLeft className="h-4 w-4" />{t('switch_to_shop', { shop: look(tr.destination_shop_id, tr.destination_shop_name).label })}
+            </Button>
+          )}
+          {tr.status === 'sent' && tr.receive_by_other && (
+            <p className="rounded-lg bg-muted/60 px-3 py-2 text-sm text-muted-foreground" data-testid="detail-receive-by-other">{t('receive_by_other', { shop: look(tr.destination_shop_id, tr.destination_shop_name).label })}</p>
+          )}
+          {mode === 'receive' && (
             <Button variant="stockshop" className="h-11 w-full gap-2" onClick={() => onReceive(tr)} data-testid="detail-receive">
               <QrCode className="h-4 w-4" />{t('receive_cta')}
             </Button>
@@ -163,7 +178,7 @@ export function TransferDetailDrawer({ id, onOpenChange, onReceive, onSend, onEd
                     <Icon className={cn('mt-0.5 h-4 w-4 shrink-0', h.event === 'received_with_discrepancy' ? 'text-amber-600' : h.event === 'cancelled' ? 'text-red-500' : 'text-muted-foreground')} />
                     <div>
                       <p className="font-medium">{t(`history_${h.event}` as any)}</p>
-                      <p className="text-xs text-muted-foreground">{dLong(h.at)} · {time(h.at)}{h.by ? ` · ${t('by_name', { name: h.by })}` : ''}</p>
+                      <p className="text-xs text-muted-foreground">{dLong(h.at)} · {time(h.at)}{h.by ? ` · ${t('by_name', { name: h.by })}` : ''}{h.by_sender ? ` (${t('also_sender')})` : ''}</p>
                     </div>
                   </li>
                 )

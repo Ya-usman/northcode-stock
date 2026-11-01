@@ -9,7 +9,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useLocale, useTranslations } from 'next-intl'
 import { useRouter } from 'next/navigation'
-import { AlertTriangle, ArrowLeft, ArrowRight, CheckCircle2, Loader2, Minus, Package, Plus, ScanLine, Store } from 'lucide-react'
+import { AlertTriangle, ArrowLeft, ArrowRight, ArrowRightLeft, CheckCircle2, Loader2, Minus, Package, Plus, ScanLine, Store } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { useAuthContext } from '@/lib/contexts/auth-context'
 import { useToast } from '@/components/ui/use-toast'
@@ -25,6 +25,7 @@ import { cn } from '@/lib/utils/cn'
 import { clampReceived, receiveSummary, scanArticle } from '@/lib/stock/transfers-view'
 import { TransferStatusBadge } from './transfer-card'
 import { ScanResultMessage, checkTransferCode } from './transfer-qr'
+import { useShopScope } from '@/lib/shops/use-shop-scope'
 
 const supabase = createClient() as any
 const CAUSES = ['transport_loss', 'theft', 'breakage', 'count_error', 'other'] as const
@@ -39,7 +40,9 @@ export function TransferReceive({ id, token }: { id: string; token: string | nul
   const router = useRouter()
   const unitLabel = useUnitLabel()
   const { toast } = useToast()
-  const { shop, dashboardShopFilter } = useAuthContext()
+  const { shop, dashboardShopFilter, userShops, setDashboardShopFilter, switchShop } = useAuthContext()
+  const scope = useShopScope()
+  const activeShopId = scope.isAllShops ? null : scope.shopIds[0] ?? null
   const [tr, setTr] = useState<any | null>(null)
   const [blocked, setBlocked] = useState<any | null>(null)   // résultat de scan qui n'ouvre pas la réception
   const [error, setError] = useState<string | null>(null)
@@ -73,7 +76,13 @@ export function TransferReceive({ id, token }: { id: string; token: string | nul
       const d = json.data
       if (!d.can_receive) {
         if (d.status === 'received') setBlocked({ result: 'already_received', transfer: { reference: d.reference, received_at: d.received_at, received_by_name: d.received_by_name } })
+        else if (d.status === 'sent' && d.receive_by_other) setError(t('receive_by_other', { shop: d.destination_shop_name || '' }))
         else setError(t('not_receivable_here'))
+        return
+      }
+      // Réception depuis la boutique d'arrivée seulement (ni la boutique de départ, ni « Toutes ») : on y passe d'abord
+      if (activeShopId !== d.destination_shop_id) {
+        setBlocked({ result: 'wrong_shop', transfer: { reference: d.reference, destination_shop_name: d.destination_shop_name, destination_shop_id: d.destination_shop_id } })
         return
       }
       setTr(d)
@@ -92,7 +101,7 @@ export function TransferReceive({ id, token }: { id: string; token: string | nul
       setLines(init)
     })().catch(e => { if (!cancelled) setError(e.message) })
     return () => { cancelled = true }
-  }, [id, token]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [id, token, activeShopId]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const items: any[] = tr?.stock_transfer_items || []
   const summary = useMemo(() => receiveSummary(items.map(it => ({ item_id: it.id, sent: it.quantity_sent, received: lines[it.id]?.received ?? 0 }))), [items, lines])
@@ -119,7 +128,7 @@ export function TransferReceive({ id, token }: { id: string; token: string | nul
       const res = await fetch('/api/stock-transfers/receive', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          transfer_id: id, receipt_key: receiptKey.current,
+          transfer_id: id, receipt_key: receiptKey.current, acting_shop_id: activeShopId,
           items: items.map(it => {
             const l = lines[it.id]
             const gap = it.quantity_sent - clampReceived(l.received, it.quantity_sent)
@@ -132,6 +141,11 @@ export function TransferReceive({ id, token }: { id: string; token: string | nul
       if (res.status === 409 && json.code === 'transfer_already_received') {
         setConfirming(false)
         setBlocked({ result: 'already_received', transfer: { reference: tr.reference, received_at: json.received_at, received_by_name: json.received_by_name } })
+        return
+      }
+      if (res.status === 409 && json.code === 'transfer_receive_wrong_shop') {
+        setConfirming(false)
+        setBlocked({ result: 'wrong_shop', transfer: { reference: tr.reference, destination_shop_name: json.destination_shop_name, destination_shop_id: tr.destination_shop_id } })
         return
       }
       if (!res.ok) { toast({ title: json.error || tRoot('toast.error'), variant: 'destructive' }); return }
@@ -154,6 +168,13 @@ export function TransferReceive({ id, token }: { id: string; token: string | nul
         <div className="rounded-xl border bg-card p-6">
           {blocked ? <ScanResultMessage r={blocked} /> : <p className="text-center text-sm text-muted-foreground">{error}</p>}
         </div>
+        {blocked?.result === 'wrong_shop' && blocked.transfer?.destination_shop_id && userShops.some(x => x.id === blocked.transfer.destination_shop_id) && (
+          // Passer sur la boutique d'arrivée (comme le sélecteur de l'en-tête) : la réception s'ouvre ensuite
+          <Button variant="stockshop" className="h-11 w-full gap-2" data-testid="receive-switch"
+            onClick={() => { const to = blocked.transfer.destination_shop_id; setBlocked(null); setDashboardShopFilter(to); switchShop(to) }}>
+            <ArrowRightLeft className="h-4 w-4" />{t('switch_to_shop', { shop: blocked.transfer.destination_shop_name || '' })}
+          </Button>
+        )}
         <Button variant="outline" className="h-11 w-full gap-2" onClick={back}><ArrowLeft className="h-4 w-4" />{t('back')}</Button>
       </div>
     )

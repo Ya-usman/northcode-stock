@@ -944,6 +944,11 @@
     "to": "Zuwa"
   },
   "transfers": {
+    "in_transit_to": "Ana kai shi zuwa {shop}",
+    "to_receive_at": "Za a karɓa a {shop}",
+    "receive_by_other": "Kai ne ka aika wannan canja-wuri: wani mutum na {shop} ne zai karɓa.",
+    "switch_to_shop": "Koma {shop}",
+    "also_sender": "shi ne kuma ya aika",
     "kpi_all": "Duka",
     "kpi_in_transit": "A kan hanya",
     "kpi_received": "An karɓa",
@@ -3885,6 +3890,8 @@
     "zero_lot_meta": "ya ƙare · {initial} {unit} a farko"
   },
   "api_errors": {
+    "transfer_receive_wrong_shop": "Ana karɓa ne daga shagon da aka aika wa kaya: koma {shop} a saman allo.",
+    "transfer_receive_own_send": "Kai ne ka aika wannan canja-wuri: dole wani mutum na shagon da zai karɓa ya karɓe shi.",
     "location_too_long": "Wurin ba zai wuce haruffa 60 ba.",
     "packaging_invalid_unit": "Zaɓi irin marufin.",
     "packaging_invalid_units": "Adadin guda a cikin marufi dole ya zama cikakken lamba tsakanin 2 da 100 000.",
