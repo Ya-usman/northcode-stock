@@ -5,7 +5,7 @@
 
 import { useTranslations, useLocale } from 'next-intl'
 import { formatDistanceToNow } from 'date-fns'
-import { fr, enUS } from 'date-fns/locale'
+import { dateFnsLocale } from '@/lib/i18n/date-format'
 import { AlertTriangle, CheckCircle2, Shield } from 'lucide-react'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { cn } from '@/lib/utils/cn'
@@ -90,7 +90,7 @@ export function PresenceText({ person }: { person: TeamPerson }) {
     return (
       <span className="inline-flex items-center gap-1 text-[10px] text-muted-foreground">
         <span className={cn('h-1.5 w-1.5 flex-shrink-0 rounded-full', online ? 'bg-green-500' : away ? 'bg-amber-400' : 'bg-gray-400')} />
-        {online ? t('team.online') : formatDistanceToNow(new Date(seen), { addSuffix: true, locale: locale === 'fr' ? fr : enUS })}
+        {online ? t('team.online') : formatDistanceToNow(new Date(seen), { addSuffix: true, locale: dateFnsLocale(locale) })}
       </span>
     )
   }

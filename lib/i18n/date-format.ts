@@ -1,13 +1,15 @@
 import { fr, enUS } from 'date-fns/locale'
 import type { Locale } from 'date-fns'
+import { ha } from './date-fns-ha'
+import { formatHausaDate } from './hausa-dates'
 
 // Dates à l'écran : toujours dans la langue de l'interface, jamais un format
 // français figé. Le français garde exactement son rendu d'origine.
 
-// Langue des dates pour date-fns — français, sinon anglais (date-fns n'a pas
-// de jeu de dates haoussa : même repli que les écrans Notes et Équipe).
+// Langue des dates pour date-fns : français, haoussa (lib/i18n/date-fns-ha, 31 oct. 2026 ; avant : repli anglais),
+// sinon anglais.
 export function dateFnsLocale(locale: string): Locale {
-  return locale === 'fr' ? fr : enUS
+  return locale === 'fr' ? fr : locale === 'ha' ? ha : enUS
 }
 
 // Étiquette de langue pour `toLocaleDateString` / `toLocaleString` : anglais
@@ -43,6 +45,8 @@ const two = (n: number) => String(n).padStart(2, '0')
 export function formatLocaleDate(value: Date | string | number, locale: string | null | undefined, options: Intl.DateTimeFormatOptions): string {
   const date = value instanceof Date ? value : new Date(value)
   const tag = dateLocaleTag(locale)
+  // Haoussa : toujours les noms haoussa (lib/i18n/hausa-dates), que le navigateur les ait ou non
+  if (locale === 'ha') return formatHausaDate(date, options, 'date')
   if (hasDateWords(tag)) return date.toLocaleDateString(tag, options)
   const dayMonth = `${two(date.getDate())}/${two(date.getMonth() + 1)}`
   return options.year ? `${dayMonth}/${date.getFullYear()}` : dayMonth
@@ -52,6 +56,7 @@ export function formatLocaleDate(value: Date | string | number, locale: string |
 export function formatLocaleTime(value: Date | string | number, locale: string | null | undefined): string {
   const date = value instanceof Date ? value : new Date(value)
   const tag = dateLocaleTag(locale)
+  if (locale === 'ha') return formatHausaDate(date, { hour: '2-digit', minute: '2-digit' }, 'time')
   if (hasDateWords(tag)) return date.toLocaleTimeString(tag, { hour: '2-digit', minute: '2-digit' })
   return `${two(date.getHours())}:${two(date.getMinutes())}`
 }

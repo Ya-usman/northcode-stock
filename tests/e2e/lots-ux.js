@@ -11,6 +11,8 @@ const info = m => console.log('  info  ' + m)
 const pad = n => String(n).padStart(2, '0')
 const day = n => { const d = new Date(); d.setDate(d.getDate() + n); return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}` }
 const EN_MONTH = /\b(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Sept|Oct|Nov|Dec)\b/
+// Haoussa : « Jan », « Mar » et « May » sont aussi les abréviations haoussa (CLDR : Janairu, Maris, Mayu) ; les 9 autres restent interdites
+const HA_FOREIGN_MONTH = /\b(Feb|Apr|Jun|Jul|Aug|Sep|Sept|Oct|Nov|Dec)\b/
 const MONEY = /F CFA|FCFA|₦|€/
 const visibleText = loc => loc.evaluate(el => { const c = el.cloneNode(true); c.querySelectorAll('.sr-only').forEach(n => n.remove()); return c.innerText.replace(/\s+/g, ' ').trim() })
 
@@ -371,7 +373,7 @@ const has = (page, testId) => page.locator(`[data-testid=${testId}]`).count().th
     ok(g(sim.today.id).countdown === W.today && g(sim.tomorrow.id).countdown === W.tomorrow && g(sim.soon.id).countdown === W.soon && g(sim.expired.id).countdown === W.expired, `${locale} : ${W.today} · ${W.tomorrow} · ${W.soon} · ${W.expired}`)
     ok(r.every(x => W.badges.includes(x.badge)) && r.every(x => W.lot.test(x.label)) && W.count.test((await page.locator('[data-testid=lots-count]').innerText()).trim()), `${locale} : statuts ${[...new Set(r.map(x => x.badge))].join(' · ')} ; « ${r[0].label} » ; « ${(await page.locator('[data-testid=lots-count]').innerText()).trim()} »`)
     const cardsText = await page.locator('[data-testid=lots-cards]').innerText()
-    ok(!/\(s\)/.test(txt) && !/Périmé|Expire |Lot du|Rechercher|Sans date/.test(txt) && (locale === 'en' || !EN_MONTH.test(cardsText.replace(/Sept?\b/g, ''))), `${locale} : aucun « (s) », aucun texte français${locale === 'ha' ? ', dates sans mois anglais ni français (« ' + g(sim.soon.id).date + ' »)' : ''}`)
+    ok(!/\(s\)/.test(txt) && !/Périmé|Expire |Lot du|Rechercher|Sans date/.test(txt) && (locale === 'en' || !HA_FOREIGN_MONTH.test(cardsText.replace(/Sept?\b/g, ''))), `${locale} : aucun « (s) », aucun texte français${locale === 'ha' ? ', dates sans mois anglais ni français (« ' + g(sim.soon.id).date + ' »)' : ''}${[(txt.match(/\(s\)|Périmé|Expire |Lot du|Rechercher|Sans date/) || [])[0], locale === 'en' ? null : (cardsText.replace(/Sept?/g, '').match(HA_FOREIGN_MONTH) || [])[0]].filter(Boolean).map(m => ' [trouvé : ' + m + ']').join('')}`)
     await page.locator('[data-testid=lots-status]').click()
     const opts = (await page.getByRole('option').allInnerTexts()).map(x => x.trim())
     await page.keyboard.press('Escape')

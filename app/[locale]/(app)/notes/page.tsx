@@ -18,7 +18,7 @@ import { Plus, Pin, Pencil, Trash2, Store, Search, PinOff } from 'lucide-react'
 import { normalize } from '@/lib/utils/normalize'
 import { format } from 'date-fns'
 import type { Locale } from 'date-fns'
-import { fr, enUS } from 'date-fns/locale'
+import { dateFnsLocale as dateFnsLocaleOf } from '@/lib/i18n/date-format'
 import { setPageCache, getPageCache } from '@/lib/offline/page-cache'
 import { useOffline } from '@/lib/offline/use-offline'
 import { useRefetchOnReconnect } from '@/lib/hooks/use-refetch-on-reconnect'
@@ -61,7 +61,7 @@ export default function NotesPage() {
   const t = useTranslations('notes')
   const tRoot = useTranslations()
   const locale = useLocale()
-  const dateFnsLocale = locale === 'fr' ? fr : enUS
+  const dateFnsLocale = dateFnsLocaleOf(locale) // haoussa compris (31 oct. 2026)
   const COLORS = COLOR_KEYS.map(key => ({ key, ...COLOR_STYLES[key], label: t(`color_${key}`) }))
   const { profile, userShops, effectiveShopIds } = useAuth()
   // Contexte boutique : l'en-tête est la SEULE source (aucun sélecteur local) ; une nouvelle note depuis « Toutes »

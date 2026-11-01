@@ -189,6 +189,12 @@ const lastWrite = (s, re, method) => [...s.writes].reverse().find(w => re.test(w
 
   s = await open({ path: 'expenses' }); page = s.page
   const delBtns = page.getByRole('button', { name: 'Supprimer' })
+  // Début de mois (ex. le 1er novembre) : le mois en cours peut n'avoir encore aucune dépense → mois précédent
+  for (let back = 0; back < 2 && (await delBtns.count()) === 0; back++) {
+    const prev = page.getByRole('button', { name: /mois précédent/i }).first()
+    if (!(await prev.count())) break
+    await prev.click(); await page.waitForTimeout(3500)
+  }
   const nb = await delBtns.count()
   let checked = 0, good = 0
   for (let i = 0; i < Math.min(nb, 6) && checked < 3; i++) {

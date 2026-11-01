@@ -3,6 +3,11 @@
 import { useEffect } from 'react'
 import { useRouter, usePathname } from 'next/navigation'
 import { setLocaleCookie } from '@/lib/utils/cookies'
+import { installHausaDates } from '@/lib/i18n/hausa-dates-polyfill'
+
+// Dates haoussa (31 oct. 2026) : branchées dès le chargement de l'application, avant le premier affichage d'un écran
+// (ce module est chargé par la mise en page commune de toutes les pages localisées)
+installHausaDates()
 
 const VALID_LOCALES = ['en', 'fr', 'ha']
 
