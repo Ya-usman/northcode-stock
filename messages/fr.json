@@ -1963,6 +1963,17 @@
     "total_at_risk": "Valeur totale à risque"
   },
   "inventoryCount": {
+    "cycle_open": "Inventaire tournant",
+    "cycle_title": "Inventaire tournant : quelques produits à la fois",
+    "cycle_hint": "Comptez régulièrement une partie du stock. StockShop propose d'abord les produits jamais comptés ou comptés il y a le plus longtemps, en commençant par ceux qui pèsent le plus. Les produits non comptés ne sont pas modifiés.",
+    "cycle_size_label": "Nombre de produits",
+    "cycle_size": "{count} produits",
+    "cycle_loading": "Préparation de la liste…",
+    "cycle_empty": "Aucun produit à compter.",
+    "cycle_last": "compté le {date}",
+    "cycle_never": "jamais compté",
+    "cycle_start": "{count, plural, one {Compter ce produit} other {Compter ces # produits}}",
+    "cycle_badge": "Tournant",
     "title": "Inventaires",
     "all_categories": "Toutes catégories",
     "no_products": "Aucun produit à compter.",
@@ -3870,6 +3881,8 @@
     "zero_lot_meta": "épuisé · {initial} {unit} au départ"
   },
   "api_errors": {
+    "inventory_product_out_of_scope": "Ce produit ne fait pas partie de cet inventaire tournant.",
+    "inventory_nothing_to_count": "Aucun produit à compter dans cette boutique.",
     "po_email_no_recipient": "Ce fournisseur n'a pas d'adresse e-mail valide. Ajoutez-la sur sa fiche.",
     "po_email_not_sendable": "Seul un bon en brouillon ou envoyé peut partir par e-mail.",
     "po_email_rate_user": "Trop d'e-mails envoyés en peu de temps. Réessayez dans une heure.",

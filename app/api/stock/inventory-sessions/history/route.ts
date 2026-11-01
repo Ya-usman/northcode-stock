@@ -10,7 +10,7 @@ export async function GET(request: Request) {
     const access = await inventoryAccess(t, shopId, 'view')
     if (!access.ok) return access.response
     const { data } = await access.admin.from('inventory_sessions')
-      .select('id, reference, status, started_by, started_at, completed_by, completed_at, cancelled_by, cancelled_at, products_total, counted_total, discrepancy_total, legacy')
+      .select('id, reference, status, started_by, started_at, completed_by, completed_at, cancelled_by, cancelled_at, products_total, counted_total, discrepancy_total, legacy, scope')
       .eq('shop_id', shopId).neq('status', 'in_progress').order('started_at', { ascending: false }).limit(100)
     const rows = data || []
     const names = await actorNames(access.admin, rows.flatMap((r: any) => [r.started_by, r.completed_by, r.cancelled_by]))

@@ -51,7 +51,7 @@ interface InvCount {
   counted_by_name?: string | null; counted_at: string
   applied_before?: number | null; applied_after?: number | null; applied_delta?: number | null
 }
-interface InvSession { id: string; reference: string; status: string; started_by_name: string | null; started_at: string; products_total: number }
+interface InvSession { id: string; reference: string; status: string; started_by_name: string | null; started_at: string; products_total: number; scope?: 'full' | 'cycle' }
 interface InvState {
   session: InvSession | null; counts: InvCount[]; products: InvProduct[]; categories: { id: string; name: string }[]
   last_completed: { id: string; reference: string; completed_at: string; legacy: boolean } | null
@@ -60,7 +60,11 @@ interface InvState {
 interface HistoryRow {
   id: string; reference: string; status: string; started_at: string; completed_at: string | null; cancelled_at: string | null
   counted_total: number | null; discrepancy_total: number | null; legacy: boolean; by_name: string | null
+  scope?: 'full' | 'cycle'
 }
+// Inventaire tournant (étape 14) : produits proposés par le serveur (aperçu avant de démarrer)
+interface CyclePick { id: string; name: string; unit: string | null; last_counted_at: string | null }
+const CYCLE_SIZES = [10, 20, 30] as const
 
 const signed = (n: number) => (n > 0 ? `+${n}` : String(n))
 
@@ -94,6 +98,9 @@ export default function InventoryCountPage({ params: { locale } }: { params: { l
   const [showScanner, setShowScanner] = useState(false)
   const [conflict, setConflict] = useState<{ productId: string; qty: number; current: any } | null>(null)
   const [busy, setBusy] = useState<'start' | 'finalize' | 'cancel' | null>(null)
+  const [cycleOpen, setCycleOpen] = useState(false)
+  const [cycleSize, setCycleSize] = useState<number>(20)
+  const [cyclePicks, setCyclePicks] = useState<CyclePick[] | null>(null)
   const [finalizeOpen, setFinalizeOpen] = useState(false)
   const [cancelOpen, setCancelOpen] = useState(false)
   const [recountList, setRecountList] = useState<any[] | null>(null)
@@ -163,16 +170,29 @@ export default function InventoryCountPage({ params: { locale } }: { params: { l
   }, [products, countByProduct, filter, categoryFilter, search])
 
   // ── Démarrer / reprendre ───────────────────────────────────────────────────
-  const start = async () => {
+  const start = async (scope: 'full' | 'cycle' = 'full') => {
     if (!shop) return
     setBusy('start')
     try {
-      const res = await fetch('/api/stock/inventory-sessions', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ shop_id: shop.id }) })
+      const res = await fetch('/api/stock/inventory-sessions', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(scope === 'cycle' ? { shop_id: shop.id, scope: 'cycle', size: cycleSize } : { shop_id: shop.id }) })
       const json = await res.json()
       if (!res.ok) { toast({ title: json.error || t('error'), variant: 'destructive' }); return }
+      setCycleOpen(false)
       await load(true)
     } finally { setBusy(null) }
   }
+  // Aperçu de l'inventaire tournant : les produits que le serveur choisira (même règle qu'au démarrage)
+  useEffect(() => {
+    if (!cycleOpen || !shop) return
+    let cancelled = false
+    setCyclePicks(null)
+    fetch(`/api/stock/inventory-sessions/cycle-suggestion?shop_id=${shop.id}&size=${cycleSize}`)
+      .then(r => (r.ok ? r.json() : { products: [] }))
+      .then(j => { if (!cancelled) setCyclePicks(j.products || []) })
+      .catch(() => { if (!cancelled) setCyclePicks([]) })
+    return () => { cancelled = true }
+  }, [cycleOpen, cycleSize, shop?.id])
 
   // ── Compter un produit ─────────────────────────────────────────────────────
   const focusNext = (fromId: string) => {
@@ -368,8 +388,13 @@ export default function InventoryCountPage({ params: { locale } }: { params: { l
           </div>
           <div className="mt-4 flex flex-col gap-2 sm:flex-row">
             {canWrite && (
-              <Button variant="stockshop" className="h-11 sm:min-w-[220px]" onClick={start} loading={busy === 'start'} data-testid="inventory-start">
+              <Button variant="stockshop" className="h-11 sm:min-w-[220px]" onClick={() => start('full')} loading={busy === 'start' && !cycleOpen} data-testid="inventory-start">
                 {t('start')}
+              </Button>
+            )}
+            {canWrite && (
+              <Button variant="outline" className="h-11 gap-2" onClick={() => setCycleOpen(v => !v)} aria-expanded={cycleOpen} data-testid="inventory-cycle-open">
+                <RotateCcw className="h-4 w-4" aria-hidden />{t('cycle_open')}
               </Button>
             )}
             {data.has_history && (
@@ -379,6 +404,40 @@ export default function InventoryCountPage({ params: { locale } }: { params: { l
             )}
           </div>
           {!canWrite && <p className="mt-3 text-xs text-muted-foreground">{t('read_only_note')}</p>}
+          {canWrite && cycleOpen && (
+            <div className="mt-4 space-y-3 rounded-lg border bg-muted/30 p-4" data-testid="inventory-cycle">
+              <div>
+                <p className="text-sm font-semibold">{t('cycle_title')}</p>
+                <p className="mt-0.5 text-xs text-muted-foreground">{t('cycle_hint')}</p>
+              </div>
+              <div className="flex gap-2" role="group" aria-label={t('cycle_size_label')}>
+                {CYCLE_SIZES.map(n => (
+                  <button key={n} type="button" onClick={() => setCycleSize(n)} aria-pressed={cycleSize === n} data-testid={`inventory-cycle-size-${n}`}
+                    className={`h-9 rounded-lg border px-3 text-sm font-medium transition-colors ${cycleSize === n ? 'border-stockshop-blue bg-stockshop-blue-muted text-stockshop-blue dark:border-blue-500 dark:bg-blue-950/40 dark:text-blue-300' : 'bg-card hover:bg-muted'}`}>
+                    {t('cycle_size', { count: n })}
+                  </button>
+                ))}
+              </div>
+              {cyclePicks === null ? (
+                <p className="text-xs text-muted-foreground">{t('cycle_loading')}</p>
+              ) : cyclePicks.length === 0 ? (
+                <p className="text-xs text-muted-foreground">{t('cycle_empty')}</p>
+              ) : (
+                <ol className="max-h-64 space-y-1 overflow-y-auto text-sm" data-testid="inventory-cycle-list">
+                  {cyclePicks.map((p, i) => (
+                    <li key={p.id} className="flex items-baseline justify-between gap-3">
+                      <span className="min-w-0 truncate"><span className="mr-2 text-xs text-muted-foreground tabular-nums">{i + 1}</span>{p.name}</span>
+                      <span className="shrink-0 text-xs text-muted-foreground">{p.last_counted_at ? t('cycle_last', { date: fmtDate(p.last_counted_at) }) : t('cycle_never')}</span>
+                    </li>
+                  ))}
+                </ol>
+              )}
+              <Button variant="stockshop" className="h-11 w-full sm:w-auto sm:min-w-[220px]" onClick={() => start('cycle')} loading={busy === 'start' && cycleOpen}
+                disabled={!cyclePicks || cyclePicks.length === 0} data-testid="inventory-cycle-start">
+                {t('cycle_start', { count: cyclePicks?.length ?? cycleSize })}
+              </Button>
+            </div>
+          )}
         </div>
       )}
 
@@ -388,7 +447,9 @@ export default function InventoryCountPage({ params: { locale } }: { params: { l
           <div className="rounded-xl border bg-card p-4" data-testid="inventory-session">
             <div className="flex flex-wrap items-start justify-between gap-2">
               <div className="min-w-0">
-                <p className="text-sm font-semibold">{t('in_progress_title', { reference: session.reference })}</p>
+                <p className="flex flex-wrap items-center gap-2 text-sm font-semibold">{t('in_progress_title', { reference: session.reference })}
+                  {session.scope === 'cycle' && <span className="rounded-full bg-stockshop-blue-muted px-2 py-0.5 text-[11px] font-semibold text-stockshop-blue dark:bg-blue-950/40 dark:text-blue-300" data-testid="inventory-cycle-badge">{t('cycle_badge')}</span>}
+                </p>
                 <p className="text-xs text-muted-foreground">
                   {session.started_by_name
                     ? t('started_by', { name: session.started_by_name, date: fmtDate(session.started_at, true) })
@@ -643,7 +704,7 @@ export default function InventoryCountPage({ params: { locale } }: { params: { l
               <button key={h.id} type="button" onClick={() => openDetail(h.id)} data-history-id={h.id}
                 className="flex w-full items-center gap-3 rounded-lg border bg-card px-3 py-3 text-left transition-colors hover:bg-muted/40">
                 <div className="min-w-0 flex-1">
-                  <p className="text-sm font-medium">{h.reference} · {fmtDate(h.completed_at || h.cancelled_at || h.started_at)}</p>
+                  <p className="text-sm font-medium">{h.reference} · {fmtDate(h.completed_at || h.cancelled_at || h.started_at)}{h.scope === 'cycle' && <span className="ml-2 rounded-full bg-stockshop-blue-muted px-2 py-0.5 text-[11px] font-semibold text-stockshop-blue dark:bg-blue-950/40 dark:text-blue-300">{t('cycle_badge')}</span>}</p>
                   <p className="text-xs text-muted-foreground">
                     {t(`status_${h.status}` as any)}{h.by_name ? ` · ${t('by', { name: h.by_name })}` : ''}
                     {h.status === 'completed' && <> · {t('products_counted', { count: h.counted_total ?? 0 })} · {t('gaps_count', { count: h.discrepancy_total ?? 0 })}</>}

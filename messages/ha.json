@@ -1963,6 +1963,17 @@
     "total_at_risk": "Jimlar Darajar Cikin Haɗari"
   },
   "inventoryCount": {
+    "cycle_open": "Ƙidayar zagaye",
+    "cycle_title": "Ƙidayar zagaye: kaya kaɗan a lokaci ɗaya",
+    "cycle_hint": "Ku riƙa ƙirga wani ɓangare na kaya a kai a kai. StockShop na fara ba da shawarar kayan da ba a taɓa ƙirgawa ba ko waɗanda aka daɗe ba a ƙirga ba, farawa da mafi daraja. Ba a canza kayan da ba a ƙirga ba.",
+    "cycle_size_label": "Adadin kaya",
+    "cycle_size": "Kaya {count}",
+    "cycle_loading": "Ana shirya jerin…",
+    "cycle_empty": "Babu kayan da za a ƙirga.",
+    "cycle_last": "an ƙirga {date}",
+    "cycle_never": "ba a taɓa ƙirgawa ba",
+    "cycle_start": "{count, plural, other {Ƙirga waɗannan kaya #}}",
+    "cycle_badge": "Zagaye",
     "title": "Ƙidaya",
     "all_categories": "Duk nau'ikan",
     "no_products": "Babu kaya don ƙidayawa.",
@@ -3870,6 +3881,8 @@
     "zero_lot_meta": "ya ƙare · {initial} {unit} a farko"
   },
   "api_errors": {
+    "inventory_product_out_of_scope": "Wannan kayan ba ya cikin wannan ƙidayar zagaye.",
+    "inventory_nothing_to_count": "Babu kayan da za a ƙirga a wannan shago.",
     "po_email_no_recipient": "Wannan mai samar da kaya ba shi da ingantaccen adireshin imel. Ƙara shi a bayanansa.",
     "po_email_not_sendable": "Odar da ke cikin zane ko wadda aka aika kawai ake iya aikawa ta imel.",
     "po_email_rate_user": "An aika imel da yawa cikin ɗan lokaci. Sake gwadawa bayan awa ɗaya.",

@@ -1963,6 +1963,17 @@
     "total_at_risk": "Total value at risk"
   },
   "inventoryCount": {
+    "cycle_open": "Cycle count",
+    "cycle_title": "Cycle count: a few products at a time",
+    "cycle_hint": "Count part of your stock regularly. StockShop suggests products never counted or counted the longest ago first, starting with the most valuable ones. Products you do not count are not changed.",
+    "cycle_size_label": "Number of products",
+    "cycle_size": "{count} products",
+    "cycle_loading": "Preparing the list…",
+    "cycle_empty": "No products to count.",
+    "cycle_last": "counted on {date}",
+    "cycle_never": "never counted",
+    "cycle_start": "{count, plural, one {Count this product} other {Count these # products}}",
+    "cycle_badge": "Cycle",
     "title": "Inventories",
     "all_categories": "All categories",
     "no_products": "No products to count.",
@@ -3870,6 +3881,8 @@
     "zero_lot_meta": "depleted · {initial} {unit} initially"
   },
   "api_errors": {
+    "inventory_product_out_of_scope": "This product is not part of this cycle count.",
+    "inventory_nothing_to_count": "No products to count in this shop.",
     "po_email_no_recipient": "This supplier has no valid email address. Add it to their profile.",
     "po_email_not_sendable": "Only a draft or sent order can be emailed.",
     "po_email_rate_user": "Too many emails sent in a short time. Try again in an hour.",

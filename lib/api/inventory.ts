@@ -33,6 +33,8 @@ const DB_ERRORS: Record<string, string> = {
   session_closed: 'inventory_session_closed',
   reason_required: 'inventory_reason_required',
   nothing_counted: 'inventory_nothing_counted',
+  product_out_of_scope: 'inventory_product_out_of_scope',
+  nothing_to_count: 'inventory_nothing_to_count',
   invalid_quantity: 'inventory_invalid_quantity',
   product_not_found: 'inventory_product_not_found',
   count_not_found: 'inventory_count_not_found',
