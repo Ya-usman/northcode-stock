@@ -31,6 +31,8 @@ export function createProductSchema(msg: ValidationMessages = defaultMessages) {
     is_active: z.boolean().default(true),
     /** Date de péremption du LOT initial (création avec stock > 0) — jamais une propriété du produit */
     expiry_date: z.string().optional().or(z.literal('')),
+    /** Emplacement dans la boutique (étape 10, migration 196) : texte libre, facultatif */
+    location: z.string().max(60).optional().or(z.literal('')),
   })
 }
 

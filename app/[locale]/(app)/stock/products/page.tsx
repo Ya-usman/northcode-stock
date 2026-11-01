@@ -620,7 +620,7 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
       if (search) {
         // Nom et SKU / code-barres (un lecteur de codes tape ici)
         const q = normalize(search)
-        const hit = normalize(p.name).includes(q) || (!!p.sku && normalize(p.sku).includes(q))
+        const hit = normalize(p.name).includes(q) || (!!p.sku && normalize(p.sku).includes(q)) || (!!p.location && normalize(p.location).includes(q))
         if (!hit) return false
       }
       if (noSku && p.sku) return false
@@ -666,6 +666,7 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
           low_stock_threshold: data.low_stock_threshold || null,
           sku: data.sku || null,
           image_url: data.image_url || null,
+          location: data.location?.trim() || null,
           is_active: true,
           // Date du LOT initial créé avec le stock (jamais enregistrée sur le produit)
           expiry_date: Number(data.quantity) > 0 && data.expiry_date ? data.expiry_date : null,
@@ -714,11 +715,13 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
       name: data.name, category_id: data.category_id || null, supplier_id: data.supplier_id || null,
       buying_price: data.buying_price ?? 0, selling_price: data.selling_price, unit: data.unit || 'piece',
       low_stock_threshold: data.low_stock_threshold || null, sku: data.sku?.trim() || null, image_url: data.image_url || null,
+      location: data.location?.replace(/\s+/g, ' ').trim() || null,
     }
     const prev: Record<string, unknown> = {
       name: p.name, category_id: p.category_id || null, supplier_id: p.supplier_id || null,
       buying_price: p.buying_price ?? 0, selling_price: p.selling_price, unit: p.unit || 'piece',
       low_stock_threshold: p.low_stock_threshold || null, sku: p.sku?.trim() || null, image_url: p.image_url || null,
+      location: p.location || null,
     }
     const NUMERIC = ['buying_price', 'selling_price', 'low_stock_threshold']
     const changes = Object.fromEntries(Object.entries(next).filter(([k, v]) =>
@@ -1976,7 +1979,7 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
             suppliers={suppliers.filter((s: any) => s.shop_id === editingProduct.shop_id)}
             shopId={editingProduct.shop_id}
             fullRights={canViewCostIn(editingProduct.shop_id)}
-            defaultValues={{ name: editingProduct.name, category_id: editingProduct.category_id || '', supplier_id: editingProduct.supplier_id || '', buying_price: editingProduct.buying_price, selling_price: editingProduct.selling_price, quantity: editingProduct.quantity, unit: editingProduct.unit, low_stock_threshold: editingProduct.low_stock_threshold || undefined, sku: editingProduct.sku || '', image_url: editingProduct.image_url || '', ...(editRestore?.values ?? {}) }}
+            defaultValues={{ name: editingProduct.name, category_id: editingProduct.category_id || '', supplier_id: editingProduct.supplier_id || '', buying_price: editingProduct.buying_price, selling_price: editingProduct.selling_price, quantity: editingProduct.quantity, unit: editingProduct.unit, low_stock_threshold: editingProduct.low_stock_threshold || undefined, sku: editingProduct.sku || '', image_url: editingProduct.image_url || '', location: editingProduct.location || '', ...(editRestore?.values ?? {}) }}
             initialPhoto={editRestore?.file ?? null}
             startDirty={!!editRestore}
             onSubmit={onEditProduct}

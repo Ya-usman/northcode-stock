@@ -232,6 +232,8 @@ export interface Product {
   name: string
   name_hausa: string | null
   sku: string | null
+  /** Emplacement dans la boutique (étape 10, migration 196) */
+  location?: string | null
   category_id: string | null
   supplier_id: string | null
   /** Prix d'achat : ABSENT quand la personne n'a pas le droit de le voir (lib/permissions → canViewCost).

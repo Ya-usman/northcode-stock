@@ -65,6 +65,7 @@ const FIELD_KEYS: Record<string, string> = {
   promo_price: 'products.journal_field_promo_price',
   promo_until: 'products.journal_field_promo_until',
   promo_start: 'activity_journal.field_promo_start',
+  location: 'products.journal_field_location',
   unit: 'products.unit',
   quantity: 'products.quantity',
 }

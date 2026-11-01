@@ -19,7 +19,7 @@ export async function GET(request: Request) {
     const [{ data: session }, { data: products }, { data: categories }, { data: last }, { count: historyCount }] = await Promise.all([
       admin.from('inventory_sessions').select('id, reference, status, started_by, started_at, products_total, updated_at, scope, scope_product_ids')
         .eq('shop_id', shopId).eq('status', 'in_progress').maybeSingle(),
-      admin.from('products').select('id, name, unit, sku, category_id').eq('shop_id', shopId).eq('is_active', true).order('name'),
+      admin.from('products').select('id, name, unit, sku, category_id, location').eq('shop_id', shopId).eq('is_active', true).order('name'),
       admin.from('categories').select('id, name').eq('shop_id', shopId).order('name'),
       admin.from('inventory_sessions').select('id, reference, completed_at, legacy').eq('shop_id', shopId).eq('status', 'completed')
         .order('completed_at', { ascending: false }).limit(1).maybeSingle(),

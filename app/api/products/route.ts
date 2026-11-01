@@ -6,6 +6,7 @@ import { canViewCost, canWriteFeature } from '@/lib/api/role-permissions'
 import { costVisible } from '@/lib/api/cost-fields'
 import { getApiTranslator } from '@/lib/api/i18n'
 import { classifyBarcode } from '@/lib/products/barcode'
+import { normalizeLocation } from '@/lib/products/location'
 import { productsWithHistory } from '@/lib/api/product-history'
 
 // Écriture de la fiche produit = niveau « modification » de Produits / Stock
@@ -63,6 +64,12 @@ export async function POST(request: Request) {
     // Always null-ify empty SKU to avoid unique constraint on empty strings
     body.sku = body.sku?.trim() || null
     if (classifyBarcode(body.sku) === 'gtin_invalid') return NextResponse.json({ error: t('barcode_invalid'), field: 'sku' }, { status: 400 })
+    // Emplacement (196) : espaces resserrés, vide = aucun, 60 caractères au plus
+    if ('location' in body) {
+      const loc = normalizeLocation(body.location)
+      if (loc === undefined) return NextResponse.json({ error: t('location_too_long'), field: 'location' }, { status: 400 })
+      body.location = loc
+    }
     // La date de péremption appartient au LOT initial, jamais au produit : retirée de la fiche
     const expiryDate: string | null = typeof body.expiry_date === 'string' && body.expiry_date.trim() ? body.expiry_date.trim() : null
     delete body.expiry_date
@@ -257,7 +264,7 @@ export async function PATCH(request: Request) {
       'name', 'description', 'selling_price', 'buying_price', 'sku',
       'category_id', 'unit', 'image_url', 'low_stock_threshold', 'barcode',
       'supplier_name', 'supplier_id', 'promo_price', 'promo_until', 'promo_start', 'promo_reason',
-      'is_favorite',
+      'is_favorite', 'location',
     ])
     const safeUpdates: Record<string, unknown> = Object.fromEntries(
       Object.entries(updates).filter(([k]) => PATCHABLE.has(k))
@@ -272,6 +279,11 @@ export async function PATCH(request: Request) {
     if (Object.keys(safeUpdates).length === 0)
       return NextResponse.json({ error: t('no_valid_fields') }, { status: 400 })
     if ('sku' in safeUpdates) safeUpdates.sku = (safeUpdates.sku as string)?.trim() || null
+    if ('location' in safeUpdates) {
+      const loc = normalizeLocation(safeUpdates.location)
+      if (loc === undefined) return NextResponse.json({ error: t('location_too_long'), field: 'location' }, { status: 400 })
+      safeUpdates.location = loc
+    }
     if ('sku' in safeUpdates && classifyBarcode(safeUpdates.sku as string | null) === 'gtin_invalid')
       return NextResponse.json({ error: t('barcode_invalid'), field: 'sku' }, { status: 400 })
     const admin = await createAdminClient()
@@ -281,7 +293,7 @@ export async function PATCH(request: Request) {
       return NextResponse.json({ error: t('supplier_wrong_shop'), field: 'supplier_id' }, { status: 400 })
 
     // Snapshot avant modification, pour le journal d'audit
-    const TRACKED_FIELDS = ['name', 'selling_price', 'buying_price', 'low_stock_threshold', 'sku', 'category_id', 'supplier_id', 'promo_price', 'promo_until', 'promo_start'] as const
+    const TRACKED_FIELDS = ['name', 'selling_price', 'buying_price', 'low_stock_threshold', 'sku', 'category_id', 'supplier_id', 'promo_price', 'promo_until', 'promo_start', 'location'] as const
     const trackedChange = TRACKED_FIELDS.some(f => f in safeUpdates)
     let before: Record<string, unknown> | null = null
     if (trackedChange) {

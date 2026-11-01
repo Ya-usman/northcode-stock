@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useLocale, useTranslations } from 'next-intl'
-import { Archive, ArrowDown, ChevronRight, Edit2, Unlock, Package, ShoppingCart, Store, Tag, WifiOff } from 'lucide-react'
+import { Archive, ArrowDown, ChevronRight, Edit2, MapPin, Unlock, Package, ShoppingCart, Store, Tag, WifiOff } from 'lucide-react'
 import type { Product } from '@/lib/types/database'
 import { DetailDrawer } from '@/components/ui/detail-drawer'
 import { DrawerSection } from '@/components/ui/app-drawer'
@@ -241,6 +241,8 @@ export function ProductDetailDrawer({
                 )}
               </div>
               {product.sku && <p className="mt-0.5 truncate font-mono text-xs text-muted-foreground">{product.sku}</p>}
+              {/* Emplacement dans la boutique (étape 10) */}
+              {product.location && <p className="mt-0.5 flex items-center gap-1 truncate text-xs text-muted-foreground" data-testid="product-detail-location" title={t('product_form.location_label')}><MapPin className="h-3.5 w-3.5 shrink-0" aria-hidden="true" /><span className="sr-only">{t('product_form.location_label')} : </span>{product.location}</p>}
               <p className="mt-0.5 flex flex-wrap items-baseline gap-x-2 text-sm">
                 {promoActive && product.promo_price ? (
                   <>

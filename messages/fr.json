@@ -244,6 +244,7 @@
     "viewer": "Observateur"
   },
   "products": {
+    "journal_field_location": "Emplacement",
     "status_surstock": "Surstock",
     "surstock_badge": "Surstock",
     "surstock_note": "Surstock : au rythme actuel, ce stock tiendrait plus de 6 mois.",
@@ -3884,6 +3885,7 @@
     "zero_lot_meta": "épuisé · {initial} {unit} au départ"
   },
   "api_errors": {
+    "location_too_long": "L’emplacement ne peut pas dépasser 60 caractères.",
     "packaging_invalid_unit": "Choisissez le type de colis.",
     "packaging_invalid_units": "Le nombre d’unités par colis doit être un entier entre 2 et 100 000.",
     "packaging_barcode_taken": "Ce code-barres est déjà utilisé par un produit ou un autre conditionnement de la boutique.",
@@ -4147,6 +4149,8 @@
     "shop_color_invalid": "Couleur non reconnue."
   },
   "product_form": {
+    "location_label": "Emplacement",
+    "location_placeholder": "Ex. : Rayon 3, étagère B",
     "code_scanned": "Code scanné : {code}",
     "missing_shop_id": "shop_id manquant : impossible d'uploader",
     "upload_error": "Erreur upload",

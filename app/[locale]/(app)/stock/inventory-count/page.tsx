@@ -33,6 +33,7 @@ import { DrawerSection } from '@/components/ui/app-drawer'
 import { ExpiryDateField, usePastExpiryConfirm } from '@/components/stock/expiry-date-field'
 import { useRefetchOnVisible } from '@/lib/hooks/use-refetch-on-visible'
 import { SegmentedTabs } from '@/components/ui/segmented-tabs'
+import { compareByLocation } from '@/lib/products/location'
 
 const BarcodeScanner = dynamic(
   () => import('@/components/stock/barcode-scanner').then(m => ({ default: m.BarcodeScanner })),
@@ -43,7 +44,7 @@ const BarcodeScanner = dynamic(
 const REASONS = ['correction', 'damage', 'loss', 'theft', 'expiry', 'other'] as const
 
 type Filter = 'all' | 'todo' | 'counted' | 'diff'
-interface InvProduct { id: string; name: string; unit: string | null; sku: string | null; category_id: string | null }
+interface InvProduct { id: string; name: string; unit: string | null; sku: string | null; category_id: string | null; location?: string | null }
 interface InvCount {
   id: string; product_id: string | null; product_name: string; unit: string | null
   theoretical_qty: number; counted_qty: number; delta: number
@@ -164,9 +165,11 @@ export default function InventoryCountPage({ params: { locale } }: { params: { l
       if (filter === 'counted' && !c) return false
       if (filter === 'diff' && !(c && c.delta !== 0)) return false
       if (categoryFilter !== 'all' && p.category_id !== categoryFilter) return false
-      if (q && !normalize(p.name).includes(q) && !normalize(p.sku || '').includes(q)) return false
+      if (q && !normalize(p.name).includes(q) && !normalize(p.sku || '').includes(q) && !normalize(p.location || '').includes(q)) return false
       return true
     })
+      // Ordre de tournée (étape 10) : par emplacement (« Rayon 2 » avant « Rayon 10 »), sans emplacement à la fin, puis nom
+      .sort(compareByLocation)
   }, [products, countByProduct, filter, categoryFilter, search])
 
   // ── Démarrer / reprendre ───────────────────────────────────────────────────
@@ -531,7 +534,7 @@ export default function InventoryCountPage({ params: { locale } }: { params: { l
                     <div className="flex items-start justify-between gap-2">
                       <div className="min-w-0">
                         <p className="truncate text-sm font-medium">{p.name}</p>
-                        <p className="text-xs text-muted-foreground">{unitLabel(p.unit, 2)}{p.sku ? ` · ${p.sku}` : ''}</p>
+                        <p className="text-xs text-muted-foreground">{unitLabel(p.unit, 2)}{p.sku ? ` · ${p.sku}` : ''}{p.location ? <span data-testid="inventory-location"> · {p.location}</span> : null}</p>
                       </div>
                       {c?.recount_requested_at && <span className="shrink-0 rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-semibold text-amber-800 dark:bg-amber-950/60 dark:text-amber-300">{t('to_recount')}</span>}
                     </div>
@@ -566,7 +569,7 @@ export default function InventoryCountPage({ params: { locale } }: { params: { l
                             value={draft}
                             onChange={e => setDrafts(m => ({ ...m, [p.id]: e.target.value.replace(/[^\d]/g, '') }))}
                             className="h-11 text-base tabular-nums"
-                            aria-label={`${t('counted_label')} — ${p.name}`}
+                            aria-label={`${t('counted_label')} : ${p.name}`}
                             data-testid="inventory-qty"
                           />
                         </label>

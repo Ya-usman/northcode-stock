@@ -108,6 +108,7 @@ export function ProductForm({
       sku: '',
       image_url: '',
       expiry_date: '',
+      location: '',
       ...defaultValues,
     },
   })
@@ -386,6 +387,13 @@ export function ProductForm({
               </SelectContent>
             </Select>
           </div>
+        </div>
+
+        {/* Emplacement dans la boutique (étape 10) : retrouver le produit, compter l'inventaire dans l'ordre du magasin */}
+        <div className="space-y-1.5">
+          <Label htmlFor="product-location">{t('product_form.location_label')} {optional}</Label>
+          <Input id="product-location" {...form.register('location')} maxLength={60} placeholder={t('product_form.location_placeholder')} className="h-10" data-testid="product-location" />
+          <FieldError message={errors.location?.message} />
         </div>
       </DrawerSection>
 
