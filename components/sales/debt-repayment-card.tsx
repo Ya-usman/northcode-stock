@@ -78,6 +78,8 @@ function DebtRepaymentCardImpl({
 
         {enabled && (
           <div className="space-y-3 pt-1">
+            {/* Ordre d'imputation, tenu par le serveur (/api/payments : du plus ancien au plus récent) */}
+            <p className="text-xs text-orange-700 dark:text-orange-300/80" data-testid="debt-repay-order">{t('sales.debt_repay_oldest_first')}</p>
             <div className="space-y-1">
               <Label className="text-xs text-orange-800 dark:text-orange-200">{t('sales.amount_given_for_debt')}</Label>
               <div className="flex rounded-md border border-orange-200 overflow-hidden focus-within:ring-2 focus-within:ring-orange-300 dark:border-orange-900/60 dark:focus-within:ring-orange-700">

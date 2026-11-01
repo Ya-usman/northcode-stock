@@ -7,18 +7,21 @@
 
 import type { LucideIcon } from 'lucide-react'
 import { PlayCircle } from 'lucide-react'
+import Link from 'next/link'
 import { useTranslations } from 'next-intl'
 import { Button } from '@/components/ui/button'
 import { useOnboarding } from '@/components/onboarding/onboarding-provider'
 import type { TourId } from '@/lib/onboarding/tours'
 
-export function EmptyGuide({ icon: Icon, title, body, tour, testId }: {
+export function EmptyGuide({ icon: Icon, title, body, tour, testId, action }: {
   icon: LucideIcon
   title: string
   body: string
   /** Tour proposé (« Me montrer ») ; absent si la personne n'a pas le droit d'agir ici */
   tour?: TourId
   testId?: string
+  /** Action directe (« Ajouter un produit ») ; absente si la personne n'a pas le droit d'agir */
+  action?: { label: string; href: string }
 }) {
   const t = useTranslations('onboarding')
   const { startTour } = useOnboarding()
@@ -29,6 +32,11 @@ export function EmptyGuide({ icon: Icon, title, body, tour, testId }: {
       </span>
       <h2 className="text-base font-semibold">{title}</h2>
       <p className="mt-1 max-w-sm text-sm leading-relaxed text-muted-foreground">{body}</p>
+      {action && (
+        <Button asChild variant="stockshop" size="sm" className="mt-4 h-10">
+          <Link href={action.href} data-testid="empty-guide-action">{action.label}</Link>
+        </Button>
+      )}
       {tour && (
         <Button variant="outline" size="sm" className="mt-4 h-9 gap-1.5" onClick={() => startTour(tour)} data-testid="empty-guide-tour">
           <PlayCircle className="h-4 w-4" />{t('show_me')}

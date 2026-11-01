@@ -41,7 +41,8 @@ import { buildWhatsAppLink, buildReceiptWhatsAppMessage, normalizeWhatsAppNumber
 import { generateReceiptToken, receiptUrl } from '@/lib/receipt/receipt-link'
 import { ShopLogo } from '@/components/shop/shop-logo'
 import { CustomerPicker } from '@/components/sales/customer-picker'
-import { BookUser as BookUserIcon, UploadCloud as CloudUpload, Loader2, ExternalLink as ExternalLinkIcon } from 'lucide-react'
+import { BookUser as BookUserIcon, UploadCloud as CloudUpload, Loader2, ExternalLink as ExternalLinkIcon, Package as PackageIcon } from 'lucide-react'
+import { EmptyGuide } from '@/components/onboarding/empty-guide'
 import { receiptLabelsFromT } from '@/lib/receipt/receipt-labels'
 import { sharePDFNative, isCapacitor } from '@/lib/utils/native-share'
 import { registerBackHandler } from '@/lib/navigation/back-handlers'
@@ -205,6 +206,7 @@ function PosScreen({ params: { locale: _locale } }: { params: { locale: string }
   const { profile, shop, userShops } = useAuth()
   // Remise : droit « Accorder une remise » (règle unique des permissions)
   const { canAccess } = useRolePermissions()
+  const { canWriteIn } = useShopPermissions()
   const canDiscount = canAccess('discount')
   const { fmt: _fmtGlobal, code: currencyCode, symbol } = useCurrency()
   // Code ISO + symbole résolus depuis la boutique active (via useCurrency,
@@ -230,6 +232,8 @@ function PosScreen({ params: { locale: _locale } }: { params: { locale: string }
   const [searchQuery, setSearchQuery] = useState('')
   const [categoryFilter, setCategoryFilter] = useState<string>('all')
   const [products, setProducts] = useState<Product[]>([])
+  // Liste connue (cache de l'appareil ou serveur) : l'écran « aucun produit » ne s'affiche jamais pendant le chargement
+  const [productsLoaded, setProductsLoaded] = useState(false)
   const [frontBatchPromo, setFrontBatchPromo] = useState<Record<string, { price: number; until: string; start: string | null }>>({})
   // Lots en stock par produit (quantité, péremption) → stock VENDABLE (migration 178, lib/stock/sellable) :
   // un lot périmé n'est JAMAIS vendable (plus de confirmation pour forcer). Gardés aussi dans le cache hors
@@ -315,6 +319,8 @@ function PosScreen({ params: { locale: _locale } }: { params: { locale: string }
   const [showHoldDialog, setShowHoldDialog] = useState(false)
   // Facture en attente dont la suppression est demandée (confirmation)
   const [heldDeleteAsk, setHeldDeleteAsk] = useState<Draft | null>(null)
+  // Suppression groupée des anciennes factures en attente : confirmée (avant : immédiate, sans question)
+  const [staleDeleteAsk, setStaleDeleteAsk] = useState<number | null>(null)
   const [holdLabel, setHoldLabel] = useState('')
   // Reprise demandée alors qu'un autre panier est en cours → confirmation.
   const [pendingResume, setPendingResume] = useState<Draft | null>(null)
@@ -385,6 +391,7 @@ function PosScreen({ params: { locale: _locale } }: { params: { locale: string }
           : undefined,
       })) as unknown as Product[]
       setProducts(shaped)
+      setProductsLoaded(true)
       setLotsByProduct(Object.fromEntries(cachedProds.map((p: any) => [p.id, Array.isArray(p.lots) ? p.lots : []])))
     }
     if (cachedCusts.length > 0) setCustomers(cachedCusts as unknown as Customer[])
@@ -411,7 +418,7 @@ function PosScreen({ params: { locale: _locale } }: { params: { locale: string }
           .eq('shop_id', shop.id).gt('quantity', 0)
           .order('expiry_date', { ascending: true, nullsFirst: false })
           .order('received_at', { ascending: true }),
-      ]), 20_000, 'Chargement des produits trop lent : réessayez.')
+      ]), 20_000)
       // A transient auth/RLS hiccup (session mid-refresh right after the tab
       // resumes from background) can resolve with data: null instead of
       // throwing — silently wiping the cart's product/customer list with an
@@ -423,6 +430,7 @@ function PosScreen({ params: { locale: _locale } }: { params: { locale: string }
       const { data: prods } = prodsRes, { data: custs } = custsRes, { data: cats } = catsRes, { data: batches } = batchesRes
       const safeProds = (prods || []) as unknown as Product[]
       setProducts(safeProds)
+      setProductsLoaded(true)
       setCustomers((custs || []) as Customer[])
       setCategories((cats || []) as Category[])
 
@@ -1239,7 +1247,7 @@ ${normalize(p.sku ?? '')}`.includes(outHereQuery)).slice(0, 20), [outHere, outHe
     if (splitPayment) {
       const amt1 = Number(amountPaid) || 0
       if (amt1 <= 0) {
-        toast({ title: 'Entrez le montant du 1er paiement', variant: 'destructive' }); return
+        toast({ title: t('sales.split_first_amount_required'), variant: 'destructive' }); return
       }
       if (amt1 >= totalToCollect) {
         toast({ title: t('sales.split_covers_total_disable'), variant: 'destructive' }); return
@@ -1680,6 +1688,7 @@ ${normalize(p.sku ?? '')}`.includes(outHereQuery)).slice(0, 20), [outHere, outHe
   // Libellé lisible d'un moyen de paiement (« Espèces », « MTN MoMo », « Paiement mixte »)
   const paymentMethodLabel = (id: string) => id === 'mixed'
     ? t('receipt.method_mixed')
+    : t.has(`sales.method_name_${id}` as any) ? t(`sales.method_name_${id}` as any)
     : (getCountry(shop?.country).paymentMethods.find(m => m.id === id)?.label ?? getPaymentMethodLabel(id) ?? id)
 
   // ── Reçu d'une vente MISE EN FILE ─────────────────────────────────────────
@@ -1902,7 +1911,7 @@ ${normalize(p.sku ?? '')}`.includes(outHereQuery)).slice(0, 20), [outHere, outHe
       {activeDraftId && (
         <div className="flex items-center gap-2 rounded-lg bg-stockshop-blue-muted border border-stockshop-blue/20 px-3 py-2 text-xs text-stockshop-blue dark:bg-blue-950/40 dark:border-blue-800 dark:text-blue-300">
           <PlayCircle className="h-3.5 w-3.5" />
-          Facture en attente reprise — validez ou remettez en attente
+          {t('sales.held_resumed_notice')}
         </div>
       )}
 
@@ -1940,7 +1949,7 @@ ${normalize(p.sku ?? '')}`.includes(outHereQuery)).slice(0, 20), [outHere, outHe
           }`}
         >
           <Scan className="h-4 w-4" />
-          Scan
+          {t('sales.scan_button')}
         </button>
       </div>
 
@@ -2031,6 +2040,12 @@ ${normalize(p.sku ?? '')}`.includes(outHereQuery)).slice(0, 20), [outHere, outHe
             ))}
           </div>
         </div>
+      )}
+
+      {/* Aucun produit en stock à vendre : on explique et on propose d'en ajouter (avant : écran vide, sans rien) */}
+      {productsLoaded && products.length === 0 && !searchQuery && (
+        <EmptyGuide icon={PackageIcon} title={t('sales.no_products_title')} body={t('sales.no_products_body')} testId="pos-no-products"
+          action={shop?.id && canWriteIn(shop.id, 'stock') ? { label: t('sales.no_products_action'), href: `/${locale}/stock/products` } : undefined} />
       )}
 
       {/* Product grid */}
@@ -2568,7 +2583,7 @@ ${normalize(p.sku ?? '')}`.includes(outHereQuery)).slice(0, 20), [outHere, outHe
           <div className="space-y-1.5">
             <Label>
               {t('payment.method')}
-              {splitPayment && <span className="text-xs text-muted-foreground ml-1">(1er paiement)</span>}
+              {splitPayment && <span className="text-xs text-muted-foreground ml-1">{t('sales.split_first_payment')}</span>}
             </Label>
             <div className="grid grid-cols-3 gap-2.5 sm:grid-cols-4">
               {getCountry(shop?.country).paymentMethods.map(method => (
@@ -2638,7 +2653,7 @@ ${normalize(p.sku ?? '')}`.includes(outHereQuery)).slice(0, 20), [outHere, outHe
               )}
               {Number(amountPaid) > 0 && Number(amountPaid) < totalToCollect && (
                 <p className="text-xs text-red-500 text-center">
-                  Manque {formatNaira(totalToCollect - Number(amountPaid))}
+                  {t('sales.amount_missing', { amount: formatNaira(totalToCollect - Number(amountPaid)) })}
                 </p>
               )}
             </div>
@@ -2737,7 +2752,7 @@ ${normalize(p.sku ?? '')}`.includes(outHereQuery)).slice(0, 20), [outHere, outHe
               {/* Amount for method 1 */}
               <div className="space-y-1.5">
                 <Label className="text-sm">
-                  {t('sales.amount_paid_in', { method: getCountry(shop?.country).paymentMethods.find(m => m.id === paymentMethod)?.label || paymentMethod })}
+                  {t('sales.amount_paid_in', { method: paymentMethodLabel(paymentMethod) })}
                 </Label>
                 <div className="flex rounded-lg border border-input overflow-hidden focus-within:ring-2 focus-within:ring-ring">
                   <input type="text" inputMode="numeric" pattern="[0-9]*"
@@ -2773,7 +2788,7 @@ ${normalize(p.sku ?? '')}`.includes(outHereQuery)).slice(0, 20), [outHere, outHe
               {splitMethod2 && (
                 <div className="rounded-lg bg-muted p-3 flex items-center justify-between">
                   <span className="text-sm text-muted-foreground">
-                    Montant {getCountry(shop?.country).paymentMethods.find(m => m.id === splitMethod2)?.label || splitMethod2}
+                    {t('sales.amount_in_method', { method: paymentMethodLabel(splitMethod2) })}
                   </span>
                   <span className="font-bold text-lg text-stockshop-blue dark:text-blue-400">
                     {formatNaira(Math.max(0, totalToCollect - (Number(amountPaid) || 0)))}
@@ -2946,7 +2961,7 @@ ${normalize(p.sku ?? '')}`.includes(outHereQuery)).slice(0, 20), [outHere, outHe
             return stale > 0 ? (
               <div className="flex items-center justify-between gap-2 rounded-lg border border-amber-200 dark:border-amber-800/60 bg-amber-50 dark:bg-amber-950/30 px-3 py-2 text-xs text-amber-800 dark:text-amber-300">
                 <span>{t('sales.held_stale_notice', { count: stale, days: HELD_STALE_DAYS })}</span>
-                <Button size="sm" variant="outline" className="h-7 shrink-0 border-amber-300 dark:border-amber-700/60 text-amber-800 dark:text-amber-300" onClick={deleteStaleDrafts}>
+                <Button size="sm" variant="outline" className="h-9 shrink-0 border-amber-300 dark:border-amber-700/60 text-amber-800 dark:text-amber-300" onClick={() => setStaleDeleteAsk(stale)} data-testid="held-stale-delete">
                   <Trash2 className="h-3.5 w-3.5 mr-1" />{t('sales.held_stale_delete', { count: stale })}
                 </Button>
               </div>
@@ -2994,6 +3009,17 @@ ${normalize(p.sku ?? '')}`.includes(outHereQuery)).slice(0, 20), [outHere, outHe
           })}
         </div>
       </AppDrawer>
+
+      <ConfirmModal
+        open={staleDeleteAsk !== null}
+        onOpenChange={o => { if (!o) setStaleDeleteAsk(null) }}
+        tone="danger"
+        icon={<Trash2 className="h-4 w-4" />}
+        title={t('sales.held_stale_confirm_title', { count: staleDeleteAsk ?? 0 })}
+        description={t('sales.held_stale_confirm_body', { count: staleDeleteAsk ?? 0, days: HELD_STALE_DAYS })}
+        confirmLabel={t('actions.delete')}
+        onConfirm={() => { deleteStaleDrafts(); setStaleDeleteAsk(null) }}
+      />
 
       {/* Suppression d'une facture en attente : confirmée (c'est une vente commencée ; les réservations sont libérées) */}
       <ConfirmModal
