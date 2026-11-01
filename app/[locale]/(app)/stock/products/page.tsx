@@ -358,7 +358,7 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
           .order('name'),
         supabase.from('categories').select('*').in('shop_id', effectiveShopIds).order('name'),
         supabase.from('suppliers').select(SUPPLIER_PUBLIC_COLUMNS).in('shop_id', effectiveShopIds).order('name'),
-      ]), 20_000, 'Chargement du stock trop lent — réessayez.')
+      ]), 20_000, 'Chargement du stock trop lent : réessayez.')
       // A transient auth/RLS hiccup right after the tab resumes from background
       // (session mid-refresh) can make one of these calls resolve successfully
       // with data: null instead of throwing — silently replacing real counts

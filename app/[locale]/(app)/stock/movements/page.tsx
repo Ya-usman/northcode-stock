@@ -112,7 +112,7 @@ export default function StockMovementsPage({ params: { locale } }: { params: { l
 
     // Bounded so a stale connection/session after the app sat backgrounded a
     // while can never leave the list loading forever.
-    withTimeout(fetch(`/api/stock/movements?${query}`), 20_000, 'Chargement des mouvements trop lent — réessayez.')
+    withTimeout(fetch(`/api/stock/movements?${query}`), 20_000, 'Chargement des mouvements trop lent : réessayez.')
       .then(r => r.json())
       .then(data => {
         const list: Movement[] = data.movements || []

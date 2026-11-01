@@ -237,7 +237,7 @@ export default function DashboardPage() {
         summaryPromise.then((j: any) => ({ data: [{ amount: j.month_revenue_own ?? 0 }], error: null })),
         summaryPromise.then((j: any) => ({ data: [{ amount: j.month_global_revenue ?? 0 }], error: null })),
 
-      ]), 20_000, 'Chargement du tableau de bord trop lent — réessayez.')
+      ]), 20_000, 'Chargement du tableau de bord trop lent : réessayez.')
 
       // A transient auth/RLS hiccup (session mid-refresh right after the tab
       // resumes from background) can resolve a query successfully with
@@ -316,7 +316,7 @@ export default function DashboardPage() {
 
       // ── 2. Le graphique de la semaine : dès que la route serveur a répondu ──
       setWeekChartPending(true)
-      const paymentsRes = await withTimeout(paymentsPromise, 20_000, 'Chargement du graphique trop lent — réessayez.')
+      const paymentsRes = await withTimeout(paymentsPromise, 20_000, 'Chargement du graphique trop lent : réessayez.')
       const paymentsApiOk = !!paymentsRes && paymentsRes.ok
       const paymentsData = paymentsApiOk
         ? await paymentsRes!.json()

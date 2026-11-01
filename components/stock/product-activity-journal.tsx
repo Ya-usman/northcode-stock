@@ -131,7 +131,7 @@ export function ProductActivityJournal({ open, onOpenChange, shopId, shopLabel, 
     try {
       // Borné : une session périmée après un passage en arrière-plan ne doit
       // jamais laisser le journal tourner indéfiniment.
-      const res = await withTimeout(fetch(`/api/audit/journal?${q}`), 20_000, 'Chargement du journal trop lent — réessayez.')
+      const res = await withTimeout(fetch(`/api/audit/journal?${q}`), 20_000, 'Chargement du journal trop lent : réessayez.')
       const { logs: data, count } = await res.json()
       setLogs(data || [])
       setTotal(typeof count === 'number' ? count : null)

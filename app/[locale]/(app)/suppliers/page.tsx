@@ -337,7 +337,7 @@ export default function SuppliersPage() {
       const [suppliersRes, productsRes] = await withTimeout(Promise.all([
         supabase.from('suppliers').select(SUPPLIER_PUBLIC_COLUMNS).in('shop_id', effectiveShopIds).order('name'),
         supabase.from('products').select('id, name, selling_price, quantity, unit, supplier_id, shop_id').in('shop_id', effectiveShopIds).eq('is_active', true),
-      ]), 20_000, 'Chargement des fournisseurs trop lent — réessayez.')
+      ]), 20_000, 'Chargement des fournisseurs trop lent : réessayez.')
       // A transient auth/RLS hiccup can resolve with data: null instead of
       // throwing — check explicitly so the catch below preserves the cache
       // already on screen instead of zeroing it out.

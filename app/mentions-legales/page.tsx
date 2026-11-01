@@ -1,5 +1,5 @@
 export const metadata = {
-  title: 'Mentions légales — StockShop',
+  title: 'Mentions légales · StockShop',
 }
 
 export default function MentionsLegalesPage() {

@@ -159,7 +159,7 @@ export default function TeamPage() {
         d.setDate(d.getDate() - (journalPeriod === 'today' ? 0 : journalPeriod === '7d' ? 6 : 29))
         query = query.gte('created_at', d.toISOString())
       }
-      const { data } = await withTimeout<any>(query, 20_000, 'Chargement du journal trop lent — réessayez.')
+      const { data } = await withTimeout<any>(query, 20_000, 'Chargement du journal trop lent : réessayez.')
       setAuditLogs(data || [])
     } catch {
       // journal non critique

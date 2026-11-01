@@ -1,7 +1,7 @@
 import { cookies, headers } from 'next/headers'
 
 export const metadata = {
-  title: 'Privacy Policy — StockShop',
+  title: 'Privacy Policy · StockShop',
 }
 
 type Lang = 'en' | 'fr' | 'ha'

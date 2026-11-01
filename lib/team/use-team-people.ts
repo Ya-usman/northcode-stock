@@ -73,7 +73,7 @@ export function useTeamPeople(shopIds: string[], statusShopId: string | null | u
         supabase.from('shop_members')
           .select('id, user_id, shop_id, role, is_active, joined_at')
           .in('shop_id', shopIds),
-        20_000, 'Chargement de l\'équipe trop lent — réessayez.'
+        20_000, 'Chargement de l\'équipe trop lent : réessayez.'
       )
       if (rowsErr) throw rowsErr
       const userIds = Array.from(new Set((rows || []).map((r: any) => r.user_id))) as string[]

@@ -460,7 +460,7 @@ export default function SalesHistoryPage() {
         buildStatsQuery(start, end),
         cashierShopIds.length && !mixed ? buildCollectedQuery(start, end, cashierShopIds, true) : buildCollectedQuery(start, end, mixed ? otherShopIds : effectiveShopIds),
         mixed ? buildCollectedQuery(start, end, cashierShopIds, true) : Promise.resolve({ data: [], error: null }),
-      ]), 20_000, 'Chargement des ventes trop lent — réessayez.')
+      ]), 20_000, 'Chargement des ventes trop lent : réessayez.')
       // A transient auth/RLS hiccup can resolve statsResult/collectedResult
       // with data: null instead of throwing — without this, listResult.error
       // alone let a failure limited to just these two silently reset the
@@ -536,7 +536,7 @@ export default function SalesHistoryPage() {
 
       // Bounded so a stale connection/session after the app sat backgrounded
       // a while can never leave `loading` stuck true forever.
-      const { data, error } = await withTimeout<any>(query, 20_000, 'Chargement des remboursements trop lent — réessayez.')
+      const { data, error } = await withTimeout<any>(query, 20_000, 'Chargement des remboursements trop lent : réessayez.')
       // A transient auth/RLS hiccup can resolve with data: null instead of
       // throwing — without this check nothing ever threw, so the catch
       // block's "preserve on failure" comment below was dead code: this line
@@ -641,7 +641,7 @@ export default function SalesHistoryPage() {
       })
       // Bounded so a stale connection/session after the app sat backgrounded
       // a while can never leave the journal spinning forever.
-      const res = await withTimeout(fetch(`/api/sales/logs?${params}`), 20_000, 'Chargement du journal trop lent — réessayez.')
+      const res = await withTimeout(fetch(`/api/sales/logs?${params}`), 20_000, 'Chargement du journal trop lent : réessayez.')
       const json = await res.json()
       setLogs(json.logs || [])
     } catch {

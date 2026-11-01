@@ -160,7 +160,7 @@ export default function ReportsPage() {
       // while (JWT/socket gone stale) could otherwise leave one of these
       // sequential Supabase calls hanging forever — bound the whole fetch
       // so it always falls back to whatever was last cached instead.
-      return withTimeout(loadFreshReportData(start, end), 20_000, 'Chargement des rapports trop lent — réessayez.')
+      return withTimeout(loadFreshReportData(start, end), 20_000, 'Chargement des rapports trop lent : réessayez.')
     },
     enabled: effectiveShopIds.length > 0 && filtersReady && canSeeReports,
   })

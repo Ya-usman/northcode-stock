@@ -8,7 +8,7 @@ import { QueryProvider } from '@/components/providers/query-provider'
 export const metadata: Metadata = {
   metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL || 'https://northcode-stock.vercel.app'),
   title: 'StockShop',
-  description: 'Ventes, stock, crédits, dépenses et rapports — tout pour gérer votre business',
+  description: 'Ventes, stock, crédits, dépenses et rapports : tout pour gérer votre business',
   manifest: '/manifest.json',
   appleWebApp: {
     capable: true,
@@ -19,8 +19,8 @@ export const metadata: Metadata = {
   openGraph: {
     type: 'website',
     siteName: 'StockShop',
-    title: 'StockShop — Pilotez votre boutique',
-    description: 'Ventes, stock, crédits, dépenses et rapports — tout pour gérer votre business',
+    title: 'StockShop · Pilotez votre boutique',
+    description: 'Ventes, stock, crédits, dépenses et rapports : tout pour gérer votre business',
   },
 }
 

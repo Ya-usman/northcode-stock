@@ -104,7 +104,7 @@ export default function CaissePage() {
     try {
       // Bounded so a stale connection/session after the app sat backgrounded
       // a while can never leave `loading` stuck true forever.
-      await withTimeout(loadFreshCaisseData(cacheKey), 20_000, 'Chargement de la caisse trop lent — réessayez.')
+      await withTimeout(loadFreshCaisseData(cacheKey), 20_000, 'Chargement de la caisse trop lent : réessayez.')
     } catch {
       // Timeout/network failure — cache already applied above if available.
     } finally {

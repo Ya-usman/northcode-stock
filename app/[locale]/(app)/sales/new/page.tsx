@@ -405,7 +405,7 @@ function PosScreen({ params: { locale: _locale } }: { params: { locale: string }
           .eq('shop_id', shop.id).gt('quantity', 0)
           .order('expiry_date', { ascending: true, nullsFirst: false })
           .order('received_at', { ascending: true }),
-      ]), 20_000, 'Chargement des produits trop lent — réessayez.')
+      ]), 20_000, 'Chargement des produits trop lent : réessayez.')
       // A transient auth/RLS hiccup (session mid-refresh right after the tab
       // resumes from background) can resolve with data: null instead of
       // throwing — silently wiping the cart's product/customer list with an

@@ -128,7 +128,7 @@ export default function CategoriesPage() {
       const [catData, prodData] = await withTimeout(Promise.all([
         supabase.from('categories').select('*').in('shop_id', effectiveShopIds).order('name'),
         supabase.from('products').select('id, name, selling_price, quantity, unit, category_id, shop_id, low_stock_threshold').in('shop_id', effectiveShopIds).eq('is_active', true).order('name'),
-      ]), 20_000, 'Chargement des catégories trop lent — réessayez.')
+      ]), 20_000, 'Chargement des catégories trop lent : réessayez.')
       // A transient auth/RLS hiccup can resolve with data: null instead of
       // throwing — check explicitly so the catch below preserves the cache
       // already on screen instead of zeroing it out.

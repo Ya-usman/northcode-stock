@@ -167,7 +167,7 @@ export default function CustomersPage() {
       // a while can never leave `loading` stuck true forever.
       const { data, error } = await withTimeout<any>(
         supabase.from('customers').select('*').in('shop_id', effectiveShopIds).order('name'),
-        20_000, 'Chargement des clients trop lent — réessayez.'
+        20_000, 'Chargement des clients trop lent : réessayez.'
       )
       // A transient auth/RLS hiccup can resolve with data: null instead of
       // throwing — check explicitly so the catch below preserves the cache
