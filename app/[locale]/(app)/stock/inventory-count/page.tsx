@@ -44,7 +44,7 @@ const BarcodeScanner = dynamic(
 const REASONS = ['correction', 'damage', 'loss', 'theft', 'expiry', 'other'] as const
 
 type Filter = 'all' | 'todo' | 'counted' | 'diff'
-interface InvProduct { id: string; name: string; unit: string | null; sku: string | null; category_id: string | null; location?: string | null }
+interface InvProduct { id: string; name: string; unit: string | null; sku: string | null; category_id: string | null; location?: string | null; track_serials?: boolean }
 interface InvCount {
   id: string; product_id: string | null; product_name: string; unit: string | null
   theoretical_qty: number; counted_qty: number; delta: number
@@ -535,6 +535,8 @@ export default function InventoryCountPage({ params: { locale } }: { params: { l
                       <div className="min-w-0">
                         <p className="truncate text-sm font-medium">{p.name}</p>
                         <p className="text-xs text-muted-foreground">{unitLabel(p.unit, 2)}{p.sku ? ` · ${p.sku}` : ''}{p.location ? <span data-testid="inventory-location"> · {p.location}</span> : null}</p>
+                        {/* Produit suivi (étape 11) : les numéros se régularisent dans la fiche après l'inventaire */}
+                        {p.track_serials && <p className="text-[11px] text-stockshop-blue dark:text-blue-400" data-testid="inventory-serials-hint">{tRoot('serials.inventory_hint')}</p>}
                       </div>
                       {c?.recount_requested_at && <span className="shrink-0 rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-semibold text-amber-800 dark:bg-amber-950/60 dark:text-amber-300">{t('to_recount')}</span>}
                     </div>

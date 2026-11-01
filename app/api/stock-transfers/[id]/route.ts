@@ -4,7 +4,6 @@ import { createAdminClient } from '@/lib/supabase/server'
 import { getAuthedUser, checkShopRole } from '@/lib/api/shop-auth'
 import { getApiTranslator } from '@/lib/api/i18n'
 import { isUuid, loadAllocations, loadNames, ownSendBlocked, senderOf, transferError, transferWorkflowAvailable } from '@/lib/api/transfers'
-import { trackedProductNames } from '@/lib/api/serials'
 
 /** Droits de la personne sur les deux boutiques RÉELLES du transfert (jamais celles envoyées par le navigateur) */
 async function rightsOn(supabase: any, userId: string, shopIds: string[]) {
@@ -48,6 +47,10 @@ export async function GET(request: Request, { params }: { params: { id: string }
       admin.from('audit_logs').select('action, actor_id, created_at, metadata').eq('target_id', tr.id).eq('target_type', 'stock_transfer').order('created_at'),
     ])
     const productMap = Object.fromEntries(((products || []) as any[]).map(p => [p.id, p]))
+    // Numéros de série des lignes (lot C, migration 199) : en transit, arrivés ou manquants
+    const { data: serialRows } = await admin.from('product_serials').select('serial, status, transfer_item_id').eq('transfer_id', tr.id).order('serial')
+    const serialsByItem: Record<string, { serial: string; status: string }[]> = {}
+    for (const r of (serialRows || []) as any[]) if (r.transfer_item_id) (serialsByItem[r.transfer_item_id] ||= []).push({ serial: r.serial, status: r.status })
     const batchMap = Object.fromEntries(((destBatches || []) as any[]).map(b => [b.id, b]))
     const shopMap = Object.fromEntries(((shops || []) as any[]).map(s => [s.id, s]))
     const names = await loadNames(admin, [tr.created_by, tr.sent_by, tr.received_by, tr.cancelled_by, ...((logs || []) as any[]).map(l => l.actor_id)])
@@ -59,6 +62,7 @@ export async function GET(request: Request, { params }: { params: { id: string }
       return {
         ...rest,
         ...(showCost ? { buying_price } : {}),
+        ...(serialsByItem[it.id] ? { serials: serialsByItem[it.id] } : {}),
         image_url: src?.image_url ?? dest?.image_url ?? null,
         sku: src?.sku ?? dest?.sku ?? null,
         destination_product_name: dest?.name ?? null,
@@ -128,9 +132,6 @@ export async function PATCH(request: Request, { params }: { params: { id: string
     if (!role || !(await canWriteFeature(supabase, role, tr.source_shop_id, 'transfers')))
       return NextResponse.json({ error: t('permission_denied') }, { status: 403 })
 
-    // Produit suivi par numéro de série : transfert pas encore pris en charge (lot C), refus explicite
-    const tracked = await trackedProductNames(admin, items.map((it: any) => it?.product_id))
-    if (tracked.length) return NextResponse.json({ error: t('transfer_serial_tracked_unsupported', { product: tracked[0] }), code: 'transfer_serial_tracked_unsupported' }, { status: 400 })
 
     const { data, error } = await admin.rpc('update_stock_transfer_draft', {
       p_transfer_id: params.id, p_source: tr.source_shop_id, p_dest: destination_shop_id, p_user: user.id, p_notes: notes || null,

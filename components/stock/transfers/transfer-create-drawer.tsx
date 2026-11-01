@@ -6,7 +6,8 @@
 // quantités ; « Enregistrer en brouillon » ou « Envoyer ». Le serveur reste l'autorité (stock revérifié à l'envoi).
 import { useEffect, useMemo, useState } from 'react'
 import { useTranslations } from 'next-intl'
-import { Minus, Package, Plus, ScanLine, Search, X } from 'lucide-react'
+import { Hash, Minus, Package, Plus, ScanLine, Search, X } from 'lucide-react'
+import { SerialPicker } from '@/components/sales/serial-picker'
 import { createClient } from '@/lib/supabase/client'
 import { AppDrawer } from '@/components/ui/app-drawer'
 import { Button } from '@/components/ui/button'
@@ -24,8 +25,9 @@ import { withTimeout } from '@/lib/utils/with-timeout'
 const supabase = createClient() as any
 
 interface ShopLite { id: string; name: string; timezone?: string | null; country?: string | null }
-interface Prod { id: string; name: string; unit: string | null; sku: string | null; transferable: number }
-interface Line { product_id: string; name: string; unit: string; sku: string | null; available: number; quantity: number }
+interface Prod { id: string; name: string; unit: string | null; sku: string | null; transferable: number; tracked?: boolean }
+/** tracked : produit suivi par numéro de série (étape 11) — quantité = nombre de numéros choisis */
+interface Line { product_id: string; name: string; unit: string; sku: string | null; available: number; quantity: number; tracked?: boolean; serials?: string[] }
 
 export interface TransferDraftInput {
   id: string
@@ -77,7 +79,7 @@ export function TransferCreateDrawer({ open, onOpenChange, source, shops, workfl
     let cancelled = false
     ;(async () => {
       try {
-        const { data } = await withTimeout<any>(supabase.from('products').select('id, name, unit, sku, quantity')
+        const { data } = await withTimeout<any>(supabase.from('products').select('id, name, unit, sku, quantity, track_serials')
           .eq('shop_id', source.id).eq('is_active', true).order('name'), 20_000)
         const list = (data || []) as any[]
         const ids = list.filter(p => (p.quantity || 0) > 0).map(p => p.id)
@@ -89,7 +91,7 @@ export function TransferCreateDrawer({ open, onOpenChange, source, shops, workfl
         const asOf = shopToday(source as any)
         const byProduct: Record<string, any[]> = {}
         for (const l of lots) (byProduct[l.product_id] ||= []).push(l)
-        if (!cancelled) setProducts(list.map(p => ({ id: p.id, name: p.name, unit: p.unit, sku: p.sku, transferable: sellableStock(p.quantity || 0, byProduct[p.id] || [], asOf).sellable })))
+        if (!cancelled) setProducts(list.map(p => ({ id: p.id, name: p.name, unit: p.unit, sku: p.sku, transferable: sellableStock(p.quantity || 0, byProduct[p.id] || [], asOf).sellable, tracked: !!p.track_serials })))
       } catch { if (!cancelled) setProducts([]) }
     })()
     return () => { cancelled = true }
@@ -107,7 +109,7 @@ export function TransferCreateDrawer({ open, onOpenChange, source, shops, workfl
   // Quantités transférables connues une fois les produits chargés (brouillon rouvert)
   useEffect(() => {
     if (!products.length) return
-    setLines(prev => prev.map(l => { const p = products.find(x => x.id === l.product_id); return p ? { ...l, available: p.transferable, sku: p.sku } : l }))
+    setLines(prev => prev.map(l => { const p = products.find(x => x.id === l.product_id); return p ? { ...l, available: p.transferable, sku: p.sku, tracked: p.tracked } : l }))
   }, [products])
 
   const results = useMemo(() => {
@@ -119,9 +121,12 @@ export function TransferCreateDrawer({ open, onOpenChange, source, shops, workfl
   const add = (p: Prod, qty = 1) => {
     setLines(prev => {
       const existing = prev.find(l => l.product_id === p.id)
-      if (existing) return prev.map(l => l.product_id === p.id ? { ...l, quantity: Math.min(l.quantity + qty, p.transferable) } : l)
+      if (existing) return existing.tracked ? prev : prev.map(l => l.product_id === p.id ? { ...l, quantity: Math.min(l.quantity + qty, p.transferable) } : l)
+      // Produit suivi : la ligne démarre vide, on choisit ses numéros (la quantité suit)
+      if (p.tracked) return [...prev, { product_id: p.id, name: p.name, unit: p.unit || '', sku: p.sku, available: p.transferable, quantity: 0, tracked: true, serials: [] }]
       return [...prev, { product_id: p.id, name: p.name, unit: p.unit || '', sku: p.sku, available: p.transferable, quantity: Math.min(qty, Math.max(p.transferable, 0)) || 1 }]
     })
+    if (p.tracked) setSerialLine({ id: p.id, name: p.name })
     setSearch('')
   }
   const onScan = (code: string) => {
@@ -133,6 +138,10 @@ export function TransferCreateDrawer({ open, onOpenChange, source, shops, workfl
   const setQty = (id: string, q: number) => setLines(prev => prev.map(l => l.product_id === id ? { ...l, quantity: Math.max(0, Math.floor(q || 0)) } : l))
 
   const valid = !!source && !!dest && lines.some(l => l.quantity > 0) && lines.every(l => l.quantity <= l.available || l.available <= 0)
+  // Envoi : chaque produit suivi a un numéro par unité (le brouillon peut s'enregistrer sans)
+  const serialsReady = lines.every(l => !l.tracked || (l.serials?.length ?? 0) === l.quantity)
+  const serialsPayload = lines.filter(l => l.tracked && l.quantity > 0).map(l => ({ product_id: l.product_id, serials: l.serials ?? [] }))
+  const [serialLine, setSerialLine] = useState<{ id: string; name: string } | null>(null)
   const submit = async (send: boolean) => {
     if (!source || !dest) return
     const items = lines.filter(l => l.quantity > 0).map(l => ({ product_id: l.product_id, quantity: l.quantity }))
@@ -146,14 +155,14 @@ export function TransferCreateDrawer({ open, onOpenChange, source, shops, workfl
         const json = await res.json()
         if (!res.ok) { toast({ title: json.error || tRoot('toast.error'), variant: 'destructive' }); return }
         if (send) {
-          const r2 = await fetch('/api/stock-transfers/send', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ transfer_id: draft.id }) })
+          const r2 = await fetch('/api/stock-transfers/send', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ transfer_id: draft.id, serials: serialsPayload }) })
           const j2 = await r2.json()
           if (!r2.ok) { toast({ title: j2.error || tRoot('toast.error'), variant: 'destructive' }); return }
           reference = j2.data?.reference || ''
         }
       } else {
         const res = await withTimeout(fetch('/api/stock-transfers', { method: 'POST', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ source_shop_id: source.id, destination_shop_id: dest, notes: notes.trim() || null, items, send, ...(prefill ? { request_id: prefill.request_id } : {}) }) }))
+          body: JSON.stringify({ source_shop_id: source.id, destination_shop_id: dest, notes: notes.trim() || null, items, send, ...(send ? { serials: serialsPayload } : {}), ...(prefill ? { request_id: prefill.request_id } : {}) }) }))
         const json = await res.json()
         if (!res.ok) { toast({ title: json.error || tRoot('toast.error'), variant: 'destructive' }); return }
         reference = json.data?.reference || ''
@@ -186,7 +195,7 @@ export function TransferCreateDrawer({ open, onOpenChange, source, shops, workfl
           )}
           <div className={FOOTER_ROW_CLASS}>
             <Button type="button" variant="outline" className={FOOTER_CANCEL_CLASS} onClick={requestClose} disabled={!!busy}>{tRoot('actions.cancel')}</Button>
-            <Button variant="stockshop" className={FOOTER_PRIMARY_CLASS} onClick={() => submit(true)} loading={busy === 'send'} disabled={!valid || !!busy} data-testid="transfer-send">
+            <Button variant="stockshop" className={FOOTER_PRIMARY_CLASS} onClick={() => submit(true)} loading={busy === 'send'} disabled={!valid || !serialsReady || !!busy} data-testid="transfer-send">
               {t('action_send')}
             </Button>
           </div>
@@ -244,6 +253,18 @@ export function TransferCreateDrawer({ open, onOpenChange, source, shops, workfl
                       <X className="h-4 w-4" />
                     </button>
                   </div>
+                  {l.tracked ? (
+                    // Produit suivi : numéros choisis dans la boutique de départ (un par unité envoyée)
+                    <div className="mt-2 space-y-1.5" data-testid="transfer-line-serials">
+                      {(l.serials?.length ?? 0) > 0 && <p className="truncate font-mono text-xs text-muted-foreground">{l.serials!.join(' · ')}</p>}
+                      {(l.serials?.length ?? 0) !== l.quantity && <p className="text-xs text-amber-700 dark:text-amber-400">{tRoot('serials.transfer_choose', { count: l.quantity })}</p>}
+                      <div className="flex justify-end">
+                        <Button type="button" variant="outline" className="h-11 gap-1.5" onClick={() => setSerialLine({ id: l.product_id, name: l.name })} data-testid="transfer-line-serials-button">
+                          <Hash className="h-4 w-4" />{tRoot('serials.cart_button', { count: l.serials?.length ?? 0 })}
+                        </Button>
+                      </div>
+                    </div>
+                  ) : (
                   <div className="mt-2 flex items-center justify-end gap-2">
                     <Button type="button" variant="outline" size="icon" className="h-11 w-11" onClick={() => setQty(l.product_id, l.quantity - 1)} aria-label={t('decrease')}><Minus className="h-4 w-4" /></Button>
                     <Input type="number" inputMode="numeric" min={0} max={l.available} value={l.quantity}
@@ -251,6 +272,7 @@ export function TransferCreateDrawer({ open, onOpenChange, source, shops, workfl
                       className="h-11 w-20 text-center text-base font-semibold tabular-nums" aria-label={`${l.name}`} />
                     <Button type="button" variant="outline" size="icon" className="h-11 w-11" onClick={() => setQty(l.product_id, Math.min(l.quantity + 1, l.available))} aria-label={t('increase')}><Plus className="h-4 w-4" /></Button>
                   </div>
+                  )}
                 </div>
               )
             })}
@@ -263,6 +285,14 @@ export function TransferCreateDrawer({ open, onOpenChange, source, shops, workfl
             className="w-full resize-none rounded-md border border-input bg-background px-3 py-2 text-sm" />
         </section>
       </div>
+      {/* Numéros de série d'une ligne suivie : en stock dans la boutique de départ */}
+      <SerialPicker
+        open={!!serialLine} onOpenChange={o => { if (!o) setSerialLine(null) }}
+        product={serialLine} shopId={source?.id ?? null} isOnline
+        initial={serialLine ? (lines.find(l => l.product_id === serialLine.id)?.serials ?? []) : []}
+        max={serialLine ? (lines.find(l => l.product_id === serialLine.id)?.available ?? 0) : 0}
+        onConfirm={serials => { if (serialLine) setLines(prev => prev.map(l => l.product_id === serialLine.id ? { ...l, serials, quantity: serials.length } : l).filter(l => !(l.tracked && l.product_id === serialLine.id && serials.length === 0))) }}
+      />
     </AppDrawer>
   )
 }

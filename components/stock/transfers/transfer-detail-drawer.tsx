@@ -34,6 +34,7 @@ export function TransferDetailDrawer({ id, onOpenChange, onReceive, onSend, onEd
   busy?: string | null
 }) {
   const t = useTranslations('transfers')
+  const tRoot = useTranslations()
   const look = useShopLook()
   const locale = useLocale()
   const unitLabel = useUnitLabel()
@@ -134,6 +135,14 @@ export function TransferDetailDrawer({ id, onOpenChange, onReceive, onSend, onEd
                     <div className="min-w-0 flex-1">
                       <p className="font-medium leading-tight">{it.product_name}</p>
                       {it.sku && <p className="text-xs text-muted-foreground tabular-nums">{it.sku}</p>}
+                      {/* Numéros de série de la ligne (étape 11) : en transit, arrivés, manquants */}
+                      {it.serials?.length > 0 && (
+                        <p className="mt-1 flex flex-wrap gap-x-2 gap-y-0.5 font-mono text-[11px]" data-testid="detail-serials">
+                          {it.serials.map((x: any) => (
+                            <span key={x.serial} className={x.status === 'removed' ? 'text-amber-700 line-through dark:text-amber-400' : 'text-muted-foreground'} title={tRoot(`serials.status_${x.status}` as any)}>{x.serial}</span>
+                          ))}
+                        </p>
+                      )}
                       <div className="mt-1.5 grid grid-cols-3 gap-2 text-center text-xs">
                         <div className="rounded-md bg-muted/60 px-1.5 py-1"><p className="text-muted-foreground">{t('sent_label')}</p><p className="font-semibold tabular-nums text-sm">{it.quantity_sent}</p></div>
                         {received != null && (<>

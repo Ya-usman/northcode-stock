@@ -21,7 +21,7 @@ export async function GET(request: Request, { params }: { params: { id: string }
     const admin = await createAdminClient() as any
     const { data: row } = await admin
       .from('stock_movements')
-      .select('id, shop_id, product_id, type, quantity, previous_qty, new_qty, reason, notes, performed_by, created_at, count_session_id')
+      .select('id, shop_id, product_id, type, quantity, previous_qty, new_qty, reason, notes, performed_by, created_at, count_session_id, transfer_id')
       .eq('id', params.id).maybeSingle()
     // Même réponse pour « n'existe pas » et « pas à vous » : l'existence d'un mouvement ne se devine pas
     const role = row ? await checkShopRole(supabase, user.id, row.shop_id) : null
@@ -59,7 +59,13 @@ export async function GET(request: Request, { params }: { params: { id: string }
         }
       }
     } else if (described?.kind === 'transfer') {
-      const { data: transfers } = await admin.from('stock_transfers').select('id, reference, source_shop_id, destination_shop_id')
+      // Identifiant exact du transfert (stock_movements.transfer_id, depuis la 188) : les références sont numérotées par
+      // boutique de départ, deux transferts d'une même boutique peuvent porter « TR-2026-0001 » ; sinon, la référence
+      const byId = row.transfer_id
+        ? await admin.from('stock_transfers').select('id, reference, source_shop_id, destination_shop_id').eq('id', row.transfer_id)
+            .or(`source_shop_id.eq.${shopId},destination_shop_id.eq.${shopId}`).limit(1)
+        : null
+      const { data: transfers } = byId?.data?.length ? byId : await admin.from('stock_transfers').select('id, reference, source_shop_id, destination_shop_id')
         .eq('reference', described.ref).or(`source_shop_id.eq.${shopId},destination_shop_id.eq.${shopId}`).limit(2)
       if (transfers?.length === 1) {
         const tr = transfers[0]

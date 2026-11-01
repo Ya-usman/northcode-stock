@@ -1,6 +1,6 @@
 // Numéros de série : écart registre / stock et transferts (étape 11, 1er nov. 2026), test RÉEL sur Boutique Alpha,
 // serveur LOCAL, compte propriétaire, produit TEST de rt-197-198 (3 en stock, 3 numéros) :
-//   1. transfert d'un produit suivi refusé (rien écrit) ;
+//   1. transfert d'un produit suivi SANS numéros refusé (rien écrit) — depuis la 199, il part avec ses numéros ;
 //   2. vente hors ligne avec un numéro INCONNU : 1 unité sort, aucun numéro vendu → 1 numéro « en trop » ;
 //   3. retrait d'un numéro en trop (motif) ; second retrait refusé (plus d'écart) ;
 //   4. annulation de la vente : 1 unité sans numéro → numéroter à nouveau (le numéro retiré revient en stock).
@@ -39,10 +39,12 @@ const ok = (c, m, x) => { c ? pass++ : fail++; console.log(`  ${c ? 'ok   ' : '�
   const start = await inStock()
   if (P.quantity !== 3 || start.length !== 3) { console.log(`Arrêt : état de départ inattendu (${P.quantity} en stock, ${start.length} numéros), rien écrit.`); process.exit(1) }
 
-  console.log('\n1. Transfert d’un produit suivi')
+  console.log('\n1. Transfert d’un produit suivi sans numéros')
+  const transfersCount = async () => (await db.from('stock_transfers').select('id', { count: 'exact', head: true }).eq('source_shop_id', ALPHA)).count
+  const nBefore = await transfersCount()
   const tr = await call('POST', '/api/stock-transfers', { source_shop_id: ALPHA, destination_shop_id: YZ, items: [{ product_id: P.id, quantity: 1 }], send: true })
-  ok(tr.status === 400 && tr.body.code === 'transfer_serial_tracked_unsupported', `refusé : « ${tr.body.error} »`)
-  ok(await qty() === 3 && (await db.from('stock_transfers').select('id', { count: 'exact', head: true }).eq('source_shop_id', ALPHA).gte('created_at', new Date(Date.now() - 120000).toISOString())).count === 0, 'rien écrit (stock 3, aucun transfert)')
+  ok(tr.status === 400 && tr.body.code === 'serial_count_mismatch', `refusé : « ${tr.body.error} »`)
+  ok(await qty() === 3 && await transfersCount() === nBefore, `rien écrit (stock 3, aucun nouveau transfert : ${nBefore})`)
 
   console.log('\n2. Écart : vente hors ligne au numéro inconnu')
   const tag = Date.now().toString(36).toUpperCase()

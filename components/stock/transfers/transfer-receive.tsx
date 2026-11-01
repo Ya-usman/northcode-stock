@@ -31,7 +31,9 @@ const supabase = createClient() as any
 const CAUSES = ['transport_loss', 'theft', 'breakage', 'count_error', 'other'] as const
 const newKey = () => (typeof crypto !== 'undefined' && 'randomUUID' in crypto ? crypto.randomUUID() : `${Date.now()}-${Math.random()}`)
 
-interface LineState { received: number; destination_product_id: string | null; cause: string; detail: string; matchSearch: string; changing: boolean }
+interface LineState { received: number; destination_product_id: string | null; cause: string; detail: string; matchSearch: string; changing: boolean
+  /** Ligne suivie par numéro de série (étape 11) : numéros arrivés (cochés) ; la quantité reçue en découle */
+  serials?: string[] }
 
 export function TransferReceive({ id, token }: { id: string; token: string | null }) {
   const t = useTranslations('transfers')
@@ -96,7 +98,9 @@ export function TransferReceive({ id, token }: { id: string; token: string | nul
         const match = (it.destination_product_id && list.find(p => p.id === it.destination_product_id))
           || (it.sku && list.find(p => (p.sku || '') === it.sku))
           || list.find(p => normalize(p.name) === normalize(it.product_name))
-        init[it.id] = { received: it.quantity_sent, destination_product_id: match?.id ?? null, cause: '', detail: '', matchSearch: '', changing: false }
+        const transit = ((it.serials || []) as any[]).filter(x => x.status === 'in_transit').map(x => x.serial)
+        init[it.id] = { received: it.quantity_sent, destination_product_id: match?.id ?? null, cause: '', detail: '', matchSearch: '', changing: false,
+          ...(transit.length ? { serials: transit } : {}) }
       }
       setLines(init)
     })().catch(e => { if (!cancelled) setError(e.message) })
@@ -109,11 +113,18 @@ export function TransferReceive({ id, token }: { id: string; token: string | nul
 
   // Mode scan : on compte ce qu'on a dans les mains (départ à 0), un scan = +1
   const startScan = () => {
-    setLines(prev => Object.fromEntries(Object.entries(prev).map(([k, v]) => [k, { ...v, received: 0 }])))
+    setLines(prev => Object.fromEntries(Object.entries(prev).map(([k, v]) => [k, { ...v, received: 0, ...(v.serials ? { serials: [] } : {}) }])))
     setScanMode(true)
   }
   const onScan = useCallback((code: string) => {
     setLines(prev => {
+      const hit = items.find(it => ((it.serials || []) as any[]).some(x => x.status === 'in_transit' && x.serial.toUpperCase() === code.trim().toUpperCase()))
+      if (hit) {
+        const serial = (hit.serials as any[]).find(x => x.serial.toUpperCase() === code.trim().toUpperCase()).serial
+        const cur = prev[hit.id]?.serials ?? []
+        const next = cur.includes(serial) ? cur : [...cur, serial]
+        return { ...prev, [hit.id]: { ...prev[hit.id], serials: next, received: next.length } }
+      }
       const r = scanArticle(items.map(it => ({ item_id: it.id, sku: it.sku, sent: it.quantity_sent, received: prev[it.id]?.received ?? 0 })), code)
       if (r.result === 'unknown') { toast({ title: t('scan_not_in_transfer'), variant: 'destructive' }); return prev }
       const it = items.find(x => x.id === r.item_id)
@@ -133,6 +144,7 @@ export function TransferReceive({ id, token }: { id: string; token: string | nul
             const l = lines[it.id]
             const gap = it.quantity_sent - clampReceived(l.received, it.quantity_sent)
             return { transfer_item_id: it.id, quantity_received: clampReceived(l.received, it.quantity_sent), destination_product_id: l.destination_product_id,
+              ...(l.serials ? { serials_received: l.serials } : {}),
               discrepancy_category: gap > 0 && l.cause ? l.cause : null, discrepancy_detail: gap > 0 && l.detail.trim() ? l.detail.trim() : null }
           }),
         }),
@@ -248,8 +260,28 @@ export function TransferReceive({ id, token }: { id: string; token: string | nul
                 </div>
               </div>
 
+              {l.serials && (
+                // Numéros envoyés : décocher ceux qui ne sont pas arrivés (ils seront retirés, « manquant au transfert »)
+                <ul className="mt-3 divide-y rounded-lg border" data-testid="receive-serials">
+                  {((it.serials || []) as any[]).filter(x => x.status === 'in_transit').map(x => {
+                    const checked = l.serials!.includes(x.serial)
+                    return (
+                      <li key={x.serial}>
+                        <label className="flex min-h-11 items-center gap-3 px-3 py-2 font-mono text-sm">
+                          <input type="checkbox" className="h-5 w-5 accent-stockshop-blue" checked={checked}
+                            onChange={() => { const next = checked ? l.serials!.filter(s => s !== x.serial) : [...l.serials!, x.serial]; setLine(it.id, { serials: next, received: next.length }) }} />
+                          {x.serial}
+                        </label>
+                      </li>
+                    )
+                  })}
+                </ul>
+              )}
               <div className="mt-3 flex items-center justify-between gap-3">
                 <div className="text-sm"><p className="text-muted-foreground">{tRoot('transfers.sent_label')}</p><p className="text-lg font-bold tabular-nums">{it.quantity_sent}</p></div>
+                {l.serials ? (
+                  <div className="text-right text-sm"><p className="text-muted-foreground">{t('received_label')}</p><p className="text-lg font-bold tabular-nums" data-testid="receive-qty">{received}</p></div>
+                ) : (
                 <div className="flex items-center gap-2">
                   <Button type="button" variant="outline" size="icon" className="h-12 w-12" onClick={() => setLine(it.id, { received: clampReceived(received - 1, it.quantity_sent) })} aria-label={t('decrease')} disabled={received <= 0}><Minus className="h-5 w-5" /></Button>
                   <Input type="number" inputMode="numeric" min={0} max={it.quantity_sent} value={received}
@@ -257,6 +289,7 @@ export function TransferReceive({ id, token }: { id: string; token: string | nul
                     className="h-12 w-20 text-center text-lg font-bold tabular-nums" aria-label={`${t('received_label')} : ${it.product_name}`} data-testid="receive-qty" />
                   <Button type="button" variant="outline" size="icon" className="h-12 w-12" onClick={() => setLine(it.id, { received: clampReceived(received + 1, it.quantity_sent) })} aria-label={t('increase')} disabled={received >= it.quantity_sent}><Plus className="h-5 w-5" /></Button>
                 </div>
+                )}
               </div>
 
               {gap > 0 && (

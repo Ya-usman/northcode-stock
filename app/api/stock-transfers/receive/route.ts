@@ -5,6 +5,7 @@ import { canWriteFeature } from '@/lib/api/role-permissions'
 import { writeAuditLog, getClientIp } from '@/lib/api/audit'
 import { getApiTranslator } from '@/lib/api/i18n'
 import { DISCREPANCY_CATEGORIES, isUuid, loadNames, ownSendBlocked, transferError, transferWorkflowAvailable } from '@/lib/api/transfers'
+import { cleanSerials, serialErrorResponse } from '@/lib/api/serials'
 
 // POST /api/stock-transfers/receive — réception DÉFINITIVE (migration 188, une seule opération) : toutes les lignes,
 // quantité reçue entre 0 et l'envoyé ; le manque est un écart enregistré (cause et précision facultatives) ; stock et
@@ -39,7 +40,9 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: t('transfer_receive_own_send'), code: 'transfer_receive_own_send' }, { status: 403 })
 
     const workflow = await transferWorkflowAvailable(admin)
+    // Numéros arrivés (lot C, migration 199) : un par unité reçue, parmi ceux en transit de la ligne
     const lines = items.map((it: any) => ({
+      serials_received: cleanSerials(it?.serials_received) ?? [],
       item_id: it?.transfer_item_id,
       quantity_received: Math.floor(Number(it?.quantity_received)),
       destination_product_id: isUuid(it?.destination_product_id) ? it.destination_product_id : null,
@@ -49,7 +52,13 @@ export async function POST(request: Request) {
     if (lines.some((l: any) => !isUuid(l.item_id) || !Number.isFinite(l.quantity_received) || l.quantity_received < 0))
       return NextResponse.json({ error: t('transfer_invalid_quantity', { product: '', max: 0 }) }, { status: 400 })
 
-    const { data, error } = workflow
+    const { count: inTransitSerials } = await admin.from('product_serials').select('id', { count: 'exact', head: true }).eq('transfer_id', transfer_id).eq('status', 'in_transit')
+    const { data, error } = workflow && (inTransitSerials || 0) > 0
+      ? await admin.rpc('receive_transfer_with_serials', {
+          p_transfer_id: transfer_id, p_dest: tr.destination_shop_id, p_user: user.id,
+          p_receipt_key: isUuid(receipt_key) ? receipt_key : crypto.randomUUID(), p_lines: lines,
+        })
+      : workflow
       ? await admin.rpc('receive_stock_transfer_final', {
           p_transfer_id: transfer_id, p_dest: tr.destination_shop_id, p_user: user.id,
           p_receipt_key: isUuid(receipt_key) ? receipt_key : crypto.randomUUID(), p_lines: lines,
@@ -60,6 +69,8 @@ export async function POST(request: Request) {
             discrepancy_category: l.discrepancy_category, discrepancy_detail: l.discrepancy_detail })),
         })
     if (error) {
+      const se = serialErrorResponse(error, t)
+      if (se) return NextResponse.json(se.body, { status: se.status })
       const e = transferError(error)
       if (e?.key === 'transfer_already_received') {
         // « Déjà réceptionné » : date et personne de la première réception

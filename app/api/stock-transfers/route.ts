@@ -7,7 +7,7 @@ import { writeAuditLog, getClientIp } from '@/lib/api/audit'
 import { getApiTranslator } from '@/lib/api/i18n'
 import { notifyRequester } from '@/lib/api/transfer-requests'
 import { loadNames, ownSendBlocked, transferError, transferWorkflowAvailable } from '@/lib/api/transfers'
-import { trackedProductNames } from '@/lib/api/serials'
+import { cleanSerialsByProduct, serialErrorResponse, trackedProductNames } from '@/lib/api/serials'
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
@@ -101,7 +101,7 @@ export async function POST(request: Request) {
     const { user, supabase } = await getAuthedUser()
     if (!user) return NextResponse.json({ error: t('not_authenticated') }, { status: 401 })
 
-    const { source_shop_id, destination_shop_id, notes, items, send, request_id } = await request.json()
+    const { source_shop_id, destination_shop_id, notes, items, send, request_id, serials } = await request.json()
     if (!UUID.test(String(source_shop_id || '')) || !UUID.test(String(destination_shop_id || '')))
       return NextResponse.json({ error: t('source_destination_required') }, { status: 400 })
     if (!Array.isArray(items) || items.length === 0)
@@ -115,9 +115,10 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: t('permission_denied') }, { status: 403 })
 
     const admin = await createAdminClient() as any
-    // Produit suivi par numéro de série : transfert pas encore pris en charge (lot C), refus explicite
-    const tracked = await trackedProductNames(admin, cleanItems.map(it => it.product_id))
-    if (tracked.length) return NextResponse.json({ error: t('transfer_serial_tracked_unsupported', { product: tracked[0] }), code: 'transfer_serial_tracked_unsupported' }, { status: 400 })
+    // Produit suivi par numéro de série (lot C, migration 199) : à l'envoi, un numéro par unité (contrôlés par la base)
+    const trackedNames = await trackedProductNames(admin, cleanItems.map(it => it.product_id))
+    const serialList = cleanSerialsByProduct(serials)
+    if (!serialList) return NextResponse.json({ error: t('serial_invalid', { serial: '' }) }, { status: 400 })
     let linked: any = null
     if (request_id != null) {
       if (!UUID.test(String(request_id))) return NextResponse.json({ error: t('invalid_data') }, { status: 400 })
@@ -131,7 +132,11 @@ export async function POST(request: Request) {
     const workflow = await transferWorkflowAvailable(admin)
     const asDraft = send === false
     if (asDraft && !workflow) return NextResponse.json({ error: t('transfer_draft_unavailable') }, { status: 503 })
-    const { data, error } = workflow
+    const { data, error } = workflow && trackedNames.length && !asDraft
+      ? await admin.rpc('create_transfer_with_serials', {
+          p_source: source_shop_id, p_dest: destination_shop_id, p_user: user.id, p_notes: notes || null, p_items: cleanItems, p_serials: serialList,
+        })
+      : workflow
       ? await admin.rpc('create_stock_transfer', {
           p_source: source_shop_id, p_dest: destination_shop_id, p_user: user.id, p_notes: notes || null, p_items: cleanItems, p_send: !asDraft,
         })
@@ -139,6 +144,8 @@ export async function POST(request: Request) {
           p_source_shop_id: source_shop_id, p_destination_shop_id: destination_shop_id, p_performed_by: user.id, p_notes: notes || null, p_items: cleanItems,
         })
     if (error) {
+      const se = serialErrorResponse(error, t)
+      if (se) return NextResponse.json(se.body, { status: se.status })
       const e = transferError(error)
       return NextResponse.json({ error: e ? t(e.key as any, e.params as any) : error.message, code: e?.key }, { status: 400 })
     }

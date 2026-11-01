@@ -3902,6 +3902,7 @@
     "zero_lot_meta": "ya ƙare · {initial} {unit} a farko"
   },
   "api_errors": {
+    "serial_not_in_transit": "Lambar {serial} ba ta kan hanya a wannan layi.",
     "serial_remove_not_surplus": "Ana iya cire lamba ne kawai idan rajista tana da lambobi fiye da kayan da ke hannu.",
     "transfer_serial_tracked_unsupported": "« {product} » ana bin lambobin serial ɗinsa: ba za a iya canja wurinsa ba tukuna.",
     "serial_count_mismatch": "« {product} »: ana bukatar lambar serial ɗaya ga kowane guda.",
@@ -5407,6 +5408,8 @@
     "packs_count": "Wato {pack} {packs} na {count}"
   },
   "serials": {
+    "inventory_hint": "Ana bin lambobin serial: bayan ƙidaya, sabunta lambobinsa a shafin kayan.",
+    "transfer_choose": "Zaɓi lambobin da za a aika a wannan shago.",
     "surplus": "Lambobi {count} sun fi kayan da ke hannu: cire waɗanda ba sa shago",
     "remove_action": "Cire",
     "remove_reason_placeholder": "Dalili (ya ɓace, ya karye…)",

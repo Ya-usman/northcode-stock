@@ -81,10 +81,13 @@ export async function GET(request: Request) {
     if (q.length >= MOVEMENT_SEARCH_MIN) {
       // Produits et employés : comparés sans accents ni majuscules (« cafe » trouve « Café »), comme partout
       // ailleurs dans l'application ; références : cherchées dans le motif, après son début fixe.
-      const needle = normalize(q)
+      // La saisie est nettoyée de la ponctuation qui casserait le filtre (parenthèses, virgules…) : les noms sont
+      // comparés nettoyés de la même façon (1er nov. 2026 : avant, « Balai (piece) » ne se trouvait pas par son nom)
+      const loose = (s: string) => normalize(s).replace(/[%_,()*\\"':]/g, ' ').replace(/\s+/g, ' ').trim()
+      const needle = loose(q)
       const [products, people] = await Promise.all([searchableProducts(admin, allowedIds), searchablePeople(admin, allowedIds)])
-      const productIds = products.filter(p => normalize(p.name || '').includes(needle) || normalize(p.sku || '').includes(needle)).map(p => p.id)
-      const peopleIds = people.filter(p => normalize(p.full_name || '').includes(needle)).map(p => p.id).slice(0, ID_CHUNK)
+      const productIds = products.filter(p => loose(p.name || '').includes(needle) || loose(p.sku || '').includes(needle)).map(p => p.id)
+      const peopleIds = people.filter(p => loose(p.full_name || '').includes(needle)).map(p => p.id).slice(0, ID_CHUNK)
       const always = REASON_REFERENCE_PREFIXES.map(prefix => `reason.ilike.${prefix}%${q}%`)
       if (peopleIds.length) always.push(`performed_by.in.(${peopleIds.join(',')})`)
       const chunks: string[][] = []

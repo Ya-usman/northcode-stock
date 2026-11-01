@@ -3902,6 +3902,7 @@
     "zero_lot_meta": "épuisé · {initial} {unit} au départ"
   },
   "api_errors": {
+    "serial_not_in_transit": "Le numéro {serial} n’est pas en transit sur cette ligne.",
     "serial_remove_not_surplus": "Ce numéro ne peut être retiré que si le registre compte plus de numéros que d’unités en stock.",
     "transfer_serial_tracked_unsupported": "« {product} » est suivi par numéro de série : son transfert n’est pas encore possible.",
     "serial_count_mismatch": "« {product} » : il faut un numéro de série par unité.",
@@ -5407,6 +5408,8 @@
     "packs_count": "Soit {packs} {pack} de {count}"
   },
   "serials": {
+    "inventory_hint": "Suivi par numéro de série : après l’inventaire, mettez à jour ses numéros dans la fiche.",
+    "transfer_choose": "Choisissez {count, plural, =0 {les numéros à envoyer} one {# numéro} other {# numéros}} dans cette boutique.",
     "surplus": "{count, plural, one {# numéro de plus que le stock : retirez celui qui n’est plus en boutique} other {# numéros de plus que le stock : retirez ceux qui ne sont plus en boutique}}",
     "remove_action": "Retirer",
     "remove_reason_placeholder": "Motif (perdu, cassé…)",

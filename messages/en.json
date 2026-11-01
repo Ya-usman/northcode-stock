@@ -3902,6 +3902,7 @@
     "zero_lot_meta": "depleted · {initial} {unit} initially"
   },
   "api_errors": {
+    "serial_not_in_transit": "Number {serial} is not in transit on this line.",
     "serial_remove_not_surplus": "A number can only be removed when the register holds more numbers than units in stock.",
     "transfer_serial_tracked_unsupported": "\"{product}\" is tracked by serial number: it cannot be transferred yet.",
     "serial_count_mismatch": "\"{product}\": one serial number is needed per unit.",
@@ -5407,6 +5408,8 @@
     "packs_count": "That is {packs} {pack} of {count}"
   },
   "serials": {
+    "inventory_hint": "Tracked by serial number: after the count, update its numbers in the product sheet.",
+    "transfer_choose": "Choose {count, plural, =0 {the numbers to send} one {# number} other {# numbers}} in this shop.",
     "surplus": "{count, plural, one {# number more than the stock: remove the one no longer in the shop} other {# numbers more than the stock: remove those no longer in the shop}}",
     "remove_action": "Remove",
     "remove_reason_placeholder": "Reason (lost, broken…)",

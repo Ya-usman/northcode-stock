@@ -29,7 +29,7 @@ export function serialErrorResponse(error: any, t: (k: any, v?: any) => string):
   const detail = String(error?.details || error?.detail || '')
   const map: Record<string, string> = {
     P0041: 'serial_count_mismatch', P0042: 'serial_taken', P0043: 'serial_invalid', P0044: 'serial_duplicate_input',
-    P0045: 'serial_exceeds_stock', P0046: 'serial_not_in_stock', P0047: 'serial_product_not_tracked',
+    P0045: 'serial_exceeds_stock', P0046: 'serial_not_in_stock', P0047: 'serial_product_not_tracked', P0048: 'serial_not_in_transit',
   }
   const key = map[code]
   if (!key) return null
@@ -63,4 +63,17 @@ export async function trackedProductNames(admin: any, productIds: (string | null
   if (!ids.length) return []
   const { data } = await admin.from('products').select('name').in('id', ids).eq('track_serials', true)
   return (data || []).map((p: any) => p.name)
+}
+
+/** Numéros par produit d'un transfert ([{ product_id, serials }]) : forme propre ou null si invalide */
+export function cleanSerialsByProduct(input: unknown): { product_id: string; serials: string[] }[] | null {
+  if (input == null) return []
+  if (!Array.isArray(input)) return null
+  const out: { product_id: string; serials: string[] }[] = []
+  for (const e of input) {
+    const serials = cleanSerials((e as any)?.serials)
+    if (!serials || typeof (e as any)?.product_id !== 'string') return null
+    if (serials.length) out.push({ product_id: (e as any).product_id, serials })
+  }
+  return out
 }
