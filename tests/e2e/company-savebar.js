@@ -21,13 +21,21 @@ const ok = (c, m) => { c ? pass++ : fail++; console.log(`  ${c ? 'ok   ' : 'ÉCH
 process.on('unhandledRejection', e => { if (/has been closed/.test(String(e && e.message))) return; console.error('ERREUR', e); process.exit(1) })
 const BACKGROUND = w => (w.method === 'PATCH' && w.path === '/rest/v1/profiles') || w.path === '/api/auth/set-role'
 
-async function open({ width, height, account }) {
+async function open({ width, height, account, simulateUnconfirmed = false }) {
   const a = ACCOUNTS[account]
   const s = await session({ width, height, scale: 1, locale: 'fr', email: a.email })
   s.entity = (await db.from('entities').select('name, name_confirmed').eq('id', a.entity).single()).data
   await s.page.addInitScript(id => { try { if (!sessionStorage.getItem('__ctx')) { sessionStorage.setItem('__ctx', '1'); localStorage.setItem('dashboard_shop_filter', id); localStorage.setItem('active_shop_id', id) } } catch {} }, a.shop)
   s.writes = []; s.errors = []
   s.page.on('pageerror', e => s.errors.push(e.message.slice(0, 120)))
+  // Nom déjà confirmé en base (Alpha, confirmé par l'utilisateur le 1er nov. 2026) : pour vérifier le bandeau sans toucher
+  // aux données, la réponse /api/entity reçue par CE navigateur porte name_confirmed = false (lecture réelle, valeur simulée)
+  if (simulateUnconfirmed) await s.page.route(/\/api\/entity\?/, async route => {
+    if (route.request().method() !== 'GET') return route.fallback()
+    const resp = await route.fetch(); const j = await resp.json()
+    if (j.entity) j.entity.name_confirmed = false
+    return route.fulfill({ response: resp, json: j })
+  })
   await s.page.route(/\/(api|rest\/v1)\//, route => {
     const r = route.request(), url = new URL(r.url())
     if (['GET', 'HEAD'].includes(r.method())) return route.fallback()
@@ -49,8 +57,8 @@ const snapshot = async () => JSON.stringify((await db.from('entities').select('i
 ;(async () => {
   const before = await snapshot()
   console.log('\n1. Ordinateur (1366 × 900) — Alpha, nom non confirmé')
-  let s = await open({ width: 1366, height: 900, account: 'alpha' })
-  ok(s.entity.name_confirmed === false, `état en base : nom « ${s.entity.name} » non confirmé`)
+  let s = await open({ width: 1366, height: 900, account: 'alpha', simulateUnconfirmed: true })
+  console.log(`  info  état réel en base : nom « ${s.entity.name} » ${s.entity.name_confirmed ? 'confirmé → non confirmé simulé dans la réponse lue par ce navigateur' : 'non confirmé'}`)
   ok(await s.page.getByTestId('company-savebar').count() === 0, 'sans modification : aucune barre d’enregistrement')
   ok(await s.page.getByTestId('company-confirm-name').isVisible(), 'bandeau : « Confirmer ce nom »')
   ok(/modifiez-le dans le champ « Nom de l’entreprise » puis enregistrez/.test(await s.page.getByTestId('company-confirm').innerText()), 'bandeau : indique où modifier')

@@ -56,13 +56,22 @@ const readStore = (page, store) => page.evaluate(store => new Promise(res => { c
 
 ;(async () => {
   const month = new Date().toISOString().slice(0, 7)
-  const exps = (await db.from('expenses').select('id, shop_id, description, date, is_recurring').in('shop_id', [AKWA, BONA, BASTOS]).eq('is_recurring', false).gte('date', month + '-01')).data
+  const expsOf = async (from, to) => {
+    let q = db.from('expenses').select('id, shop_id, description, date, is_recurring').in('shop_id', [AKWA, BONA, BASTOS]).eq('is_recurring', false).gte('date', from + '-01')
+    if (to) q = q.lt('date', to + '-01')
+    return (await q).data
+  }
+  let exps = await expsOf(month)
+  // Début de mois (ex. le 1er novembre) : aucune dépense d'Akwa encore → repères et écran sur le mois précédent
+  const prevMonth = !exps.some(e => e.shop_id === AKWA)
+  if (prevMonth) { const d = new Date(month + '-01T12:00:00Z'); d.setUTCMonth(d.getUTCMonth() - 1); exps = await expsOf(d.toISOString().slice(0, 7), month) }
   const akwaExp = exps.find(e => e.shop_id === AKWA)
   const shopsWithExp = [...new Set(exps.map(e => e.shop_id))]
-  console.log(`Repères : ${exps.length} dépenses ce mois (${shopsWithExp.map(x => FULL[x]).join(', ')}), budgets à Akwa seulement`)
+  console.log(`Repères : ${exps.length} dépenses ${prevMonth ? 'le mois précédent' : 'ce mois'} (${shopsWithExp.map(x => FULL[x]).join(', ')}), budgets à Akwa seulement`)
 
   console.log('\n1. Dépenses en « Toutes » (boutique cachée : Bastos)')
   let s = await open('expenses'); let page = s.page
+  if (prevMonth) { await page.getByRole('button', { name: /mois précédent/i }).first().click(); await page.locator('[data-testid="expense-row"]').first().waitFor({ timeout: 20000 }).catch(() => {}); await page.waitForTimeout(2500) }
   ok(await page.getByTestId('shop-scope-badge').isVisible(), 'badge « Toutes les boutiques »')
   const shopsOnRows = await page.locator('[data-expense-shop]').allInnerTexts()
   ok(shopsOnRows.length === exps.length && shopsOnRows.every(x => Object.values(FULL).includes(x.trim())), `chaque ligne rappelle sa boutique (${shopsOnRows.length} lignes)`)
