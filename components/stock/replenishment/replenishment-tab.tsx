@@ -23,6 +23,7 @@ import { ProductThumbnail } from '@/components/stock/product-thumbnail'
 import { formatCurrency } from '@/lib/utils/currency'
 import { formatLocaleDate } from '@/lib/i18n/date-format'
 import { useUnitLabel } from '@/lib/products/use-unit-label'
+import { roundUpToPacks } from '@/lib/products/packaging'
 import { cn } from '@/lib/utils/cn'
 import {
   REPLENISH_HORIZONS, bestOffers, cheapestChoice, expectedDeliveryDate, normalizeHorizon, suggestedQty, suggestionBasis,
@@ -92,7 +93,13 @@ export function ReplenishmentTab() {
     it.offers.map(o => ({ supplierId: o.supplier_id, price: o.price, priceAt: o.price_at, leadDays: leadOf(o.supplier_id) })), [leadOf])
 
   const supplierOf = (it: ReplenishItem) => (it.product_id in choice ? choice[it.product_id] : it.supplier_id ?? NO_SUPPLIER)
-  const suggestionOf = (it: ReplenishItem, supplierId: string) => suggestedQty({ ...factsOf(it), available: it.projected }, { horizon, leadDays: leadOf(supplierId) })
+  // Avec un conditionnement par défaut (étape 9), la suggestion s'arrondit au colis complet supérieur
+  const suggestionOf = (it: ReplenishItem, supplierId: string) => {
+    const raw = suggestedQty({ ...factsOf(it), available: it.projected }, { horizon, leadDays: leadOf(supplierId) })
+    return it.pack && raw > 0 ? roundUpToPacks(raw, it.pack.units_per_pack).base : raw
+  }
+  const stepOf = (it: ReplenishItem) => it.pack?.units_per_pack ?? 1
+  const packsOf = (it: ReplenishItem, q: number) => (it.pack && q > 0 && q % it.pack.units_per_pack === 0 ? q / it.pack.units_per_pack : null)
   const basisOf = (it: ReplenishItem, supplierId: string) => suggestionBasis(factsOf(it), { horizon, leadDays: leadOf(supplierId) })
   const qtyOf = (it: ReplenishItem) => qty[it.product_id] ?? suggestionOf(it, supplierOf(it))
   const priceOf = (it: ReplenishItem, supplierId: string) => it.offers.find(o => o.supplier_id === supplierId)?.price ?? null
@@ -146,7 +153,8 @@ export function ReplenishmentTab() {
         key, shopId: g.shopId, shopName: multiShop ? shop.name : null, supplierId: g.supplierId,
         supplierName: supplierById[g.supplierId]?.name ?? '', currency: shop.currency || 'XAF', canViewCost: shop.can_view_cost,
         expected: expectedDeliveryDate(shop.today, leadOf(g.supplierId)),
-        lines: lines.map(it => ({ productId: it.product_id, name: it.name, unit: it.unit, qty: qtyOf(it), price: shop.can_view_cost ? priceOf(it, g.supplierId) : null })),
+        lines: lines.map(it => ({ productId: it.product_id, name: it.name, unit: it.unit, qty: qtyOf(it), price: shop.can_view_cost ? priceOf(it, g.supplierId) : null,
+          ...(packsOf(it, qtyOf(it)) ? { packagingId: it.pack!.id, packQty: packsOf(it, qtyOf(it))! } : {}) })),
         status: 'pending',
       })
     }
@@ -164,7 +172,9 @@ export function ReplenishmentTab() {
           method: 'POST', headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             shop_id: o.shopId, supplier_id: o.supplierId, notes: t('po_note'), expected_delivery_date: o.expected,
-            items: o.lines.map(l => ({ product_id: l.productId, product_name: l.name, unit: l.unit, quantity_ordered: l.qty, unit_price: l.price })),
+            items: o.lines.map(l => ({ product_id: l.productId, product_name: l.name, unit: l.unit, quantity_ordered: l.qty, unit_price: l.price,
+              // Quantité en colis complets : le bon garde la saisie en colis (le serveur relit le conditionnement)
+              ...(l.packagingId ? { packaging_id: l.packagingId, pack_qty: l.packQty } : {}) })),
           }),
         })
         const json = await res.json().catch(() => ({}))
@@ -353,12 +363,13 @@ export function ReplenishmentTab() {
                                 ? <button type="button" className="inline-flex items-center gap-1 font-medium text-stockshop-blue hover:underline dark:text-blue-400" onClick={() => setQty(p => { const n = { ...p }; delete n[it.product_id]; return n })}>
                                     <RotateCcw className="h-3 w-3" />{t('suggested_reset', { n: fmtNum(sugg) })}</button>
                                 : <span>{t('suggested', { n: fmtNum(sugg) })}{it.unit ? ` ${unitLabel(it.unit, sugg)}` : ''}</span>}
+                              {packsOf(it, q) && <span className="block text-stockshop-blue dark:text-blue-400" data-testid="replenishment-packs">{tRoot('packaging.packs_count', { packs: packsOf(it, q)!, pack: unitLabel(it.pack!.unit, packsOf(it, q)!), count: it.pack!.units_per_pack })}</span>}
                             </div>
                             <div className="flex shrink-0 items-center gap-2">
-                              <Button type="button" variant="outline" size="icon" className="h-11 w-11" disabled={!shop?.can_order || q <= 0} onClick={() => setLineQty(it, q - 1)} aria-label={t('decrease', { name: it.name })}><Minus className="h-4 w-4" /></Button>
+                              <Button type="button" variant="outline" size="icon" className="h-11 w-11" disabled={!shop?.can_order || q <= 0} onClick={() => setLineQty(it, Math.max(0, q - stepOf(it)))} aria-label={t('decrease', { name: it.name })}><Minus className="h-4 w-4" /></Button>
                               <Input type="number" inputMode="numeric" min={0} value={q} disabled={!shop?.can_order} onChange={e => setLineQty(it, Number(e.target.value))}
                                 className="h-11 w-20 text-center text-base font-bold tabular-nums" aria-label={t('qty_label', { name: it.name })} data-testid="replenishment-qty" />
-                              <Button type="button" variant="outline" size="icon" className="h-11 w-11" disabled={!shop?.can_order} onClick={() => setLineQty(it, q + 1)} aria-label={t('increase', { name: it.name })}><Plus className="h-4 w-4" /></Button>
+                              <Button type="button" variant="outline" size="icon" className="h-11 w-11" disabled={!shop?.can_order} onClick={() => setLineQty(it, q + stepOf(it))} aria-label={t('increase', { name: it.name })}><Plus className="h-4 w-4" /></Button>
                             </div>
                           </div>
 

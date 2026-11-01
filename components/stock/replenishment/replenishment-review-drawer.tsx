@@ -23,7 +23,7 @@ export interface ReviewOrder {
   currency: string
   canViewCost: boolean
   expected: string | null
-  lines: { productId: string; name: string; unit: string | null; qty: number; price: number | null }[]
+  lines: { productId: string; name: string; unit: string | null; qty: number; price: number | null; packagingId?: string; packQty?: number }[]
   status: 'pending' | 'creating' | 'done' | 'error'
   reference?: string | null
   error?: string | null

@@ -6,6 +6,7 @@ import { canViewCost, canViewFeature, canWriteFeature } from '@/lib/api/role-per
 import { orderForViewer, canViewSupplierDebt } from '@/lib/api/supplier-access'
 import { getApiTranslator } from '@/lib/api/i18n'
 import { supplierOfShop, productsOutsideShop } from '@/lib/api/shop-objects'
+import { packRow, resolvePackLines } from '@/lib/api/packaging-lines'
 import {
   checkPoStatusTransition, poTransitionErrorKey, updatePoStatusAtomically, PO_TRANSITION_NOT_ALLOWED, PO_STATUS_CHANGED,
 } from '@/lib/api/purchase-order-status'
@@ -119,6 +120,10 @@ export async function POST(request: Request) {
     // SANS prix (une personne autorisée les complète) — jamais un prix saisi à l'aveugle.
     const seesCost = await canViewCost(supabase, role, shop_id)
 
+    // Lignes en colis (étape 9) : conditionnement relu en base AVANT de créer le bon
+    const packs = await resolvePackLines(admin, shop_id, items)
+    if (!packs.ok) return NextResponse.json({ error: t(packs.error as any) }, { status: 400 })
+
     const { data: po, error: poError } = await (admin as any)
       .from('purchase_orders')
       .insert({
@@ -130,12 +135,12 @@ export async function POST(request: Request) {
       .select().single()
     if (poError) return NextResponse.json({ error: poError.message }, { status: 400 })
 
-    const itemRows = items.map((it: any) => ({
+    const itemRows = items.map((it: any, i: number) => ({
       purchase_order_id: po.id,
       product_id: it.product_id || null,
       product_name: it.product_name,
       unit: it.unit || null,
-      quantity_ordered: Number(it.quantity_ordered),
+      ...packRow(packs.lines[i]),
       unit_price: seesCost && it.unit_price != null ? Number(it.unit_price) : null,
     }))
     const { error: itemsError } = await (admin as any).from('purchase_order_items').insert(itemRows)
@@ -230,13 +235,15 @@ export async function PATCH(request: Request) {
         const { data: oldLines } = await (admin as any).from('purchase_order_items').select('product_id, unit_price').eq('purchase_order_id', id)
         for (const l of oldLines || []) if (l.product_id) keptPrice.set(l.product_id, l.unit_price ?? null)
       }
+      const packs = await resolvePackLines(admin, shop_id, items)
+      if (!packs.ok) return NextResponse.json({ error: t(packs.error as any) }, { status: 400 })
       await (admin as any).from('purchase_order_items').delete().eq('purchase_order_id', id)
-      const itemRows = items.map((it: any) => ({
+      const itemRows = items.map((it: any, i: number) => ({
         purchase_order_id: id,
         product_id: it.product_id || null,
         product_name: it.product_name,
         unit: it.unit || null,
-        quantity_ordered: Number(it.quantity_ordered),
+        ...packRow(packs.lines[i]),
         unit_price: seesCost
           ? (it.unit_price != null ? Number(it.unit_price) : null)
           : (it.product_id ? keptPrice.get(it.product_id) ?? null : null),

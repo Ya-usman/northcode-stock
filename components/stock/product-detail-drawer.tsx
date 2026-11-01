@@ -22,6 +22,7 @@ import { useOffline } from '@/lib/offline/use-offline'
 import { type CoverageInfo, type StockQuantities } from '@/lib/stock/signals'
 import { cn } from '@/lib/utils/cn'
 import { lastSaleLabel } from '@/lib/stock/last-sale'
+import { ProductPackagings } from '@/components/stock/product-packagings'
 import { useAuthContext as useAuth } from '@/lib/contexts/auth-context'
 import { ElsewhereSheet, useElsewhere } from '@/components/stock/elsewhere/elsewhere-sheet'
 
@@ -30,8 +31,7 @@ import { ElsewhereSheet, useElsewhere } from '@/components/stock/elsewhere/elsew
 // tout — les chiffres viennent de /api/stock/product-detail, qui applique les
 // règles communes (lib/stock/signals) ; ce composant affiche, il ne recalcule
 // rien. Les actions du pied sont celles de la liste (mêmes fenêtres, mêmes
-// routes). Les sections à venir (valorisation, variantes, conditionnements,
-// emplacements) s'ajouteront comme de nouvelles <DrawerSection>.
+// routes). Les sections à venir (variantes, emplacements) s'ajouteront comme de nouvelles <DrawerSection>.
 
 export type ProductDetailSection = 'top' | 'batches'
 
@@ -427,6 +427,11 @@ export function ProductDetailDrawer({
                   )}
                 </div>
               )}
+            </DrawerSection>
+
+            {/* ── Conditionnements d'achat (étape 9) ────────────────────── */}
+            <DrawerSection title={t('packaging.title')} description={t('packaging.hint')}>
+              <ProductPackagings product={{ id: product.id, shop_id: product.shop_id, unit: product.unit ?? null }} />
             </DrawerSection>
 
             {/* ── Derniers mouvements ───────────────────────────────────── */}

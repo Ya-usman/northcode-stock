@@ -22,7 +22,8 @@
     "supplier_payments",
     "stock_transfer_allocations",
     "stock_transfer_tokens",
-    "stock_transfer_requests"
+    "stock_transfer_requests",
+    "product_packagings"
   ],
   "sourceRoots": [
     "app",

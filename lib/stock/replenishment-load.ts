@@ -41,6 +41,8 @@ export interface ReplenishItem {
   coverage_days: number | null
   requested?: boolean
   offers: { supplier_id: string; price: number | null; price_at: string | null }[]
+  /** Conditionnement d'achat par défaut (étape 9) : la suggestion s'arrondit au colis complet */
+  pack: { id: string; unit: string; units_per_pack: number } | null
 }
 
 export interface ReplenishSupplier { id: string; shop_id: string; name: string; phone: string | null; lead_days: number | null; lead_source: 'declared' | 'observed' | null; declared_days: number | null }
@@ -86,6 +88,12 @@ export async function loadReplenishment(admin: any, scopes: ReplenishShopScope[]
   ])
 
   const shopById = Object.fromEntries(shops.map((s: any) => [s.id, s]))
+  // Conditionnements par défaut (195) ; table absente ou illisible : aucun arrondi, comme avant
+  const packBy: Record<string, { id: string; unit: string; units_per_pack: number }> = {}
+  try {
+    const { data: packs } = await admin.from('product_packagings').select('id, product_id, unit, units_per_pack').in('shop_id', shopIds).eq('is_default', true)
+    for (const k of packs || []) packBy[k.product_id] = { id: k.id, unit: k.unit, units_per_pack: Number(k.units_per_pack) }
+  } catch { /* sans conditionnement */ }
   const draftedBy: Record<string, number> = {}
   for (const po of drafts) for (const it of po.purchase_order_items || []) {
     if (it.product_id) draftedBy[it.product_id] = (draftedBy[it.product_id] || 0) + (Number(it.quantity_ordered) || 0)
@@ -131,6 +139,7 @@ export async function loadReplenishment(admin: any, scopes: ReplenishShopScope[]
       reason: need.reason ?? null, projected: need.projected, daily: need.daily, coverage_days: need.coverageDays,
       ...(requested ? { requested: true } : {}),
       offers: offerList,
+      pack: packBy[p.id] ?? null,
     })
   }
   items.sort((a, b) => (REASON_ORDER[a.reason ?? ''] ?? 3) - (REASON_ORDER[b.reason ?? ''] ?? 3) || a.name.localeCompare(b.name))

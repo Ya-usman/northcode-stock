@@ -54,6 +54,7 @@ import { shopToday } from '@/lib/stock/sellable'
 import { addDays } from '@/lib/stock/batch-status'
 import { fetchStockPipeline, type StockPipeline } from '@/lib/stock/pipeline'
 import { lastSaleLabel } from '@/lib/stock/last-sale'
+import { packPriceToUnit, packToBase, type Packaging } from '@/lib/products/packaging'
 import { fetchReservedQtyByProduct } from '@/lib/stock/reservations'
 import { ProductThumbnail } from '@/components/stock/product-thumbnail'
 import { setPageCache, getPageCache } from '@/lib/offline/page-cache'
@@ -211,6 +212,9 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
   const [restoredAdd, setRestoredAdd] = useState<{ formKey: number; values: Partial<ProductFormData>; file: File | null } | null>(null)
   const [restoredEdit, setRestoredEdit] = useState<{ productId: string; values: Partial<ProductFormData>; file: File | null; applied: boolean } | null>(null)
   const [restockProduct, setRestockProduct] = useState<Product | null>(null)
+  // Conditionnements d'achat du produit (étape 9) : « Saisir en » pièces ou en colis ; '' = unité de base
+  const [restockPacks, setRestockPacks] = useState<Packaging[]>([])
+  const [restockPackId, setRestockPackId] = useState('')
   const [saving, setSaving] = useState(false)
   const [archivedProducts, setArchivedProducts] = useState<Product[]>([])
   const [deleteConfirmProduct, setDeleteConfirmProduct] = useState<Product | null>(null)
@@ -742,6 +746,18 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
     }
   }
 
+  useEffect(() => {
+    setRestockPacks([]); setRestockPackId('')
+    if (!restockProduct || !navigator.onLine) return
+    let cancelled = false
+    fetch(`/api/products/packagings?shop_id=${restockProduct.shop_id}&product_id=${restockProduct.id}`)
+      .then(r => (r.ok ? r.json() : { data: [] }))
+      .then(j => { if (cancelled) return; const list: Packaging[] = j.data || []; setRestockPacks(list); setRestockPackId(list.find(p => p.is_default)?.id ?? '') })
+      .catch(() => {})
+    return () => { cancelled = true }
+  }, [restockProduct?.id])
+  const restockPack = restockPacks.find(p => p.id === restockPackId) ?? null
+
   // Réapprovisionner : fournisseur habituel du produit proposé d'office (s'il existe encore dans sa boutique)
   const restockDefaults = (p: Product): RestockFormData => {
     const usual = (p as any).supplier_id && suppliers.some(s => s.id === (p as any).supplier_id && s.shop_id === p.shop_id) ? (p as any).supplier_id as string : undefined
@@ -751,6 +767,10 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
   const onRestock = async (data: RestockFormData) => {
     if (!restockProduct || !shop?.id) return
     if (!(await pastExpiry.confirm([data.expiry_date]))) return
+    // Saisie en colis (étape 9) : quantité et prix d'achat ramenés à l'unité de base ; le serveur ne voit que l'unité de base
+    const pack = restockPack
+    const qty = pack ? packToBase(Number(data.quantity), pack.units_per_pack) : Number(data.quantity)
+    const unitPrice = pack && data.buying_price ? packPriceToUnit(Number(data.buying_price), pack.units_per_pack) : data.buying_price
     setSaving(true)
 
     // Offline path — save to IndexedDB and update local cache optimistically
@@ -762,7 +782,7 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
         product_id: restockProduct.id,
         product_name: restockProduct.name,
         current_quantity: restockProduct.quantity,
-        quantity_to_add: data.quantity,
+        quantity_to_add: qty,
         supplier_name: suppliers.find(s => s.id === data.supplier_id)?.name || null,
         supplier_id: data.supplier_id || null,
         // Jamais de prix d'achat sur l'appareil : le serveur prend le coût déjà connu à la synchronisation
@@ -772,15 +792,15 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
         created_at: new Date().toISOString(),
         synced: false,
       })
-      await updateCachedProductQuantity(restockProduct.id, data.quantity)
+      await updateCachedProductQuantity(restockProduct.id, qty)
       registerBackgroundSync()
       setSaving(false)
-      toast({ title: t('toast.restock_done', { qty: data.quantity, name: restockProduct.name }), variant: 'success' })
+      toast({ title: t('toast.restock_done', { qty, name: restockProduct.name }), variant: 'success' })
       setShowRestockModal(false)
       restockForm.reset()
       // Update UI locally — no network call
       setProducts(prev => prev.map(p =>
-        p.id === restockProduct.id ? { ...p, quantity: p.quantity + data.quantity } : p
+        p.id === restockProduct.id ? { ...p, quantity: p.quantity + qty } : p
       ))
       return
     }
@@ -794,10 +814,10 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
           // La boutique DU produit (en « Toutes les boutiques », elle peut différer de la boutique active)
           shop_id: restockProduct.shop_id,
           current_quantity: restockProduct.quantity,
-          quantity_to_add: data.quantity,
+          quantity_to_add: qty,
           supplier_name: suppliers.find(s => s.id === data.supplier_id)?.name || null,
           supplier_id: data.supplier_id || null,
-          buying_price: data.buying_price || null,
+          buying_price: unitPrice || null,
           expiry_date: data.expiry_date || null,
           notes: data.notes || null,
           performed_by: profile!.id,
@@ -805,7 +825,7 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
       }))
       const json = await res.json()
       if (!res.ok) { toast({ title: json.error || t('toast.error'), variant: 'destructive' }); return }
-      toast({ title: t('toast.restock_done', { qty: data.quantity, name: restockProduct.name }), variant: 'success' })
+      toast({ title: t('toast.restock_done', { qty, name: restockProduct.name }), variant: 'success' })
     } catch (err: any) {
       toast({ title: err.message || t('toast.error'), variant: 'destructive' })
       return
@@ -2039,9 +2059,24 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
         <form onSubmit={restockForm.handleSubmit(onRestock)}>
           <PremiumDialogBody>
             <input type="hidden" {...restockForm.register('product_id')} />
+            {restockPacks.length > 0 && (
+              <div className="space-y-1.5" data-testid="restock-pack">
+                <Label>{t('packaging.enter_in')}</Label>
+                <Select value={restockPackId || 'base'} onValueChange={v => setRestockPackId(v === 'base' ? '' : v)}>
+                  <SelectTrigger data-testid="restock-pack-select"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="base">{unitLabelFor(restockProduct?.unit || 'piece', 2)}</SelectItem>
+                    {restockPacks.map(p => <SelectItem key={p.id} value={p.id}>{t('packaging.pack_of', { pack: unitLabelFor(p.unit, 1), count: p.units_per_pack, base: unitLabelFor(restockProduct?.unit || 'piece', p.units_per_pack) })}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
             <div className="space-y-1.5">
-              <Label>{t('products.quantity_to_add')} *</Label>
-              <Input type="number" min={1} {...restockForm.register('quantity')} />
+              <Label>{restockPack ? t('packaging.quantity_in_packs', { pack: unitLabelFor(restockPack.unit, 2) }) : t('products.quantity_to_add')} *</Label>
+              <Input type="number" min={1} {...restockForm.register('quantity')} data-testid="restock-quantity" />
+              {restockPack && Number(restockForm.watch('quantity')) > 0 && (
+                <p className="text-xs text-muted-foreground" data-testid="restock-equivalent">{t('packaging.equals', { count: packToBase(Number(restockForm.watch('quantity')), restockPack.units_per_pack), base: unitLabelFor(restockProduct?.unit || 'piece', packToBase(Number(restockForm.watch('quantity')), restockPack.units_per_pack)) })}</p>
+              )}
             </div>
             <div className="space-y-1.5">
               <Label>{t('products.supplier')}</Label>
@@ -2054,8 +2089,9 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
             {/* Prix d'achat : avec le droit au coût, et en ligne seulement (aucun coût n'est gardé sur l'appareil) */}
             {canViewCostIn(restockProduct?.shop_id) && isOnline && (
               <div className="space-y-1.5">
-                <Label>{t('products.restock_buying_price')}</Label>
-                <Input type="number" {...restockForm.register('buying_price')} placeholder={String(restockProduct?.buying_price)} />
+                <Label>{restockPack ? t('packaging.price_per_pack', { pack: unitLabelFor(restockPack.unit, 1) }) : t('products.restock_buying_price')}</Label>
+                {/* Exemple : prix d'un colis (prix unitaire × unités) quand la saisie est en colis */}
+                <Input type="number" {...restockForm.register('buying_price')} placeholder={restockProduct?.buying_price != null ? String(Math.round(Number(restockProduct.buying_price) * (restockPack?.units_per_pack ?? 1) * 100) / 100) : ''} />
               </div>
             )}
             {/* Chaque réassort crée un NOUVEAU lot, avec sa propre date (facultative) */}

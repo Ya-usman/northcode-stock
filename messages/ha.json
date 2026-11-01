@@ -2836,6 +2836,9 @@
     "max_stock": "Kayan da suka fi: {qty} {unit}",
     "product_scanned": "An ƙara {name}",
     "barcode_not_found": "Ba a sami lambar ba: {code}",
+    "barcode_ambiguous": "Lambar {code} ta dace da kaya {count}: scan cikakkiyar lambar.",
+    "pack_scanned": "Lambar marufin {name}",
+    "pack_scanned_desc": "Wannan lambar {pack} na {base} {count} ce. Wurin biya yana sayarwa guda guda: scan kayan.",
     "role_updated": "An sabunta matsayi",
     "cannot_edit_own_role": "Ba za ka iya canza matsayinka ba",
     "cannot_deactivate_self": "Ba za ka iya rufe asusunka ba",
@@ -3881,6 +3884,12 @@
     "zero_lot_meta": "ya ƙare · {initial} {unit} a farko"
   },
   "api_errors": {
+    "packaging_invalid_unit": "Zaɓi irin marufin.",
+    "packaging_invalid_units": "Adadin guda a cikin marufi dole ya zama cikakken lamba tsakanin 2 da 100 000.",
+    "packaging_barcode_taken": "Wani kaya ko wani marufi a wannan shago yana amfani da wannan barcode.",
+    "packaging_duplicate": "Wannan marufin ya riga ya kasance a wannan kayan.",
+    "packaging_not_found": "Ba a sami marufin ba.",
+    "packaging_invalid_qty": "Adadin marufi dole ya zama cikakken lamba sama da sifili.",
     "inventory_product_out_of_scope": "Wannan kayan ba ya cikin wannan ƙidayar zagaye.",
     "inventory_nothing_to_count": "Babu kayan da za a ƙirga a wannan shago.",
     "po_email_no_recipient": "Wannan mai samar da kaya ba shi da ingantaccen adireshin imel. Ƙara shi a bayanansa.",
@@ -5338,5 +5347,30 @@
         ]
       }
     ]
+  },
+  "packaging": {
+    "title": "Marufin saye",
+    "hint": "Don shigar da saye a kwali, buhu ko fakiti. Ana ƙirga kaya a guda ɗaya.",
+    "pack_of": "{pack} na {base} {count}",
+    "default": "Na asali",
+    "make_default": "Sanya a matsayin na asali",
+    "remove": "Cire",
+    "none": "Babu marufi: ana shigar da saye a guda ɗaya ({base}).",
+    "units_placeholder": "Adadin {base}",
+    "barcode_placeholder": "Barcode na marufin (ba dole ba)",
+    "preview": "Duba: {pack}",
+    "save": "Ajiye",
+    "cancel": "Soke",
+    "add": "Ƙara marufi",
+    "added": "An ƙara marufi: {pack}",
+    "error": "Ba a iya ajiye marufin ba.",
+    "enter_in": "Shigar a",
+    "quantity_in_packs": "Adadin {pack}",
+    "equals": "Wato {base} {count}",
+    "price_per_pack": "Farashin saye na {pack} ɗaya",
+    "price_short_pack": "Farashi/{pack}",
+    "pack_line": "{pack} {packs} na {count} ({base} {total})",
+    "pack_line_unit": "{pack} na {count} ({base} {total})",
+    "packs_count": "Wato {pack} {packs} na {count}"
   }
 }

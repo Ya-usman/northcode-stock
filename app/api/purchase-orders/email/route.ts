@@ -12,6 +12,7 @@ import { buildPoMessage, poPdfLabels, reorderOriginalRef } from '@/lib/suppliers
 import { buildPurchaseOrderDoc } from '@/lib/pdf/purchase-order-doc'
 import { PRODUCT_UNITS } from '@/lib/import/products-import'
 import { formatCurrency } from '@/lib/utils/currency'
+import { lineQuantityText, linePdfQuantity } from '@/lib/products/packaging'
 import { resolveCurrencyCode } from '@/lib/saas/currencies'
 
 // Envoi d'un bon de commande par e-mail (validé le 31 oct. 2026)
@@ -70,7 +71,7 @@ export async function POST(request: Request) {
     const admin = await createAdminClient() as any
     const { data: po } = await admin
       .from('purchase_orders')
-      .select('id, shop_id, reference, status, notes, created_at, is_opening_balance, supplier_id, purchase_order_items(product_name, unit, quantity_ordered, unit_price), suppliers(name, phone, city, email, shop_id)')
+      .select('id, shop_id, reference, status, notes, created_at, is_opening_balance, supplier_id, purchase_order_items(product_name, unit, quantity_ordered, unit_price, pack_unit, units_per_pack, pack_qty), suppliers(name, phone, city, email, shop_id)')
       .eq('id', id).eq('shop_id', shop_id).maybeSingle()
     if (!po || po.is_opening_balance) return NextResponse.json({ error: t('po_not_found') }, { status: 404 })
     if (po.status !== 'draft' && po.status !== 'sent')
@@ -102,15 +103,18 @@ export async function POST(request: Request) {
     const tr = getLocaleTranslator(locale, 'emails') as any
     const tPo = (key: string, values?: Record<string, string | number>) => tr(`purchase_order.${key}`, values)
     const tUnit = getLocaleTranslator(locale, 'unit_labels') as any
-    const unitLabel = (unit: string | null, n: number) =>
+    const unitLabel = (unit: string | null | undefined, n = 1) =>
       !unit ? '' : (PRODUCT_UNITS as readonly string[]).includes(unit) ? tUnit(unit, { count: Math.abs(n) }) : unit
     const shopName = shop?.name || 'StockShop'
     const supplierName = po.suppliers?.name || ''
     const dateStr = formatDate(po.created_at, locale)
-    const items = (po.purchase_order_items || []) as { product_name: string; unit: string | null; quantity_ordered: number; unit_price: number | null }[]
+    const items = (po.purchase_order_items || []) as { product_name: string; unit: string | null; quantity_ordered: number; unit_price: number | null; pack_unit: string | null; units_per_pack: number | null; pack_qty: number | null }[]
+    // Lignes en colis (étape 9) : « 3 cartons de 24 (72 pièces) »
+    const tPack = getLocaleTranslator(locale, 'packaging') as any
+    const qtyText = (it: (typeof items)[number]) => lineQuantityText(it, unitLabel, tPack)
     const msg = buildPoMessage(tPo, {
       reference: po.reference, shopName, supplierName, dateStr, reorderOf: reorderOriginalRef(po.notes),
-      lines: items.map(it => ({ name: it.product_name, quantity: `${it.quantity_ordered} ${unitLabel(it.unit, it.quantity_ordered)}`.trim() })),
+      lines: items.map(it => ({ name: it.product_name, quantity: qtyText(it) })),
     })
 
     // PDF : prix seulement avec le droit au coût (même règle que le téléchargement)
@@ -122,8 +126,7 @@ export async function POST(request: Request) {
       supplierPhone: po.suppliers?.phone, supplierCity: po.suppliers?.city,
       items: items.map(it => ({
         name: it.product_name,
-        quantity: it.quantity_ordered,
-        unit: unitLabel(it.unit, it.quantity_ordered),
+        ...linePdfQuantity(it, unitLabel, tPack),
         unitPriceLabel: seesCost && it.unit_price != null ? money(it.unit_price) : '—',
         totalLabel: seesCost && it.unit_price != null ? money(it.unit_price * it.quantity_ordered) : '—',
       })),
@@ -143,7 +146,7 @@ export async function POST(request: Request) {
         <table cellpadding="0" cellspacing="0" role="presentation" style="width:100%;border-collapse:collapse;margin:0 0 14px;">
           ${items.map(it => `<tr>
             <td style="padding:6px 0;border-bottom:1px solid #eef1f7;font-size:14px;color:#111827;">${esc(it.product_name)}</td>
-            <td style="padding:6px 0;border-bottom:1px solid #eef1f7;font-size:14px;color:#111827;text-align:right;white-space:nowrap;">${esc(`${it.quantity_ordered} ${unitLabel(it.unit, it.quantity_ordered)}`.trim())}</td>
+            <td style="padding:6px 0;border-bottom:1px solid #eef1f7;font-size:14px;color:#111827;text-align:right;white-space:nowrap;">${esc(qtyText(it))}</td>
           </tr>`).join('')}
         </table>
         <p style="margin:0 0 6px;font-size:13px;color:#6b7280;">${esc(tPo('attachment'))}</p>

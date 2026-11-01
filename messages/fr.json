@@ -2801,6 +2801,9 @@
     "max_stock": "Stock max : {qty} {unit}",
     "product_scanned": "{name} ajouté",
     "barcode_not_found": "Code non trouvé : {code}",
+    "barcode_ambiguous": "Le code {code} correspond à {count} produits : scannez le code complet.",
+    "pack_scanned": "Code d’un colis de {name}",
+    "pack_scanned_desc": "C’est le code d’un colis : {pack} de {count} {base}. La caisse vend à l’unité : scannez l’article.",
     "role_updated": "Rôle mis à jour",
     "cannot_edit_own_role": "Vous ne pouvez pas modifier votre propre rôle",
     "cannot_deactivate_self": "Vous ne pouvez pas désactiver votre propre compte",
@@ -3881,6 +3884,12 @@
     "zero_lot_meta": "épuisé · {initial} {unit} au départ"
   },
   "api_errors": {
+    "packaging_invalid_unit": "Choisissez le type de colis.",
+    "packaging_invalid_units": "Le nombre d’unités par colis doit être un entier entre 2 et 100 000.",
+    "packaging_barcode_taken": "Ce code-barres est déjà utilisé par un produit ou un autre conditionnement de la boutique.",
+    "packaging_duplicate": "Ce conditionnement existe déjà pour ce produit.",
+    "packaging_not_found": "Conditionnement introuvable.",
+    "packaging_invalid_qty": "Le nombre de colis doit être un entier positif.",
     "inventory_product_out_of_scope": "Ce produit ne fait pas partie de cet inventaire tournant.",
     "inventory_nothing_to_count": "Aucun produit à compter dans cette boutique.",
     "po_email_no_recipient": "Ce fournisseur n'a pas d'adresse e-mail valide. Ajoutez-la sur sa fiche.",
@@ -5338,5 +5347,30 @@
         ]
       }
     ]
+  },
+  "packaging": {
+    "title": "Conditionnements d’achat",
+    "hint": "Pour saisir un achat en cartons, sacs ou packs. Le stock reste compté à l’unité.",
+    "pack_of": "{pack} de {count} {base}",
+    "default": "Par défaut",
+    "make_default": "Utiliser par défaut",
+    "remove": "Retirer",
+    "none": "Aucun conditionnement : les achats se saisissent à l’unité ({base}).",
+    "units_placeholder": "Nombre de {base}",
+    "barcode_placeholder": "Code-barres du colis (facultatif)",
+    "preview": "Aperçu : {pack}",
+    "save": "Enregistrer",
+    "cancel": "Annuler",
+    "add": "Ajouter un conditionnement",
+    "added": "Conditionnement ajouté : {pack}",
+    "error": "Impossible d’enregistrer le conditionnement.",
+    "enter_in": "Saisir en",
+    "quantity_in_packs": "Nombre de {pack}",
+    "equals": "Soit {count} {base}",
+    "price_per_pack": "Prix d’achat par {pack}",
+    "price_short_pack": "Prix/{pack}",
+    "pack_line": "{packs} {pack} de {count} ({total} {base})",
+    "pack_line_unit": "{pack} de {count} ({total} {base})",
+    "packs_count": "Soit {packs} {pack} de {count}"
   }
 }

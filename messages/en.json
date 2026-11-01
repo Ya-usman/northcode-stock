@@ -2801,6 +2801,9 @@
     "max_stock": "Max stock: {qty} {unit}",
     "product_scanned": "{name} added",
     "barcode_not_found": "Code not found: {code}",
+    "barcode_ambiguous": "Code {code} matches {count} products: scan the full code.",
+    "pack_scanned": "Pack code for {name}",
+    "pack_scanned_desc": "This is the code of the {pack} of {count} {base}. The till sells by unit: scan the item.",
     "role_updated": "Role updated",
     "cannot_edit_own_role": "You cannot edit your own role",
     "cannot_deactivate_self": "You cannot deactivate your own account",
@@ -3881,6 +3884,12 @@
     "zero_lot_meta": "depleted · {initial} {unit} initially"
   },
   "api_errors": {
+    "packaging_invalid_unit": "Choose the pack type.",
+    "packaging_invalid_units": "Units per pack must be a whole number between 2 and 100,000.",
+    "packaging_barcode_taken": "This barcode is already used by a product or another packaging in this shop.",
+    "packaging_duplicate": "This packaging already exists for this product.",
+    "packaging_not_found": "Packaging not found.",
+    "packaging_invalid_qty": "The number of packs must be a positive whole number.",
     "inventory_product_out_of_scope": "This product is not part of this cycle count.",
     "inventory_nothing_to_count": "No products to count in this shop.",
     "po_email_no_recipient": "This supplier has no valid email address. Add it to their profile.",
@@ -5338,5 +5347,30 @@
         ]
       }
     ]
+  },
+  "packaging": {
+    "title": "Purchase packaging",
+    "hint": "To enter a purchase in cartons, bags or packs. Stock is still counted in units.",
+    "pack_of": "{pack} of {count} {base}",
+    "default": "Default",
+    "make_default": "Set as default",
+    "remove": "Remove",
+    "none": "No packaging: purchases are entered per unit ({base}).",
+    "units_placeholder": "Number of {base}",
+    "barcode_placeholder": "Pack barcode (optional)",
+    "preview": "Preview: {pack}",
+    "save": "Save",
+    "cancel": "Cancel",
+    "add": "Add a packaging",
+    "added": "Packaging added: {pack}",
+    "error": "Could not save the packaging.",
+    "enter_in": "Enter in",
+    "quantity_in_packs": "Number of {pack}",
+    "equals": "That is {count} {base}",
+    "price_per_pack": "Purchase price per {pack}",
+    "price_short_pack": "Price/{pack}",
+    "pack_line": "{packs} {pack} of {count} ({total} {base})",
+    "pack_line_unit": "{pack} of {count} ({total} {base})",
+    "packs_count": "That is {packs} {pack} of {count}"
   }
 }

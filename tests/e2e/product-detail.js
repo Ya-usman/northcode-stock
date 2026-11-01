@@ -163,7 +163,9 @@ const closeFiche = async page => { for (let i = 0; i < 4 && (await drawer(page).
     check('section Achat : coût, valeur du stock, fournisseur principal', (await drawer(page).locator('[data-testid="product-detail-purchase"]').count()) === 1 && /Achat/.test(t) && /Fournisseur principal/.test(t))
     const actions = (await drawer(page).locator('[data-testid="product-detail-actions"]').innerText()).replace(/\s+/g, ' ')
     check('actions du pied (propriétaire) : Réapprovisionner, Modifier, Mettre en promo, Archiver', ['Réapprovisionner', 'Modifier', 'Mettre en promo', 'Archiver'].every(a => actions.includes(a)), actions)
-    check('aucune section d’une étape future (valorisation détaillée, variantes, conditionnements, emplacements)', !/Valorisation|Variantes|Conditionnement|Emplacement/i.test(t))
+    // Étape 9 (1er nov. 2026) : la section « Conditionnements d’achat » existe ; les autres étapes futures non
+    check('section « Conditionnements d’achat » présente (étape 9), une seule fois', (await drawer(page).locator('[data-testid="product-packagings"]').count()) === 1 && /Conditionnements d’achat/.test(t))
+    check('aucune section d’une étape future (valorisation détaillée, variantes, emplacements)', !/Valorisation|Variantes|Emplacement/i.test(t))
     check('l’ancien panneau « Lots » séparé n’existe plus', (await page.locator('[data-testid="batches-drawer"]').count()) === 0)
     await page.screenshot({ path: `${__dirname}/out/product-detail-fr-1280.png` })
 

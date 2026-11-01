@@ -60,6 +60,7 @@ import { useShopLoadTimeout } from '@/lib/hooks/use-shop-load-timeout'
 import { LoadErrorFallback } from '@/components/ui/load-error-fallback'
 import { generatePurchaseOrderPDF } from '@/lib/utils/pdf'
 import { buildPoMessage, poPdfLabels, reorderOriginalRef } from '@/lib/suppliers/po-message'
+import { linePdfQuantity, lineQuantityText, packToBase, roundUpToPacks, type Packaging } from '@/lib/products/packaging'
 import { withTimeout } from '@/lib/utils/with-timeout'
 import { DEFAULT_REPLENISH_HORIZON, LEAD_TIME_MAX_DAYS, suggestedQty } from '@/lib/stock/replenishment'
 import { SegmentedTabs } from '@/components/ui/segmented-tabs'
@@ -244,6 +245,9 @@ export default function SuppliersPage() {
   const [poShowAll, setPoShowAll] = useState(false)
   const [poChecked, setPoChecked] = useState<Record<string, boolean>>({})
   const [poQuantities, setPoQuantities] = useState<Record<string, string>>({})
+  // Conditionnements d'achat des produits de la boutique du bon (étape 9) et colis choisi par ligne ('' = unité de base)
+  const [poPacks, setPoPacks] = useState<Record<string, Packaging[]>>({})
+  const [poPackChoice, setPoPackChoice] = useState<Record<string, string>>({})
   // Produits ajoutés manuellement à un BC en cours de création depuis le
   // comparateur de prix — pas forcément assignés à ce fournisseur-là (le
   // comparateur permet justement de commander un produit chez un fournisseur
@@ -678,12 +682,24 @@ export default function SuppliersPage() {
     return priceFor(p, poSupplierId)
   }
 
+  const poPackOf = (p: any): Packaging | null => (poPacks[p.id] || []).find(k => k.id === poPackChoice[p.id]) ?? null
+  /** Quantité de la ligne en unité de base (saisie en colis convertie) */
+  const poBaseQty = (p: any): number => { const q = Number(poQuantities[p.id]) || 0; const k = poPackOf(p); return k ? packToBase(q, k.units_per_pack) : q }
+  // Changer d'unité de saisie convertit la quantité déjà saisie (arrondi au colis complet supérieur)
+  const switchPoPack = (p: any, packId: string) => {
+    const before = poPackOf(p), after = (poPacks[p.id] || []).find(k => k.id === packId) ?? null
+    const base = before ? packToBase(Number(poQuantities[p.id]) || 0, before.units_per_pack) : Number(poQuantities[p.id]) || 0
+    const next = after ? (base > 0 ? roundUpToPacks(base, after.units_per_pack).packs : 1) : base || 1
+    setPoPackChoice(prev => ({ ...prev, [p.id]: packId }))
+    setPoQuantities(prev => ({ ...prev, [p.id]: String(next) }))
+  }
+
   // Produits de la boutique du bon seulement
   const poSupplierProducts = products.filter((p: any) => p.shop_id === poShop?.id && (p.supplier_id === poSupplierId || poExtraProductIds.has(p.id)))
   const poVisibleProducts = poShowAll ? poSupplierProducts : poSupplierProducts.filter(isLowOrOut)
   const poTotal = poVisibleProducts
     .filter((p: any) => poChecked[p.id])
-    .reduce((sum: number, p: any) => sum + poUnitPrice(p) * (Number(poQuantities[p.id]) || 0), 0)
+    .reduce((sum: number, p: any) => sum + poUnitPrice(p) * poBaseQty(p), 0)
 
   // Nouveau bon : depuis « Toutes les boutiques », la boutique qui recevra le bon est choisie (seulement celles où la
   // personne gère les fournisseurs) ; depuis un fournisseur, un produit ou une boutique précise : sa boutique.
@@ -697,6 +713,7 @@ export default function SuppliersPage() {
     setPoShowAll(false)
     setPoChecked({})
     setPoQuantities({})
+    setPoPackChoice({})
     setPoExtraProductIds(new Set())
     setPoPinnedId(null)
     setPoPriceOverrides({})
@@ -765,6 +782,21 @@ export default function SuppliersPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [orderProductId, products])
 
+  useEffect(() => {
+    if (!poShop?.id || !showPoDialog) return
+    let cancelled = false
+    fetch(`/api/products/packagings?shop_id=${poShop.id}`)
+      .then(r => (r.ok ? r.json() : { data: [] }))
+      .then(j => {
+        if (cancelled) return
+        const by: Record<string, Packaging[]> = {}
+        for (const k of (j.data || []) as Packaging[]) (by[k.product_id] ||= []).push(k)
+        setPoPacks(by)
+      })
+      .catch(() => {})
+    return () => { cancelled = true }
+  }, [poShop?.id, showPoDialog])
+
   const submitCreatePo = async () => {
     if (!poShop || !poSupplierId) return
     const items = poVisibleProducts
@@ -773,7 +805,9 @@ export default function SuppliersPage() {
         product_id: p.id,
         product_name: p.name,
         unit: p.unit,
-        quantity_ordered: Number(poQuantities[p.id]) || 1,
+        quantity_ordered: poBaseQty(p) || 1,
+        // En colis : le serveur relit le conditionnement et recalcule la quantité de base (étape 9)
+        ...(poPackOf(p) ? { packaging_id: poPackOf(p)!.id, pack_qty: Number(poQuantities[p.id]) || 1 } : {}),
         // Prix des lignes : seulement avec le droit au coût (sinon bon sans prix, complété par une personne autorisée)
         unit_price: canViewCostIn(poShop?.id) ? poUnitPrice(p) : null,
       }))
@@ -1014,8 +1048,8 @@ export default function SuppliersPage() {
       supplierCity: po.suppliers?.city,
       items: items.map((it: any) => ({
         name: it.product_name,
-        quantity: it.quantity_ordered,
-        unit: unitLabel(it.unit, it.quantity_ordered),
+        // En colis : « 3 · cartons de 24 (72 pièces) » ; sinon quantité et unité de base
+        ...linePdfQuantity(it, unitLabel, tPack),
         unitPriceLabel: it.unit_price != null ? fmt(it.unit_price) : '—',
         totalLabel: it.unit_price != null ? fmt(it.unit_price * it.quantity_ordered) : '—',
       })),
@@ -1028,6 +1062,7 @@ export default function SuppliersPage() {
   // Objet + texte du bon : même source que l'e-mail envoyé par le serveur (lib/suppliers/po-message), traduits.
   // Bon créé via « Commander le reste » (submitReorder) : la référence d'origine, gardée dans les notes, adapte le texte.
   const tPo = (key: string, values?: Record<string, string | number>) => t(`emails.purchase_order.${key}` as any, values as any)
+  const tPack = (key: string, values?: Record<string, string | number>) => t(`packaging.${key}` as any, values as any)
   const buildPoEmailContent = (po: any) => {
     const items = po.purchase_order_items || []
     return buildPoMessage(tPo, {
@@ -1036,7 +1071,7 @@ export default function SuppliersPage() {
       supplierName: po.suppliers?.name || supplierName(po.supplier_id),
       dateStr: new Date(po.created_at).toLocaleDateString(dateLocaleTag(locale), { day: 'numeric', month: 'long', year: 'numeric' }),
       reorderOf: reorderOriginalRef(po.notes),
-      lines: items.map((it: any) => ({ name: it.product_name, quantity: `${it.quantity_ordered} ${unitLabel(it.unit, it.quantity_ordered)}`.trim() })),
+      lines: items.map((it: any) => ({ name: it.product_name, quantity: lineQuantityText(it, unitLabel, tPack) })),
     })
   }
 
@@ -1725,6 +1760,16 @@ export default function SuppliersPage() {
                         <p className="text-[11px] text-muted-foreground">
                           {t('suppliers.po_stock_label')}: {p.quantity} {unitLabel(p.unit, p.quantity)}
                         </p>
+                        {(poPacks[p.id] || []).length > 0 && (
+                          <select value={poPackChoice[p.id] ?? ''} onChange={e => switchPoPack(p, e.target.value)} aria-label={t('packaging.enter_in')}
+                            className="mt-1 h-7 max-w-full rounded-md border bg-background px-1.5 text-[11px]" data-testid="po-line-pack">
+                            <option value="">{unitLabel(p.unit || 'piece', 2)}</option>
+                            {(poPacks[p.id] || []).map(k => <option key={k.id} value={k.id}>{t('packaging.pack_of', { pack: unitLabel(k.unit, 1), count: k.units_per_pack, base: unitLabel(p.unit || 'piece', k.units_per_pack) })}</option>)}
+                          </select>
+                        )}
+                        {poPackOf(p) && Number(poQuantities[p.id]) > 0 && (
+                          <p className="text-[11px] text-stockshop-blue dark:text-blue-400" data-testid="po-line-equivalent">{t('packaging.equals', { count: poBaseQty(p), base: unitLabel(p.unit || 'piece', poBaseQty(p)) })}</p>
+                        )}
                       </div>
                       <div className="flex items-end gap-1.5 shrink-0">
                         <div className="flex flex-col items-center gap-0.5">
@@ -1738,13 +1783,23 @@ export default function SuppliersPage() {
                         </div>
                         {canViewCostIn(poShop?.id) && (
                         <div className="flex flex-col items-center gap-0.5">
-                          <span className="text-[9px] text-muted-foreground">{t('suppliers.po_price_short')}</span>
+                          <span className="text-[9px] text-muted-foreground">{poPackOf(p) ? t('packaging.price_short_pack', { pack: unitLabel(poPackOf(p)!.unit, 1) }) : t('suppliers.po_price_short')}</span>
+                          {poPackOf(p) ? (
+                            // Prix du colis à l'écran ; le bon garde le prix unitaire (colis ÷ unités)
+                            <Input
+                              type="number" min={0} inputMode="decimal"
+                              value={String(Math.round(poUnitPrice(p) * poPackOf(p)!.units_per_pack * 100) / 100)}
+                              onChange={e => setPoPriceOverrides(prev => ({ ...prev, [p.id]: e.target.value === '' ? '' : String(Math.round((Number(e.target.value) / poPackOf(p)!.units_per_pack) * 10000) / 10000) }))}
+                              className="w-20 h-8 text-center text-xs" data-testid="po-line-pack-price"
+                            />
+                          ) : (
                           <Input
                             type="number" min={0} inputMode="decimal"
                             value={poPriceOverrides[p.id] ?? String(priceFor(p, poSupplierId))}
                             onChange={e => setPoPriceOverrides(prev => ({ ...prev, [p.id]: e.target.value }))}
                             className="w-20 h-8 text-center text-xs"
                           />
+                          )}
                         </div>
                         )}
                       </div>
@@ -2045,7 +2100,7 @@ export default function SuppliersPage() {
                       <div className="flex items-center gap-2">
                         <div className="min-w-0 flex-1">
                           <p className="text-sm truncate">{it.product_name}</p>
-                          <p className="text-[11px] text-muted-foreground">{t('suppliers.po_ordered_label')}: {it.quantity_ordered} {unitLabel(it.unit, it.quantity_ordered)}</p>
+                          <p className="text-[11px] text-muted-foreground">{t('suppliers.po_ordered_label')}: {lineQuantityText(it, unitLabel, tPack)}</p>
                         </div>
                         <Input
                           type="number" min={0} inputMode="numeric"

@@ -51,6 +51,7 @@ import { cacheProducts, getCachedProducts, cacheCustomers, getCachedCustomers, s
 import { allocateCheckout, outstandingDebt } from '@/lib/utils/checkout-allocation'
 import { revalidateHeldCart, heldAgeDays, HELD_STALE_DAYS, type HeldCartChange } from '@/lib/utils/held-sales'
 import { PRODUCT_PUBLIC_COLUMNS, withoutProductCost } from '@/lib/products/columns'
+import { useUnitLabel } from '@/lib/products/use-unit-label'
 import { fetchReservationRows, reservedByProduct, releasedHeldRefs, readSyncedAt, markReservationPending, flushReservations, type ReservationRow } from '@/lib/stock/reservations'
 import { clearPageCache, clearPageCacheByPrefix } from '@/lib/offline/page-cache'
 import { cashSuggestions } from '@/lib/utils/cash-suggestions'
@@ -261,6 +262,7 @@ function PosScreen({ params: { locale: _locale } }: { params: { locale: string }
   const [notes, setNotes] = useState('')
   const [dueDate, setDueDate] = useState('')
   const { isOnline, refreshPendingCount } = useOffline()
+  const unitLabel = useUnitLabel()
   const cartRef = useRef<CartItem[]>([])
   cartRef.current = cart
   const [completing, setCompleting] = useState(false)
@@ -581,19 +583,30 @@ function PosScreen({ params: { locale: _locale } }: { params: { locale: string }
   }, [products])
 
   const handleBarcodeScan = useCallback((code: string) => {
-    const product = products.find(p =>
-      p.sku?.toLowerCase() === code.toLowerCase() ||
-      p.sku?.toLowerCase().includes(code.toLowerCase())
-    )
+    // Code exact d'abord ; un code partiel n'ajoute un produit que s'il n'en désigne qu'un seul (jamais au hasard)
+    const c = code.toLowerCase()
+    const partial = products.filter(p => p.sku?.toLowerCase().includes(c))
+    const product = products.find(p => p.sku?.toLowerCase() === c) ?? (partial.length === 1 ? partial[0] : undefined)
     if (product) {
       setScanFlash(true)
       setTimeout(() => setScanFlash(false), 600)
       addToCartById(product)
       toast({ title: t('toast.product_scanned', { name: product.name }), variant: 'success' })
+    } else if (partial.length > 1) {
+      toast({ title: t('toast.barcode_ambiguous', { code, count: partial.length }), variant: 'destructive' })
     } else {
-      toast({ title: t('toast.barcode_not_found', { code }), variant: 'destructive' })
+      // Code d'un colis (étape 9) : la caisse vend à l'unité, on le dit au lieu de « code non trouvé »
+      const shopId = shop?.id
+      const lookup = shopId && isOnline
+        ? fetch(`/api/products/packagings?shop_id=${shopId}&barcode=${encodeURIComponent(code)}`).then(r => (r.ok ? r.json() : null)).catch(() => null)
+        : Promise.resolve(null)
+      lookup.then(j => {
+        const k = j?.data
+        if (k) toast({ title: t('toast.pack_scanned', { name: k.name }), description: t('toast.pack_scanned_desc', { pack: unitLabel(k.unit, 1), count: k.units_per_pack, base: unitLabel(k.base_unit || 'piece', k.units_per_pack) }), variant: 'destructive' })
+        else toast({ title: t('toast.barcode_not_found', { code }), variant: 'destructive' })
+      })
     }
-  }, [products, toast])
+  }, [products, toast, shop?.id, isOnline, unitLabel])
 
   useEffect(() => { if (cart.length === 0) reservedWarnedRef.current.clear() }, [cart.length])
 
@@ -627,7 +640,7 @@ function PosScreen({ params: { locale: _locale } }: { params: { locale: string }
       if (existing) {
         const max = sellableOf(product).sellable
         if (existing.quantity >= max) {
-          toast({ title: t('toast.max_stock', { qty: max, unit: product.unit }), variant: 'destructive' })
+          toast({ title: t('toast.max_stock', { qty: max, unit: unitLabel(product.unit || 'piece', max) }), variant: 'destructive' })
           return prev
         }
         return prev.map(i =>
@@ -659,7 +672,7 @@ function PosScreen({ params: { locale: _locale } }: { params: { locale: string }
         if (newQty <= 0) return null
         const max = sellableOf(item.product).sellable
         if (newQty > max) {
-          toast({ title: t('toast.max_stock', { qty: max, unit: item.product.unit }), variant: 'destructive' })
+          toast({ title: t('toast.max_stock', { qty: max, unit: unitLabel(item.product.unit || 'piece', max) }), variant: 'destructive' })
           return item
         }
         return { ...item, quantity: newQty, subtotal: newQty * item.unit_price }
