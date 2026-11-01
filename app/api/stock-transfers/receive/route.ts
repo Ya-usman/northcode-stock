@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+import { completeTransferCreatedProducts } from '@/lib/api/transfer-created-products'
 import { createAdminClient } from '@/lib/supabase/server'
 import { getAuthedUser, checkShopRole } from '@/lib/api/shop-auth'
 import { canWriteFeature } from '@/lib/api/role-permissions'
@@ -78,6 +79,15 @@ export async function POST(request: Request) {
         return NextResponse.json({ error: t('transfer_already_received'), code: e.key, received_at: e.detail?.received_at ?? null, received_by_name: names[e.detail?.received_by] || null }, { status: 409 })
       }
       return NextResponse.json({ error: e ? t(e.key as any, e.params as any) : error.message, code: e?.key }, { status: 400 })
+    }
+
+    // Produits créés à l'arrivée : fiche complétée depuis le produit d'origine + « Produit créé » au journal (lot D)
+    const createdIds = (Array.isArray(data?.created_products) ? data.created_products : []).map((c: any) => c?.product_id).filter(isUuid)
+    if (createdIds.length && !data?.replayed) {
+      const { data: me } = await admin.from('profiles').select('full_name').eq('id', user.id).maybeSingle()
+      await completeTransferCreatedProducts(admin, { transferId: transfer_id, reference: tr.reference, destShopId: tr.destination_shop_id, createdIds,
+        actor: { id: user.id, email: user.email, name: me?.full_name ?? null }, ip: getClientIp(request) })
+        .catch((e: any) => console.error('[transfers] fiche des produits créés non complétée', e?.message))
     }
 
     if (!workflow) {

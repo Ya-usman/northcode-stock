@@ -20,7 +20,7 @@ import { FOOTER_CANCEL_CLASS, FOOTER_PRIMARY_CLASS, FOOTER_ROW_CLASS } from '@/c
 import { useAuthContext } from '@/lib/contexts/auth-context'
 import { useCurrency } from '@/lib/hooks/use-currency'
 import { downloadOrShareBlob, isCapacitor } from '@/lib/utils/native-share'
-import { withTimeout } from '@/lib/utils/with-timeout'
+import { withTimeout, friendlyNetworkError } from '@/lib/utils/with-timeout'
 import { cn } from '@/lib/utils/cn'
 import { IMPORT_FIELDS, IMPORT_MAX_ROWS, PRODUCT_UNITS } from '@/lib/import/products-import'
 import type { TemplateSpec, TemplateColumn } from '@/lib/import/template'
@@ -123,7 +123,7 @@ export function ImportDrawer({ kind, open, onClose, shopId, onImported, explicit
       }, shopName)
     }
     return {
-      ...s, title: `${t('xlsx.sheet_main')} — ${shopName}`, sheetMain: t('xlsx.sheet_main'),
+      ...s, title: `${t('xlsx.sheet_main')} · ${shopName}`, sheetMain: t('xlsx.sheet_main'),
       columns: CONTACT_COLUMNS[kind].map(c => ({ key: c.key, width: c.width, validation: c.validation, required: !!c.required, header: t(`xlsx.col.${c.key}.header`), help: t(`xlsx.col.${c.key}.help`), example: t(`xlsx.col.${c.key}.example`) })),
       guideTitle: t('xlsx.guide_title'), guideIntro: t('xlsx.guide_intro'), guideSteps: raw('xlsx.guide_steps') as string[],
       examples: raw('xlsx.examples') as Record<string, string | number>[], guideTips: raw('xlsx.guide_tips') as string[], validationList: '',
@@ -176,7 +176,7 @@ export function ImportDrawer({ kind, open, onClose, shopId, onImported, explicit
       if (!res.ok) throw new Error(json.error)
       setReport({ summary: json.summary, rows: json.rows }); setPhase('review')
     } catch (err: any) {
-      setReadError(err?.message || tBase('error_generic')); setPhase('idle')
+      setReadError(friendlyNetworkError(err, tBase('error_generic'))); setPhase('idle')
     }
   }
 
@@ -190,7 +190,7 @@ export function ImportDrawer({ kind, open, onClose, shopId, onImported, explicit
       setInserted(json.inserted); setReport({ summary: json.summary, rows: json.rows }); setPhase('done')
       if (json.inserted > 0) onImported(json.inserted)
     } catch (err: any) {
-      setReadError(err?.message || tBase('error_generic')); setPhase('review')
+      setReadError(friendlyNetworkError(err, tBase('error_generic'))); setPhase('review')
     }
   }
 

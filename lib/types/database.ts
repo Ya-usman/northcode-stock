@@ -236,6 +236,8 @@ export interface Product {
   location?: string | null
   /** Suivi par numéro de série (étape 11, migration 197) */
   track_serials?: boolean
+  /** Kit assemblé (étape 16, migration 200) : composé d'autres produits */
+  is_kit?: boolean
   category_id: string | null
   supplier_id: string | null
   /** Prix d'achat : ABSENT quand la personne n'a pas le droit de le voir (lib/permissions → canViewCost).

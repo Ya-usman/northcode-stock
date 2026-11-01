@@ -12,6 +12,8 @@ import { normalizeLocation } from '@/lib/products/location'
 export const PRODUCT_UNITS = ['piece', 'kg', 'g', 'litre', 'ml', 'pack', 'carton', 'dozen', 'bag', 'bottle', 'tin', 'box'] as const
 export type ProductUnit = typeof PRODUCT_UNITS[number]
 export const IMPORT_MAX_ROWS = 1000
+/** Code-barres / référence : même limite partout (formulaire, ajout rapide, import, serveur) */
+export const SKU_MAX_LENGTH = 64
 
 export type ImportField = 'name' | 'selling_price' | 'buying_price' | 'quantity' | 'unit' | 'sku' | 'low_stock_threshold' | 'location' | 'expiry_date'
 export const IMPORT_FIELDS: ImportField[] = ['name', 'selling_price', 'buying_price', 'quantity', 'unit', 'sku', 'low_stock_threshold', 'location', 'expiry_date']
@@ -132,6 +134,7 @@ export type RowIssue =
   | 'missing_name' | 'name_too_long' | 'missing_price' | 'invalid_price' | 'invalid_buying_price'
   | 'invalid_quantity' | 'invalid_threshold' | 'unknown_unit' | 'sku_damaged' | 'sku_too_long' | 'sku_invalid_barcode'
   | 'duplicate_in_file' | 'exists_name' | 'exists_sku' | 'example_row' | 'insert_failed' | 'invalid_expiry_date' | 'location_too_long'
+  | 'invalid_category' | 'exists_archived'
 export type RowWarning = 'buying_above_selling' | 'ambiguous_number' | 'sku_nonstandard' | 'expiry_past' | 'expiry_without_stock'
 
 export interface ImportProduct {
@@ -145,6 +148,8 @@ export interface RowReport {
   params?: Record<string, string | number>
   warnings: { code: RowWarning; params?: Record<string, string | number> }[]
   product?: ImportProduct
+  /** Produit créé (import réel) : lien « Compléter la fiche » de l'ajout rapide */
+  product_id?: string
   /** Lot initial créé avec le produit (stock > 0) : péremption facultative, coût seulement s'il est connu */
   lot?: { expiry_date: string | null; cost: number | null }
   /** Valeurs telles que lues (aperçu, lignes à corriger) */
@@ -158,9 +163,71 @@ function currentDay(): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
 }
 
-/** Rapport ligne par ligne. existing : produits actuels de la boutique (nom, code-barres). */
-export function checkRows(rows: RawRow[], existing: { name: string; sku: string | null }[], today: string = currentDay()): RowReport[] {
-  const existingNames = new Map(existing.map(p => [normalizeText(p.name), p.name]))
+export type FieldWarning = { code: RowWarning; params?: Record<string, string | number> }
+export type FieldCheck =
+  | { ok: true; product: ImportProduct; expiry_date: string | null; buying_given: boolean; warnings: FieldWarning[] }
+  | { ok: false; issue: RowIssue; params?: Record<string, string | number> }
+
+/** Règles des CHAMPS d'un nouveau produit, une seule vérité pour tous les chemins de création
+ *  (formulaire « Ajouter un produit » côté serveur, ajout rapide, import Excel) : nom, prix, quantité,
+ *  seuil, unité, péremption du lot initial, code-barres, emplacement. Sans doublons ni base. */
+export function checkProductFields(values: Partial<Record<ImportField, unknown>>, today: string = currentDay()): FieldCheck {
+  const fail = (issue: RowIssue, params?: Record<string, string | number>): FieldCheck => ({ ok: false, issue, params })
+  const warnings: FieldWarning[] = []
+  const name = String(values.name ?? '').replace(/\s+/g, ' ').trim()
+  if (!name) return fail('missing_name')
+  if (name.length > 200) return fail('name_too_long')
+  const sp = parseNumber(values.selling_price)
+  if (sp.invalid) return fail('invalid_price')
+  if (sp.value === null) return fail('missing_price')
+  if (!(sp.value > 0)) return fail('invalid_price')
+  const bp = parseNumber(values.buying_price)
+  if (bp.invalid || (bp.value !== null && bp.value < 0)) return fail('invalid_buying_price')
+  const qt = parseNumber(values.quantity)
+  if (qt.invalid || (qt.value !== null && (qt.value < 0 || !Number.isInteger(qt.value)))) return fail('invalid_quantity')
+  const th = parseNumber(values.low_stock_threshold)
+  if (th.invalid || (th.value !== null && (th.value < 0 || !Number.isInteger(th.value)))) return fail('invalid_threshold')
+  const unit = parseUnit(values.unit)
+  if (!unit) return fail('unknown_unit', { unit: String(values.unit) })
+  // Date de péremption : facultative ; illisible = ligne à corriger ; jamais inventée ni corrigée
+  const exp = parseImportDate(values.expiry_date)
+  if (exp.invalid) return fail('invalid_expiry_date', { value: String(values.expiry_date) })
+  const sku = parseSku(values.sku)
+  if (sku.damaged) return fail('sku_damaged')
+  if (sku.value && sku.value.length > SKU_MAX_LENGTH) return fail('sku_too_long')
+  // Chiffres seuls = vrai code-barres attendu (lib/products/barcode)
+  const bc = classifyBarcode(sku.value)
+  if (bc === 'gtin_invalid') return fail('sku_invalid_barcode', { value: sku.value! })
+  if (bc === 'numeric_nonstandard') warnings.push({ code: 'sku_nonstandard', params: { value: sku.value! } })
+  // Emplacement : espaces resserrés, 60 caractères au plus (même règle que la fiche produit)
+  const location = normalizeLocation(values.location)
+  if (location === undefined) return fail('location_too_long')
+
+  for (const [p, raw] of [[sp, values.selling_price], [bp, values.buying_price], [qt, values.quantity], [th, values.low_stock_threshold]] as const) {
+    if (p.ambiguous) warnings.push({ code: 'ambiguous_number', params: { raw: String(raw), value: p.value! } })
+  }
+  if (bp.value !== null && bp.value > sp.value) warnings.push({ code: 'buying_above_selling' })
+  const stock = qt.value ?? 0
+  const dayLabel = (iso: string) => iso.split('-').reverse().join('/')
+  if (exp.value && stock > 0 && exp.value < today) warnings.push({ code: 'expiry_past', params: { date: dayLabel(exp.value) } })
+  if (exp.value && stock === 0) warnings.push({ code: 'expiry_without_stock', params: { date: dayLabel(exp.value) } })
+  return {
+    ok: true, warnings, expiry_date: exp.value, buying_given: bp.value !== null,
+    product: { name, selling_price: sp.value, buying_price: bp.value ?? 0, quantity: stock, unit, sku: sku.value, low_stock_threshold: th.value, location },
+  }
+}
+
+/** Rapport ligne par ligne. existing : produits actuels de la boutique (nom, code-barres).
+ *  examples : lignes d'exemple des anciens modèles Excel ignorées (import de fichier seulement ; jamais pour une
+ *  saisie à la main, où « Coca Cola 50cl » est un vrai produit). */
+export function checkRows(rows: RawRow[], existing: { name: string; sku: string | null; is_active?: boolean | null }[], today: string = currentDay(), opts: { examples?: boolean } = {}): RowReport[] {
+  const examples = opts.examples !== false
+  // Même nom : un produit actif l'emporte sur un archivé (archivé = invisible dans la liste, à restaurer plutôt que recréer)
+  const existingNames = new Map<string, { name: string; archived: boolean }>()
+  for (const p of existing) {
+    const k = normalizeText(p.name), archived = p.is_active === false
+    if (!existingNames.has(k) || (existingNames.get(k)!.archived && !archived)) existingNames.set(k, { name: p.name, archived })
+  }
   const existingSkus = new Map(existing.filter(p => p.sku).map(p => [String(p.sku).trim().toLowerCase(), p.name]))
   const seenNames = new Map<string, number>(), seenSkus = new Map<string, number>()
 
@@ -168,52 +235,18 @@ export function checkRows(rows: RawRow[], existing: { name: string; sku: string 
     const r: RowReport = { line, status: 'error', warnings: [], raw: values }
     const fail = (issue: RowIssue, params?: Record<string, string | number>) => Object.assign(r, { status: 'error' as const, issue, params })
     const name = String(values.name ?? '').replace(/\s+/g, ' ').trim()
-    if (!name) return fail('missing_name')
-    if (name.length > 200) return fail('name_too_long')
-    const sp = parseNumber(values.selling_price)
-    const exampleKey = `${normalizeText(name)}|${sp.value}|${parseNumber(values.buying_price).value}|${parseNumber(values.quantity).value}`
-    if (EXAMPLES.has(exampleKey)) return Object.assign(r, { status: 'ignored' as const, issue: 'example_row' as RowIssue })
-    if (sp.invalid) return fail('invalid_price')
-    if (sp.value === null) return fail('missing_price')
-    if (!(sp.value > 0)) return fail('invalid_price')
-    const bp = parseNumber(values.buying_price)
-    if (bp.invalid || (bp.value !== null && bp.value < 0)) return fail('invalid_buying_price')
-    const qt = parseNumber(values.quantity)
-    if (qt.invalid || (qt.value !== null && (qt.value < 0 || !Number.isInteger(qt.value)))) return fail('invalid_quantity')
-    const th = parseNumber(values.low_stock_threshold)
-    if (th.invalid || (th.value !== null && (th.value < 0 || !Number.isInteger(th.value)))) return fail('invalid_threshold')
-    const unit = parseUnit(values.unit)
-    if (!unit) return fail('unknown_unit', { unit: String(values.unit) })
-    // Date de péremption : facultative ; illisible = ligne à corriger ; jamais inventée ni corrigée
-    const exp = parseImportDate(values.expiry_date)
-    if (exp.invalid) return fail('invalid_expiry_date', { value: String(values.expiry_date) })
-    const sku = parseSku(values.sku)
-    if (sku.damaged) return fail('sku_damaged')
-    if (sku.value && sku.value.length > 64) return fail('sku_too_long')
-    // Chiffres seuls = vrai code-barres attendu (lib/products/barcode)
-    const bc = classifyBarcode(sku.value)
-    if (bc === 'gtin_invalid') return fail('sku_invalid_barcode', { value: sku.value! })
-    if (bc === 'numeric_nonstandard') r.warnings.push({ code: 'sku_nonstandard', params: { value: sku.value! } })
-    // Emplacement : espaces resserrés, 60 caractères au plus (même règle que la fiche produit)
-    const location = normalizeLocation(values.location)
-    if (location === undefined) return fail('location_too_long')
-
-    for (const [p, raw] of [[sp, values.selling_price], [bp, values.buying_price], [qt, values.quantity], [th, values.low_stock_threshold]] as const) {
-      if (p.ambiguous) r.warnings.push({ code: 'ambiguous_number', params: { raw: String(raw), value: p.value! } })
+    // Lignes d'exemple des anciens modèles : reconnues avant les règles de champ
+    if (examples && name && name.length <= 200) {
+      const exampleKey = `${normalizeText(name)}|${parseNumber(values.selling_price).value}|${parseNumber(values.buying_price).value}|${parseNumber(values.quantity).value}`
+      if (EXAMPLES.has(exampleKey)) return Object.assign(r, { status: 'ignored' as const, issue: 'example_row' as RowIssue })
     }
-    if (bp.value !== null && bp.value > sp.value) r.warnings.push({ code: 'buying_above_selling' })
-    const stock = qt.value ?? 0
-    const dayLabel = (iso: string) => iso.split('-').reverse().join('/')
-    if (exp.value && stock > 0 && exp.value < today) r.warnings.push({ code: 'expiry_past', params: { date: dayLabel(exp.value) } })
-    if (exp.value && stock === 0) r.warnings.push({ code: 'expiry_without_stock', params: { date: dayLabel(exp.value) } })
-
-    const key = normalizeText(name), skuKey = sku.value?.toLowerCase() ?? null
-    r.product = {
-      name, selling_price: sp.value, buying_price: bp.value ?? 0, quantity: qt.value ?? 0,
-      unit, sku: sku.value, low_stock_threshold: th.value, location,
-    }
+    const c = checkProductFields(values, today)
+    if (!c.ok) return fail(c.issue, c.params)
+    r.warnings.push(...c.warnings)
+    r.product = c.product
+    const key = normalizeText(name), skuKey = c.product.sku?.toLowerCase() ?? null
     // Une ligne = un produit = un lot initial (s'il y a du stock) ; coût seulement s'il est réellement donné
-    if (stock > 0) r.lot = { expiry_date: exp.value, cost: bp.value !== null && bp.value > 0 ? bp.value : null }
+    if (c.product.quantity > 0) r.lot = { expiry_date: c.expiry_date, cost: c.product.buying_price > 0 ? c.product.buying_price : null }
     // Code-barres pris par un AUTRE produit du stock : à corriger (avant les doublons du
     // fichier : une ligne refusée ne doit pas faire refuser la suivante)
     const skuOwner = skuKey ? existingSkus.get(skuKey) : undefined
@@ -225,7 +258,8 @@ export function checkRows(rows: RawRow[], existing: { name: string; sku: string 
 
     // Déjà en stock (même code-barres et même nom, ou même nom) : laissé tel quel
     if (skuOwner !== undefined) return Object.assign(r, { status: 'exists' as const, issue: 'exists_sku' as RowIssue, params: { name: skuOwner } })
-    if (existingNames.has(key)) return Object.assign(r, { status: 'exists' as const, issue: 'exists_name' as RowIssue, params: { name: existingNames.get(key)! } })
+    const same = existingNames.get(key)
+    if (same) return Object.assign(r, { status: 'exists' as const, issue: (same.archived ? 'exists_archived' : 'exists_name') as RowIssue, params: { name: same.name } })
     r.status = 'new'
     return r
   })

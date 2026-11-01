@@ -311,7 +311,14 @@ async function openMovement(page, locale, m) {
     await page.waitForFunction(ref => (document.querySelector('main') || document.body).innerText.includes(ref), m.view.origin.ref, { timeout: 30000 }).catch(() => {})
     await page.waitForTimeout(800)
     const main = (await page.locator('main').innerText()).replace(/\s+/g, ' ')
-    check(`« ${action} » : l’écran existant s’ouvre et montre ${m.view.origin.ref}`, main.includes(m.view.origin.ref) && !/Accès non autorisé/.test(main), main.slice(0, 200))
+    const seen = main.includes(m.view.origin.ref) && !/Accès non autorisé/.test(main)
+    // Diagnostic en cas d'échec : capture + filtres mémorisés + fin du texte de la page (jamais d'assouplissement)
+    if (!seen) {
+      await page.screenshot({ path: `${__dirname}/out/movements-origin-${name}.png` }).catch(() => {})
+      const stored = await page.evaluate(() => Object.keys(sessionStorage).filter(k => k.startsWith('filters_session_')).map(k => k + '=' + sessionStorage.getItem(k))).catch(() => [])
+      console.log('    diagnostic :', JSON.stringify(stored).slice(0, 600), '|', main.slice(Math.max(0, main.length - 600)))
+    }
+    check(`« ${action} » : l’écran existant s’ouvre et montre ${m.view.origin.ref}`, seen, main.slice(0, 200))
   }
   await s.browser.close()
 

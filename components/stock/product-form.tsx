@@ -25,6 +25,7 @@ import { useToast } from '@/components/ui/use-toast'
 import { ConfirmModal } from '@/components/ui/confirm-modal'
 import { ExpiryDateField, usePastExpiryConfirm } from '@/components/stock/expiry-date-field'
 import { classifyBarcode } from '@/lib/products/barcode'
+import { PRODUCT_UNITS, SKU_MAX_LENGTH } from '@/lib/import/products-import'
 import { compressImage } from '@/lib/utils/compress-image'
 import { withTimeout } from '@/lib/utils/with-timeout'
 import { hasNativePhotoPicker, pickPhotoNative, PhotoPermissionError, type PhotoSource } from '@/lib/photo/pick-photo'
@@ -56,19 +57,25 @@ interface ProductFormProps {
   onSubmit: (data: ProductFormData) => void | Promise<void | ProductFieldError | boolean>
   /** Remonte l'état au panneau hôte (garde de fermeture, bouton Enregistrer) */
   onStateChange?: (state: ProductFormState) => void
+  /** Seuil d'alerte de la boutique : rappelé en grisé dans la case « Seuil » laissée vide */
+  shopLowStockThreshold?: number | null
 }
 
+/** Champs de « Plus d'options » : une erreur sur l'un d'eux ouvre la section */
+const MORE_FIELDS: string[] = ['category_id', 'sku', 'low_stock_threshold', 'supplier_id', 'location']
+
 /** Erreur renvoyée par le serveur pour un champ précis du formulaire */
-export type ProductFieldError = { field: 'sku' | 'name'; message: string }
+export type ProductFieldError = { field: 'sku' | 'name' | 'selling_price' | 'buying_price' | 'quantity' | 'unit' | 'location' | 'low_stock_threshold' | 'expiry_date'; message: string }
 
 const FieldError = ({ message }: { message?: string }) =>
   message ? <p className="text-xs text-destructive">{message}</p> : null
 
-const UNITS = ['piece', 'kg', 'g', 'litre', 'ml', 'pack', 'carton', 'dozen', 'bag', 'bottle', 'tin', 'box']
+// Liste unique des unités (même liste que l'import et l'ajout rapide)
+const UNITS = PRODUCT_UNITS
 
 export function ProductForm({
   categories, suppliers, currency, fullRights, shopId, isEdit,
-  defaultValues, sessionCount, initialPhoto, productId, startDirty = false, onSubmit, onStateChange,
+  defaultValues, sessionCount, initialPhoto, productId, startDirty = false, onSubmit, onStateChange, shopLowStockThreshold,
 }: ProductFormProps) {
   const t = useTranslations()
   const unitLabel = useUnitLabel()
@@ -79,8 +86,9 @@ export function ProductForm({
   const [uploadingImage, setUploadingImage] = useState(false)
   const [uploadError, setUploadError] = useState<string | null>(null)
   const [imagePreview, setImagePreview] = useState<string>(defaultValues?.image_url || '')
-  // Options avancées ouvertes d'emblée si elles portent déjà une valeur
-  const [advancedOpen, setAdvancedOpen] = useState(!!(defaultValues?.image_url || initialPhoto))
+  // « Plus d'options » ouvertes d'emblée si l'un de leurs champs porte déjà une valeur
+  const [moreOpen, setMoreOpen] = useState(() => !!(defaultValues?.category_id || defaultValues?.sku || defaultValues?.supplier_id || defaultValues?.location
+    || (defaultValues?.low_stock_threshold !== undefined && defaultValues?.low_stock_threshold !== null)))
   // Chargé à la demande : le panneau hôte a déjà posé son focus avant que ce
   // formulaire existe. Sur ordinateur, le nom prend le focus au montage ; sur
   // téléphone, non (le clavier ne doit pas surgir à l'ouverture).
@@ -172,7 +180,6 @@ export function ProductForm({
 
     setUploadError(null)
     setUploadingImage(true)
-    setAdvancedOpen(true)
 
     try {
       const compressed = await compressImage(file)
@@ -238,6 +245,7 @@ export function ProductForm({
     if (sku && sku !== initialSku) {
       const kind = classifyBarcode(sku)
       if (kind === 'gtin_invalid') {
+        setMoreOpen(true)
         form.setError('sku', { type: 'barcode', message: t('product_form.barcode_invalid') })
         form.setFocus('sku')
         return
@@ -248,6 +256,7 @@ export function ProductForm({
     if (!isEdit && Number(data.quantity) > 0 && !(await pastExpiry.confirm([data.expiry_date]))) return
     const r = await onSubmit(data)
     if (r && typeof r === 'object' && 'field' in r) {
+      if (MORE_FIELDS.includes(r.field)) setMoreOpen(true)
       form.setError(r.field, { type: 'server', message: r.message })
       form.setFocus(r.field)
     }
@@ -257,14 +266,14 @@ export function ProductForm({
 
   return (
     <>
-    <form id={PRODUCT_FORM_ID} onSubmit={form.handleSubmit(submit)} className="space-y-4" noValidate>
+    <form id={PRODUCT_FORM_ID} onSubmit={form.handleSubmit(submit, errs => { if (MORE_FIELDS.some(f => f in errs)) setMoreOpen(true) })} className="space-y-4" noValidate>
 
       {/* Session counter */}
       {!!sessionCount && sessionCount > 0 && (
         <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-green-50 dark:bg-green-950/30 border border-green-200 dark:border-green-800">
           <CheckCircle2 className="h-4 w-4 text-green-500 shrink-0" />
           <span className="text-sm text-green-700 dark:text-green-400 font-medium">
-            {sessionCount} produit{sessionCount > 1 ? 's' : ''} ajouté{sessionCount > 1 ? 's' : ''} cette session
+            {t('product_form.session_added', { count: sessionCount })}
           </span>
         </div>
       )}
@@ -275,17 +284,6 @@ export function ProductForm({
           <Label htmlFor="product-name">{t('products.name')}<RequiredMark /></Label>
           <Input id="product-name" {...form.register('name')} placeholder={t('product_form.name_placeholder')} aria-invalid={!!errors.name} autoFocus={autoFocusName} />
           <FieldError message={errors.name?.message} />
-        </div>
-
-        <div className="space-y-1.5">
-          <Label>{t('products.category')} {optional}</Label>
-          <Select value={categoryId} onValueChange={v => form.setValue('category_id', v === NONE ? '' : v, { shouldDirty: true })}>
-            <SelectTrigger className="h-10"><SelectValue placeholder={t('form.select_placeholder')} /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value={NONE}>{t('form.none_female')}</SelectItem>
-              {categories.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
-            </SelectContent>
-          </Select>
         </div>
 
         <div className="grid grid-cols-2 gap-3" data-tour="product-prices">
@@ -341,70 +339,6 @@ export function ProductForm({
           )} />
         )}
 
-        {/* SKU / Barcode, scanner accolé */}
-        <div className="space-y-1.5">
-          <Label htmlFor="product-sku" className="flex items-center gap-1.5">
-            <ScanLine className="h-3.5 w-3.5 text-muted-foreground" />
-            {t('products.sku')} {optional}
-          </Label>
-          <InputGroup
-            action={(
-              <button
-                type="button"
-                onClick={() => setShowScanner(v => !v)}
-                aria-pressed={showScanner}
-                className="inline-flex h-10 flex-shrink-0 items-center gap-1.5 rounded-r-md border border-l-0 border-input bg-muted px-3 text-xs font-medium transition-colors hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
-              >
-                <Camera className="h-3.5 w-3.5" />
-                {t('product_form.scan')}
-              </button>
-            )}
-          >
-            <Input id="product-sku" {...form.register('sku')} placeholder={t('product_form.sku_placeholder')} className="font-mono text-sm" />
-          </InputGroup>
-          <p className="text-[11px] text-muted-foreground">{t('product_form.scanner_hint')}</p>
-          <FieldError message={errors.sku?.message} />
-          {showScanner && (
-            <BarcodeScanner onDetected={handleBarcodeDetected} onClose={() => setShowScanner(false)} />
-          )}
-        </div>
-
-        <div className="grid grid-cols-2 gap-3">
-          <div className="space-y-1.5">
-            <Label>{t('product_form.threshold_label')}</Label>
-            <Controller control={form.control} name="low_stock_threshold" render={({ field }) => (
-              <NumericInput value={field.value ?? 0} onChange={field.onChange} onBlur={field.onBlur} placeholder="10" className="h-10" />
-            )} />
-            <FieldError message={errors.low_stock_threshold?.message} />
-          </div>
-          <div className="space-y-1.5">
-            <Label>{t('products.supplier')} {optional}</Label>
-            <Select value={supplierId} onValueChange={v => form.setValue('supplier_id', v === NONE ? '' : v, { shouldDirty: true })}>
-              <SelectTrigger className="h-10"><SelectValue placeholder={t('form.select_placeholder')} /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value={NONE}>{t('form.none_male')}</SelectItem>
-                {suppliers.map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}
-              </SelectContent>
-            </Select>
-          </div>
-        </div>
-
-        {/* Emplacement dans la boutique (étape 10) : retrouver le produit, compter l'inventaire dans l'ordre du magasin */}
-        <div className="space-y-1.5">
-          <Label htmlFor="product-location">{t('product_form.location_label')} {optional}</Label>
-          <Input id="product-location" {...form.register('location')} maxLength={60} placeholder={t('product_form.location_placeholder')} className="h-10" data-testid="product-location" />
-          <FieldError message={errors.location?.message} />
-        </div>
-      </DrawerSection>
-
-      {/* ── Options avancées : photo ───────────────────────────────────── */}
-      <DrawerSection
-        title={t('dialogs.advanced_options')}
-        description={t('products.section_advanced_hint')}
-        collapsible
-        open={advancedOpen}
-        onOpenChange={setAdvancedOpen}
-      >
         <div className="space-y-1.5">
           <Label className="flex items-center gap-1.5">
             <ImagePlus className="h-3.5 w-3.5 text-muted-foreground" />
@@ -415,7 +349,7 @@ export function ProductForm({
             <div className="flex items-start gap-3">
               <div className="relative w-20 h-20 rounded-lg overflow-hidden border border-border group shrink-0">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={imagePreview} alt="Aperçu" className="w-full h-full object-cover" />
+                <img src={imagePreview} alt={t('product_form.photo_preview')} className="w-full h-full object-cover" />
                 {uploadingImage && (
                   <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
                     <Loader2 className="h-4 w-4 text-white animate-spin" />
@@ -486,6 +420,85 @@ export function ProductForm({
             className="hidden"
             onChange={handleImageSelect}
           />
+        </div>
+      </DrawerSection>
+
+      {/* ── Plus d'options (repliées) : catégorie, code-barres, seuil, fournisseur, emplacement ────────────────
+          Simple devant (1er nov. 2026) : l'essentiel d'abord, avec la photo (utile en caisse) ; le reste s'ouvre seul
+          quand il porte déjà une valeur (modification) ou quand le serveur y signale une erreur. */}
+      <DrawerSection
+        title={t('product_form.more_options')}
+        description={t('product_form.more_options_hint')}
+        collapsible
+        open={moreOpen}
+        onOpenChange={setMoreOpen}
+      >
+        <div className="space-y-1.5">
+          <Label>{t('products.category')} {optional}</Label>
+          <Select value={categoryId} onValueChange={v => form.setValue('category_id', v === NONE ? '' : v, { shouldDirty: true })}>
+            <SelectTrigger className="h-10"><SelectValue placeholder={t('form.select_placeholder')} /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value={NONE}>{t('form.none_female')}</SelectItem>
+              {categories.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
+            </SelectContent>
+          </Select>
+        </div>
+
+        {/* SKU / Barcode, scanner accolé */}
+        <div className="space-y-1.5">
+          <Label htmlFor="product-sku" className="flex items-center gap-1.5">
+            <ScanLine className="h-3.5 w-3.5 text-muted-foreground" />
+            {t('products.sku')} {optional}
+          </Label>
+          <InputGroup
+            action={(
+              <button
+                type="button"
+                onClick={() => setShowScanner(v => !v)}
+                aria-pressed={showScanner}
+                className="inline-flex h-10 flex-shrink-0 items-center gap-1.5 rounded-r-md border border-l-0 border-input bg-muted px-3 text-xs font-medium transition-colors hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
+              >
+                <Camera className="h-3.5 w-3.5" />
+                {t('product_form.scan')}
+              </button>
+            )}
+          >
+            <Input id="product-sku" {...form.register('sku')} maxLength={SKU_MAX_LENGTH} placeholder={t('product_form.sku_placeholder')} className="font-mono text-sm" />
+          </InputGroup>
+          <p className="text-[11px] text-muted-foreground">{t('product_form.scanner_hint')}</p>
+          <FieldError message={errors.sku?.message} />
+          {showScanner && (
+            <BarcodeScanner onDetected={handleBarcodeDetected} onClose={() => setShowScanner(false)} />
+          )}
+        </div>
+
+        <div className="grid grid-cols-2 items-start gap-3">
+          <div className="space-y-1.5">
+            <Label>{t('product_form.threshold_label')}</Label>
+            <Controller control={form.control} name="low_stock_threshold" render={({ field }) => (
+              <NumericInput allowEmpty value={field.value ?? null} onChange={field.onChange} onBlur={field.onBlur}
+                placeholder={t('product_form.threshold_placeholder', { count: shopLowStockThreshold || 10 })} className="h-10" data-testid="product-threshold" />
+            )} />
+            <p className="text-[11px] text-muted-foreground">{t('product_form.threshold_hint')}</p>
+            <FieldError message={errors.low_stock_threshold?.message} />
+          </div>
+          <div className="space-y-1.5">
+            <Label>{t('products.supplier')} {optional}</Label>
+            <Select value={supplierId} onValueChange={v => form.setValue('supplier_id', v === NONE ? '' : v, { shouldDirty: true })}>
+              <SelectTrigger className="h-10"><SelectValue placeholder={t('form.select_placeholder')} /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value={NONE}>{t('form.none_male')}</SelectItem>
+                {suppliers.map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+
+        {/* Emplacement dans la boutique (étape 10) : retrouver le produit, compter l'inventaire dans l'ordre du magasin */}
+        <div className="space-y-1.5">
+          <Label htmlFor="product-location">{t('product_form.location_label')} {optional}</Label>
+          <Input id="product-location" {...form.register('location')} maxLength={60} placeholder={t('product_form.location_placeholder')} className="h-10" data-testid="product-location" />
+          <FieldError message={errors.location?.message} />
         </div>
       </DrawerSection>
     </form>

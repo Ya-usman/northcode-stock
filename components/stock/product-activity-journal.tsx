@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import { useLocale, useTranslations } from 'next-intl'
-import { Archive, CalendarClock, ChevronDown, Edit2, ExternalLink, History, Unlock, Plus, RotateCcw, Search, Tag, Trash2, X } from 'lucide-react'
+import { Archive, Boxes, CalendarClock, ChevronDown, Edit2, ExternalLink, FileSpreadsheet, Hash, History, Package, Unlock, Plus, RotateCcw, Search, Tag, Trash2, X } from 'lucide-react'
 import { useCurrency } from '@/lib/hooks/use-currency'
 import { withTimeout } from '@/lib/utils/with-timeout'
 import { Input } from '@/components/ui/input'
@@ -28,8 +28,9 @@ type ActionGroup = 'all' | 'created' | 'updated' | 'promo' | 'archived' | 'delet
 type Period = 'all' | 'today' | '7d' | '30d' | 'custom'
 
 const GROUPS: Record<Exclude<ActionGroup, 'all'>, string[]> = {
-  created: ['create_product'],
-  updated: ['update_product', 'update_batch_expiry'],
+  created: ['create_product', 'product.import'],
+  // Kits, conditionnements et numéros de série (lot C des ajouts, 1er nov. 2026) : modifications de la fiche
+  updated: ['update_product', 'update_batch_expiry', 'kit.update', 'kit.assemble', 'kit.disassemble', 'packaging.create', 'packaging.delete', 'serial.add', 'serial.remove', 'serial.correct'],
   promo: ['update_batch_promo', 'bulk_update_promo'],
   archived: ['archive_product', 'restore_product'],
   deleted: ['delete_product', 'bulk_delete_products', 'delete_all_products'],
@@ -50,6 +51,15 @@ const KIND: Record<string, { icon: typeof Plus; tone: string }> = {
   bulk_delete_products: { icon: Trash2, tone: 'bg-red-50 text-red-600 dark:bg-red-950/40 dark:text-red-400' },
   delete_all_products: { icon: Trash2, tone: 'bg-red-50 text-red-600 dark:bg-red-950/40 dark:text-red-400' },
   'stock.reservation_released': { icon: Unlock, tone: 'bg-amber-50 text-amber-600 dark:bg-amber-950/40 dark:text-amber-400' },
+  'product.import': { icon: FileSpreadsheet, tone: 'bg-green-50 text-green-600 dark:bg-green-950/40 dark:text-green-400' },
+  'kit.update': { icon: Boxes, tone: 'bg-stockshop-blue-muted text-stockshop-blue dark:bg-blue-950/40 dark:text-blue-400' },
+  'kit.assemble': { icon: Boxes, tone: 'bg-green-50 text-green-600 dark:bg-green-950/40 dark:text-green-400' },
+  'kit.disassemble': { icon: Boxes, tone: 'bg-amber-50 text-amber-600 dark:bg-amber-950/40 dark:text-amber-400' },
+  'packaging.create': { icon: Package, tone: 'bg-stockshop-blue-muted text-stockshop-blue dark:bg-blue-950/40 dark:text-blue-400' },
+  'packaging.delete': { icon: Package, tone: 'bg-red-50 text-red-600 dark:bg-red-950/40 dark:text-red-400' },
+  'serial.add': { icon: Hash, tone: 'bg-stockshop-blue-muted text-stockshop-blue dark:bg-blue-950/40 dark:text-blue-400' },
+  'serial.remove': { icon: Hash, tone: 'bg-red-50 text-red-600 dark:bg-red-950/40 dark:text-red-400' },
+  'serial.correct': { icon: Hash, tone: 'bg-stockshop-blue-muted text-stockshop-blue dark:bg-blue-950/40 dark:text-blue-400' },
 }
 
 const PRICE_FIELDS = new Set(['selling_price', 'buying_price', 'promo_price'])
@@ -179,7 +189,7 @@ export function ProductActivityJournal({ open, onOpenChange, shopId, shopLabel, 
     const meta = log.metadata || {}
     switch (log.action) {
       case 'create_product':
-        return { title: meta.product_name || t('products.journal_created'), summary: tj('summary_created') }
+        return { title: meta.product_name || t('products.journal_created'), summary: meta.source === 'transfer' && meta.reference ? tj('summary_created_transfer', { reference: meta.reference, shop: meta.from_shop || '' }) : tj('summary_created') }
       case 'update_product': {
         const keys = Object.keys(meta.changes || {})
         return { title: meta.product_name || t('products.journal_updated'), summary: keys.length ? tj('summary_updated', { fields: keys.map(fieldLabel).join(' · ') }) : t('products.journal_updated') }
@@ -200,6 +210,26 @@ export function ProductActivityJournal({ open, onOpenChange, shopId, shopLabel, 
         return { title: t('products.journal_bulk_delete'), summary: tj('summary_count', { count: meta.count ?? 0 }) }
       case 'stock.reservation_released':
         return { title: meta.product_name || '—', summary: tj('summary_reservation_released', { count: meta.quantity ?? 0, invoice: meta.label || tj('reservation_unnamed') }) }
+      case 'product.import': {
+        const names: string[] = meta.product_names || []
+        return { title: tj(meta.source === 'quick_add' ? 'title_quick_add' : 'title_import', { count: meta.inserted ?? 0 }), summary: names.length ? names.slice(0, 3).join(' · ') + (names.length > 3 ? ' · …' : '') : tj('summary_count', { count: meta.inserted ?? 0 }) }
+      }
+      case 'kit.update':
+        return { title: meta.product_name || '—', summary: (meta.components || []).length ? tj('summary_kit_update', { count: meta.components.length }) : tj('summary_kit_removed') }
+      case 'kit.assemble':
+        return { title: meta.product_name || '—', summary: tj('summary_kit_assemble', { count: meta.quantity ?? 0 }) }
+      case 'kit.disassemble':
+        return { title: meta.product_name || '—', summary: tj('summary_kit_disassemble', { count: meta.quantity ?? 0 }) }
+      case 'packaging.create':
+        return { title: meta.product_name || '—', summary: tj('summary_packaging_create', { count: meta.units_per_pack ?? 0 }) }
+      case 'packaging.delete':
+        return { title: meta.product_name || '—', summary: tj('summary_packaging_delete', { count: meta.units_per_pack ?? 0 }) }
+      case 'serial.add':
+        return { title: meta.product_name || '—', summary: tj('summary_serial_add', { count: meta.count ?? 0 }) }
+      case 'serial.remove':
+        return { title: meta.product_name || '—', summary: tj('summary_serial_remove', { serial: meta.serial ?? '' }) }
+      case 'serial.correct':
+        return { title: meta.product_name || '—', summary: tj('summary_serial_correct') }
       default:
         return { title: t('products.all_deleted_toast'), summary: tj('summary_count', { count: meta.count ?? 0 }) }
     }
@@ -233,7 +263,7 @@ export function ProductActivityJournal({ open, onOpenChange, shopId, shopLabel, 
   const renderDetail = (log: any) => {
     const meta = log.metadata || {}
     const changes: Record<string, { from: unknown; to: unknown }> = meta.changes || {}
-    const productId: string | null = (log.action === 'update_batch_promo' || log.action === 'update_batch_expiry') ? meta.product_id || null : (log.target_type === 'product' ? log.target_id : null)
+    const productId: string | null = (log.action === 'update_batch_promo' || log.action === 'update_batch_expiry' || log.action === 'serial.remove' || log.action === 'serial.correct') ? meta.product_id || null : (log.target_type === 'product' ? log.target_id : null)
     const deleted = log.action === 'delete_product' || log.action === 'bulk_delete_products' || log.action === 'delete_all_products'
     const canOpen = !!productId && !!onOpenProduct && !deleted && (!productExists || productExists(productId))
 
@@ -264,6 +294,20 @@ export function ProductActivityJournal({ open, onOpenChange, shopId, shopLabel, 
     } else if (log.action === 'stock.reservation_released') {
       rows.push({ label: tj('reservation_invoice'), to: String(meta.label || tj('reservation_unnamed')) })
       rows.push({ label: fieldLabel('quantity'), to: String(meta.quantity ?? 0) })
+    } else if (log.action === 'kit.update') {
+      for (const c of (meta.components || []) as { product?: string; quantity?: number }[]) rows.push({ label: c.product || '—', to: `× ${c.quantity ?? 0}` })
+    } else if (log.action === 'kit.assemble' || log.action === 'kit.disassemble') {
+      rows.push({ label: tj('kits_count'), to: String(meta.quantity ?? 0) })
+    } else if (log.action === 'packaging.create' || log.action === 'packaging.delete') {
+      rows.push({ label: tj('units_per_pack'), to: String(meta.units_per_pack ?? 0) })
+    } else if (log.action === 'serial.add') {
+      for (const sn of ((meta.serials || []) as string[]).slice(0, 20)) rows.push({ label: tj('serial'), to: sn })
+    } else if (log.action === 'serial.remove') {
+      rows.push({ label: tj('serial'), to: String(meta.serial ?? '') })
+      if (meta.reason) rows.push({ label: tj('reason'), to: String(meta.reason) })
+    } else if (log.action === 'product.import') {
+      rows.push({ label: tj('products_affected'), to: String(meta.inserted ?? 0) })
+      for (const n of ((meta.product_names || []) as string[]).slice(0, 50)) rows.push({ label: tj('created_product'), to: n })
     } else if (log.action === 'bulk_update_promo') {
       rows.push({ label: tj('discount'), to: `${meta.percent ?? 0} %` })
       rows.push({ label: tj('products_affected'), to: String(meta.count ?? 0) })
@@ -291,8 +335,8 @@ export function ProductActivityJournal({ open, onOpenChange, shopId, shopLabel, 
                 </tr>
               </thead>
               <tbody className="divide-y divide-border">
-                {rows.map(r => (
-                  <tr key={r.label}>
+                {rows.map((r, i) => (
+                  <tr key={`${r.label}-${i}`}>
                     <td className="px-3 py-2 text-muted-foreground">{r.label}</td>
                     {hasBefore && <td className="px-3 py-2 tabular-nums text-muted-foreground line-through decoration-muted-foreground/50">{r.from ?? '—'}</td>}
                     <td className="px-3 py-2 font-medium tabular-nums">{r.to}</td>

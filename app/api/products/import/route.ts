@@ -1,5 +1,7 @@
 import { NextResponse } from 'next/server'
-import { createAdminClient, createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/server'
+import { getAuthedUser, checkShopRole } from '@/lib/api/shop-auth'
+import { shopProductKeys } from '@/lib/api/new-product'
 import { getApiTranslator } from '@/lib/api/i18n'
 import { canViewCost, canWriteFeature } from '@/lib/api/role-permissions'
 import { writeAuditLog, getClientIp } from '@/lib/api/audit'
@@ -19,8 +21,7 @@ import { checkRows, summarize, IMPORT_FIELDS, IMPORT_MAX_ROWS, type RawRow, type
 export async function POST(request: Request) {
   const t = getApiTranslator(request)
   try {
-    const supabase = await createClient() as any
-    const { data: { user } } = await supabase.auth.getUser()
+    const { user, supabase } = await getAuthedUser()
     if (!user) return NextResponse.json({ error: t('not_authenticated') }, { status: 401 })
 
     const body = await request.json()
@@ -31,9 +32,9 @@ export async function POST(request: Request) {
     if (body.rows.length > IMPORT_MAX_ROWS) return NextResponse.json({ error: t('max_import_rows', { max: IMPORT_MAX_ROWS }) }, { status: 400 })
 
     // Import = « Produits / Stock » en modification (règle unique, lot 1)
-    const { data: memberRow } = await supabase.from('shop_members').select('role')
-      .eq('shop_id', shopId).eq('user_id', user.id).eq('is_active', true).maybeSingle()
-    if (!memberRow || !(await canWriteFeature(supabase, memberRow.role, shopId, 'stock'))) {
+    // Contrôle commun à toutes les routes (propriétaire sans ligne de membre compris), comme « Ajouter un produit »
+    const role = await checkShopRole(supabase, user.id, shopId)
+    if (!role || !(await canWriteFeature(supabase, role, shopId, 'stock'))) {
       return NextResponse.json({ error: t('permission_denied') }, { status: 403 })
     }
 
@@ -50,28 +51,34 @@ export async function POST(request: Request) {
     })
 
     const admin = createAdminClient() as any
-    // Produits actuels de la boutique (nom, code-barres), par pages
-    const existing: { name: string; sku: string | null }[] = []
-    for (let from = 0; ; from += 1000) {
-      const { data, error } = await admin.from('products').select('name, sku').eq('shop_id', shopId).range(from, from + 999)
-      if (error) return NextResponse.json({ error: error.message }, { status: 500 })
-      existing.push(...(data || []))
-      if (!data || data.length < 1000) break
-    }
+    // Produits de la boutique (nom, code-barres, actif ou archivé), par pages
+    const keys = await shopProductKeys(admin, shopId)
+    if (keys.error) return NextResponse.json({ error: t('product_create_failed') }, { status: 500 })
+    const existing = keys.data
 
-    const reports: RowReport[] = checkRows(rows, existing)
-    const strip = (r: RowReport) => ({ line: r.line, status: r.status, issue: r.issue, params: r.params, warnings: r.warnings })
+    // Ajout rapide (saisie à la main) : jamais de « ligne d'exemple » écartée ; import de fichier : inchangé
+    const quickAdd = body?.source === 'quick_add'
+    const reports: RowReport[] = checkRows(rows, existing, undefined, { examples: !quickAdd })
+    // Catégorie par ligne (ajout rapide) : seulement une catégorie de CETTE boutique, sinon ligne à corriger
+    const categoryOf = new Map<number, string>()
+    body.rows.forEach((r: any, i: number) => { if (typeof r?.category_id === 'string' && r.category_id) categoryOf.set(rows[i].line, r.category_id) })
+    if (categoryOf.size) {
+      const { data: cats } = await admin.from('categories').select('id').eq('shop_id', shopId).in('id', Array.from(new Set(categoryOf.values())))
+      const valid = new Set(((cats || []) as { id: string }[]).map(c => c.id))
+      for (const r of reports) if (r.status === 'new' && categoryOf.has(r.line) && !valid.has(categoryOf.get(r.line)!)) Object.assign(r, { status: 'error', issue: 'invalid_category' })
+    }
+    const strip = (r: RowReport) => ({ line: r.line, status: r.status, issue: r.issue, params: r.params, warnings: r.warnings, product_id: r.product_id })
     if (dryRun) return NextResponse.json({ dry_run: true, summary: summarize(reports), rows: reports.map(strip) })
 
     // ── Import : les lignes nouvelles, par paquets de 200 ─────────────────────
     const toCreate = reports.filter(r => r.status === 'new' && r.product)
     // Colonne « prix d'achat » : prise en compte seulement avec le droit au coût — sinon coût inconnu (produit et lot)
-    const seesCost = await canViewCost(supabase, memberRow.role, shopId)
+    const seesCost = await canViewCost(supabase, role, shopId)
     if (!seesCost) for (const r of toCreate) { delete (r.product as any).buying_price; if (r.lot) r.lot.cost = null }
     let inserted = 0
     for (let i = 0; i < toCreate.length; i += 200) {
       const chunk = toCreate.slice(i, i + 200)
-      const payload = chunk.map(r => ({ shop_id: shopId, ...r.product!, is_active: true }))
+      const payload = chunk.map(r => ({ shop_id: shopId, ...r.product!, category_id: categoryOf.get(r.line) ?? null, is_active: true }))
       let created: { id: string; idx: number }[] = []
       const { data, error } = await admin.from('products').insert(payload).select('id')
       if (!error) created = (data || []).map((d: any, idx: number) => ({ id: d.id, idx }))
@@ -110,13 +117,16 @@ export async function POST(request: Request) {
         created = created.filter(c => !withStock.includes(c))
       }
       inserted += created.length
+      for (const c of created) chunk[c.idx].product_id = c.id
     }
 
     const summary = { ...summarize(reports), inserted }
     await writeAuditLog({
       action: 'product.import', actor_id: user.id, actor_email: user.email, shop_id: shopId,
       target_type: 'shop', target_id: shopId,
-      metadata: { inserted, rows: summary.total, already_in_stock: summary.exists, errors: summary.errors, ignored_examples: summary.ignored },
+      // Noms des produits créés (journal Stock) : 50 au plus, le total reste dans « inserted »
+      metadata: { inserted, rows: summary.total, already_in_stock: summary.exists, errors: summary.errors, ignored_examples: summary.ignored, source: quickAdd ? 'quick_add' : 'file',
+        product_names: reports.filter(r => r.product_id).slice(0, 50).map(r => r.product!.name) },
       ip: getClientIp(request),
     })
     return NextResponse.json({ inserted, summary, rows: reports.map(strip) })

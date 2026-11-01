@@ -9,7 +9,8 @@
 export type MovementReason =
   | { key: 'reason_sale' | 'reason_sale_cancelled' | 'reason_sale_edited' | 'reason_po_received'; params: { ref: string } }
   | { key: 'reason_initial' | 'reason_restock' | 'reason_inventory_correction' | 'reason_inventory_loss' | 'reason_inventory_damage' | 'reason_inventory_expiry' }
-  | { key: 'reason_restock_from'; params: { name: string } }
+  | { key: 'reason_restock_from' | 'reason_kit_component_used' | 'reason_kit_component_back'; params: { name: string } }
+  | { key: 'reason_kit_assembled' | 'reason_kit_disassembled' }
   | { key: 'reason_transfer_out' | 'reason_transfer_in'; params: { ref: string; shop: string } }
   | { key: 'reason_inventory_other'; params: { detail: string } }
   | { key: 'reason_transfer_cancelled' | 'reason_transfer_missing'; params: { ref: string } }
@@ -47,6 +48,11 @@ export function describeMovementReason(reason: string | null | undefined): Movem
   if ((m = raw.match(/^Transfert\s+(\S+)\s+vers\s+(\S.*)$/))) return { key: 'reason_transfer_out', params: { ref: m[1], shop: m[2] } }
   if ((m = raw.match(/^Transfert\s+(\S+)\s+depuis\s+(\S.*)$/))) return { key: 'reason_transfer_in', params: { ref: m[1], shop: m[2] } }
   if ((m = raw.match(/^Annulation transfert\s+(\S+)$/))) return { key: 'reason_transfer_cancelled', params: { ref: m[1] } }
+  // Kits assemblés (étape 16, migration 200) : « Assemblage » (kit), « Assemblage <kit> » (composant), et l'inverse
+  if (raw === 'Assemblage') return { key: 'reason_kit_assembled' }
+  if (raw === 'Désassemblage') return { key: 'reason_kit_disassembled' }
+  if ((m = raw.match(/^Assemblage\s+(\S.*)$/))) return { key: 'reason_kit_component_used', params: { name: m[1] } }
+  if ((m = raw.match(/^Désassemblage\s+(\S.*)$/))) return { key: 'reason_kit_component_back', params: { name: m[1] } }
   if ((m = raw.match(/^(Correction|Suppression) de lot\s+[—–-]\s+(\S.*)$/))) {
     const detail = m[2].trim()
     return { key: m[1] === 'Correction' ? 'reason_batch_corrected' : 'reason_batch_deleted', params: { detail }, cause: BATCH_CAUSE[detail.toLowerCase()] ?? null }

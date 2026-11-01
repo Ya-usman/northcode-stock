@@ -72,7 +72,9 @@ const lastWrite = (s, re, method) => [...s.writes].reverse().find(w => re.test(w
   await page.locator('[data-testid=products-toolbar] input').first().fill(lotProd.name); await page.waitForTimeout(1200)
   await page.locator(`[data-product-card="${lotProd.id}"] button[aria-label^="Ouvrir la fiche"]`).click()
   await page.getByTestId('product-detail-batches').waitFor({ timeout: 20000 })
-  await page.getByTestId('product-detail-batches').locator('button[title="Modifier la date de péremption"]').first().click()
+  // Actions du lot : menu « … » aux libellés écrits (1er nov. 2026, avant : icône à infobulle)
+  await page.getByTestId('product-detail-batches').getByTestId('batch-actions').first().click()
+  await page.getByRole('menuitem', { name: 'Modifier la date de péremption' }).click()
   // Fenêtre commune de correction de date (batch-dialogs), reprise par la page Produits depuis la 179
   await page.locator('#batch-expiry-date').fill(day(90))
   // Depuis la 179 (appliquée), toute date modifiée garde sa raison : champ obligatoire quand il est affiché

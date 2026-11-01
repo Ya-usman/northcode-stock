@@ -195,7 +195,7 @@ export function useShopCashDetail(shop: Shop | null, show: { credit: boolean; re
 /** Familles d'actions du journal de la boutique (filtre) */
 export const HISTORY_GROUPS = {
   sales: ['sale.', 'payment.'],
-  stock: ['create_product', 'update_product', 'archive_product', 'restore_product', 'delete_product', 'bulk_delete_products', 'delete_all_products', 'bulk_update_category', 'update_batch_promo', 'update_batch_expiry', 'bulk_update_promo', 'stock_transfer.', 'purchase_order.', 'supplier.', 'inventory'],
+  stock: ['create_product', 'update_product', 'archive_product', 'restore_product', 'delete_product', 'bulk_delete_products', 'delete_all_products', 'bulk_update_category', 'update_batch_promo', 'update_batch_expiry', 'bulk_update_promo', 'product.import', 'kit.', 'packaging.', 'serial.', 'stock_transfer.', 'purchase_order.', 'supplier.', 'inventory'],
   team: ['member.', 'permissions.'],
   shop: ['shop.', 'entity.', 'billing.', 'account.'],
   money: ['expense.', 'budget.', 'customer.'],

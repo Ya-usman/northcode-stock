@@ -9,6 +9,7 @@ import { classifyBarcode } from '@/lib/products/barcode'
 import { normalizeLocation } from '@/lib/products/location'
 import { cleanSerials, serialErrorResponse } from '@/lib/api/serials'
 import { productsWithHistory } from '@/lib/api/product-history'
+import { newProductRow, sameNameProduct, shopProductKeys, checkProductPatch } from '@/lib/api/new-product'
 
 // Écriture de la fiche produit = niveau « modification » de Produits / Stock
 // (règle unique, lot 1 du 5 oct. 2026). Plus de passe-droit pour le caissier :
@@ -61,42 +62,38 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: t('permission_denied') }, { status: 403 })
     // Prix d'achat : seulement avec le droit au coût (view_purchase_cost) — sinon ignoré, coût inconnu
     const seesCost = await canViewCost(supabase, role, shop_id)
-    if (!seesCost) delete body.buying_price
-    // Always null-ify empty SKU to avoid unique constraint on empty strings
-    body.sku = body.sku?.trim() || null
-    if (classifyBarcode(body.sku) === 'gtin_invalid') return NextResponse.json({ error: t('barcode_invalid'), field: 'sku' }, { status: 400 })
-    // Emplacement (196) : espaces resserrés, vide = aucun, 60 caractères au plus
-    if ('location' in body) {
-      const loc = normalizeLocation(body.location)
-      if (loc === undefined) return NextResponse.json({ error: t('location_too_long'), field: 'location' }, { status: 400 })
-      body.location = loc
-    }
-    // La date de péremption appartient au LOT initial, jamais au produit : retirée de la fiche
-    const expiryDate: string | null = typeof body.expiry_date === 'string' && body.expiry_date.trim() ? body.expiry_date.trim() : null
-    delete body.expiry_date
-    // Date du calendrier réelle (AAAA-MM-JJ, jour existant) : jamais corrigée, refusée sinon
-    const [ey, em, ed] = (expiryDate || '').split('-').map(Number)
-    const realDay = !!expiryDate && /^\d{4}-\d{2}-\d{2}$/.test(expiryDate) &&
-      new Date(Date.UTC(ey, em - 1, ed)).toISOString().slice(0, 10) === expiryDate
-    if (expiryDate && !realDay) return NextResponse.json({ error: t('date_invalid') }, { status: 400 })
+    // Liste FERMÉE de champs + règles communes (nom, prix > 0, quantité, seuil, unité, code-barres, emplacement,
+    // péremption du lot initial) : jamais le corps brut. Suivi par numéro de série, kit, promotion, archivage :
+    // réglés ailleurs, par leurs propres routes et leurs règles (lot A des ajouts, 1er nov. 2026).
+    // La date de péremption appartient au LOT initial, jamais au produit.
+    const checked = newProductRow(body, seesCost)
+    if (!checked.ok) return NextResponse.json({ error: t(checked.key as any), field: checked.field }, { status: 400 })
+    const row = checked.row
+    const expiryDate = checked.expiry_date
     const admin = await createAdminClient()
-    if (!(await categoryInShop(admin, body.category_id, shop_id))) return NextResponse.json({ error: t('category_wrong_shop') }, { status: 400 })
-    if (body.supplier_id && !(await supplierOfShop(admin, body.supplier_id, shop_id))) return NextResponse.json({ error: t('supplier_wrong_shop'), field: 'supplier_id' }, { status: 400 })
-    const { data, error } = await (admin as any).from('products').insert(body).select().single()
+    if (!(await categoryInShop(admin, row.category_id, shop_id))) return NextResponse.json({ error: t('category_wrong_shop') }, { status: 400 })
+    if (row.supplier_id && !(await supplierOfShop(admin, row.supplier_id, shop_id))) return NextResponse.json({ error: t('supplier_wrong_shop'), field: 'supplier_id' }, { status: 400 })
+    // Même nom dans la boutique (sans casse ni accents), comme à l'import : actif = déjà en stock ; archivé = à restaurer
+    const keys = await shopProductKeys(admin, shop_id)
+    if (keys.error) return NextResponse.json({ error: t('product_create_failed') }, { status: 500 })
+    const same = sameNameProduct(String(row.name), keys.data)
+    if (same) return NextResponse.json({ error: t(same.is_active === false ? 'product_name_archived' : 'product_name_exists', { name: same.name }), field: 'name', code: same.is_active === false ? 'product_name_archived' : 'product_name_exists' }, { status: 409 })
+    const { data, error } = await (admin as any).from('products').insert(row).select().single()
     if (error) {
-      const taken = await skuTakenResponse(admin, t, error, shop_id, body.sku)
+      const taken = await skuTakenResponse(admin, t, error, shop_id, row.sku)
       if (taken) return taken
-      return NextResponse.json({ error: error.message }, { status: 400 })
+      console.error('[products] création refusée par la base', error.message)
+      return NextResponse.json({ error: t('product_create_failed') }, { status: 400 })
     }
     // Stock initial : son mouvement ET son lot. Toute entrée physique de stock est représentée
     // par un lot (daté ou « Sans date ») ; le coût n'y est mis que s'il est réellement connu.
     // Pas de transaction possible ici sans fonction en base : si le mouvement ou le lot échoue,
     // le produit est retiré — jamais de produit avec du stock et sans lot.
-    const initialQty = Number(body.quantity) || 0
+    const initialQty = Number(row.quantity) || 0
     if (initialQty > 0 && data?.id) {
-      const knownCost = Number(body.buying_price) > 0 ? Number(body.buying_price) : null
+      const knownCost = Number(row.buying_price) > 0 ? Number(row.buying_price) : null
       const { data: movement, error: mvError } = await (admin as any).from('stock_movements').insert({
-        shop_id: body.shop_id,
+        shop_id,
         product_id: data.id,
         type: 'in',
         quantity: initialQty,
@@ -106,9 +103,9 @@ export async function POST(request: Request) {
         new_qty: initialQty,
       }).select('id').single()
       const { error: lotError } = mvError ? { error: mvError } : await (admin as any).from('product_batches').insert({
-        shop_id: body.shop_id,
+        shop_id,
         product_id: data.id,
-        supplier_id: body.supplier_id || null,
+        supplier_id: (row.supplier_id as string | null) || null,
         quantity: initialQty,
         initial_quantity: initialQty,
         buying_price: knownCost,
@@ -126,7 +123,7 @@ export async function POST(request: Request) {
     const { data: actorProfile } = await (admin as any).from('profiles').select('full_name').eq('id', user.id).single()
     await writeAuditLog({
       action: 'create_product',
-      shop_id: body.shop_id,
+      shop_id,
       actor_id: user.id,
       actor_email: user.email,
       target_id: data?.id,
@@ -281,6 +278,9 @@ export async function PATCH(request: Request) {
     if (Object.keys(safeUpdates).length === 0)
       return NextResponse.json({ error: t('no_valid_fields') }, { status: 400 })
     if ('sku' in safeUpdates) safeUpdates.sku = (safeUpdates.sku as string)?.trim() || null
+    // Mêmes règles qu'à la création, pour les champs modifiés (lot C des ajouts, 1er nov. 2026)
+    const patchIssue = checkProductPatch(safeUpdates)
+    if (patchIssue) return NextResponse.json({ error: t(patchIssue.key as any), field: patchIssue.field }, { status: 400 })
     if ('location' in safeUpdates) {
       const loc = normalizeLocation(safeUpdates.location)
       if (loc === undefined) return NextResponse.json({ error: t('location_too_long'), field: 'location' }, { status: 400 })

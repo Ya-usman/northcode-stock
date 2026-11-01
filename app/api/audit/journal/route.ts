@@ -14,7 +14,9 @@ import { getApiTranslator } from '@/lib/api/i18n'
 const FEATURES: Record<string, { feature: 'stock' | 'expenses'; actions: string[]; search: string | null }> = {
   stock: {
     feature: 'stock',
-    actions: ['create_product', 'update_product', 'update_batch_promo', 'update_batch_expiry', 'bulk_update_promo', 'archive_product', 'restore_product', 'delete_product', 'bulk_delete_products', 'delete_all_products', 'stock.reservation_released'],
+    actions: ['create_product', 'update_product', 'update_batch_promo', 'update_batch_expiry', 'bulk_update_promo', 'archive_product', 'restore_product', 'delete_product', 'bulk_delete_products', 'delete_all_products', 'stock.reservation_released',
+      // Lot C des ajouts (1er nov. 2026) : créations par import / ajout rapide, kits, conditionnements, numéros de série
+      'product.import', 'kit.update', 'kit.assemble', 'kit.disassemble', 'packaging.create', 'packaging.delete', 'serial.add', 'serial.remove', 'serial.correct'],
     search: 'metadata->>product_name',
   },
   expenses: { feature: 'expenses', actions: ['expense.delete'], search: null },
@@ -55,7 +57,19 @@ export async function GET(request: Request) {
     // Journal Stock : anciens / nouveaux prix d'achat (metadata.buying_price, changes.buying_price) seulement avec le
     // droit au coût — « Stock en modification » ne le donne plus. L'entrée reste, sans la valeur.
     const seesCost = spec.feature !== 'stock' || await canViewCost(supabase, role, shopId)
-    return NextResponse.json({ logs: costVisible(data || [], seesCost), count: typeof count === 'number' ? count : null })
+    // Nom du produit absent de l'entrée (kits, conditionnements, numéros de série) : lu sur le produit de la boutique
+    const logs = (data || []) as any[]
+    const missing = Array.from(new Set(logs.filter(l => !l.metadata?.product_name)
+      .map(l => (l.target_type === 'product' ? l.target_id : l.metadata?.product_id) as string | undefined).filter(Boolean))) as string[]
+    if (spec.feature === 'stock' && missing.length) {
+      const { data: prods } = await admin.from('products').select('id, name').eq('shop_id', shopId).in('id', missing)
+      const nameOf = Object.fromEntries(((prods || []) as { id: string; name: string }[]).map(x => [x.id, x.name]))
+      for (const l of logs) {
+        const id = l.target_type === 'product' ? l.target_id : l.metadata?.product_id
+        if (!l.metadata?.product_name && id && nameOf[id]) l.metadata = { ...(l.metadata || {}), product_name: nameOf[id] }
+      }
+    }
+    return NextResponse.json({ logs: costVisible(logs, seesCost), count: typeof count === 'number' ? count : null })
   } catch (e: any) {
     return NextResponse.json({ error: e.message }, { status: 500 })
   }

@@ -4,6 +4,7 @@ import { PageHeader } from '@/components/layout/page-header'
 import { useState, useEffect, useMemo, useRef } from 'react'
 import { useSearchParams, useRouter, usePathname } from 'next/navigation'
 import { usePersistedFilters } from '@/lib/hooks/use-persisted-filters'
+import { lowStockThresholdOf } from '@/lib/stock/signals'
 import { normalize } from '@/lib/utils/normalize'
 import { useTranslations, useLocale } from 'next-intl'
 import { useUnitLabel } from '@/lib/products/use-unit-label'
@@ -169,6 +170,10 @@ export default function SuppliersPage() {
   // boutique par boutique (useShopPermissions) — jamais sur la boutique active cachée.
   const scope = useShopScope()
   const scopeKey = scope.shopIds.join(',')
+  // Contexte courant au moment où une réponse arrive : une réponse d'un contexte précédent (changement de boutique
+  // pendant le chargement) est ignorée, elle n'écrase jamais la liste du contexte affiché
+  const liveScope = useRef({ scopeKey, shops: effectiveShopIds.join(',') })
+  liveScope.current = { scopeKey, shops: effectiveShopIds.join(',') }
   const filterScope = useFilterScope()
   const { canWriteIn, canAccessIn, canViewCostIn } = useShopPermissions()
   // Payer une dette fournisseur (même à la réception) : Crédits en modification ET Fournisseurs en lecture — même règle
@@ -347,6 +352,7 @@ export default function SuppliersPage() {
         supabase.from('suppliers').select(SUPPLIER_PUBLIC_COLUMNS).in('shop_id', effectiveShopIds).order('name'),
         supabase.from('products').select('id, name, selling_price, quantity, unit, supplier_id, shop_id, track_serials').in('shop_id', effectiveShopIds).eq('is_active', true),
       ]), 20_000, 'Chargement des fournisseurs trop lent : réessayez.')
+      if (liveScope.current.shops !== effectiveShopIds.join(',')) return
       // A transient auth/RLS hiccup can resolve with data: null instead of
       // throwing — check explicitly so the catch below preserves the cache
       // already on screen instead of zeroing it out.
@@ -389,6 +395,7 @@ export default function SuppliersPage() {
       const res = await withTimeout(fetch(`/api/product-supplier-prices?shop_ids=${scopeKey}`), 20_000)
       if (!res.ok) return
       const json = await res.json()
+      if (liveScope.current.scopeKey !== scopeKey) return
       setProductPrices(json.data || [])
     } catch {
       // silencieux — comparaison purement informative
@@ -397,20 +404,24 @@ export default function SuppliersPage() {
 
   const fetchPurchaseOrders = async () => {
     if (!scopeKey) return
+    const key = scopeKey
     try {
       // Bons de toutes les boutiques du contexte (avant : boutique active cachée seulement)
-      const res = await withTimeout(fetch(`/api/purchase-orders?shop_ids=${scopeKey}`), 20_000)
+      const res = await withTimeout(fetch(`/api/purchase-orders?shop_ids=${key}`), 20_000)
       if (!res.ok) throw new Error('purchase_orders')
       const json = await res.json()
+      if (liveScope.current.scopeKey !== key) return
       setPurchaseOrders(json.data || [])
       setPoState('ready')
     } catch {
+      if (liveScope.current.scopeKey !== key) return
       // Échec : on garde la liste connue ; sans liste connue, message + « Réessayer » (jamais « aucun bon » trompeur)
       setPoState(prev => (prev === 'ready' ? 'ready' : 'error'))
     }
   }
 
-  useEffect(() => { setPoState('loading'); fetchSuppliers(); fetchProductPrices(); fetchPurchaseOrders() }, [effectiveShopIds.join(',')]) // eslint-disable-line react-hooks/exhaustive-deps
+  // Nouveau contexte : la liste de l'ancien contexte n'est plus montrée pendant le chargement
+  useEffect(() => { setPurchaseOrders([]); setPoState('loading'); fetchSuppliers(); fetchProductPrices(); fetchPurchaseOrders() }, [effectiveShopIds.join(','), scopeKey]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Changement de contexte : toute création ou action en cours est fermée — aucune boutique précédente reprise
   const scopeKeyRef = useRef(scopeKey)
@@ -668,7 +679,7 @@ export default function SuppliersPage() {
 
   // ── Bons de commande ─────────────────────────────────────────────────────
   // Repli (suggestions indisponibles) : l'ancienne règle du seuil de la boutique sur la quantité physique
-  const lowStockThreshold = (p: any) => p.low_stock_threshold || shopById[p.shop_id]?.low_stock_threshold || 10
+  const lowStockThreshold = (p: any) => lowStockThresholdOf(p, shopById[p.shop_id]?.low_stock_threshold)
   // Règle du réapprovisionnement (lib/stock/replenishment) : disponible + en commande + en transit + brouillons,
   // seuil du produit, ventes ; repli sur le seuil seulement si les suggestions n'ont pas pu être lues
   const isLowOrOut = (p: any) => poSuggest ? !!poSuggest.items[p.id] : (p.quantity === 0 || p.quantity <= lowStockThreshold(p))

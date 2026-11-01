@@ -24,7 +24,8 @@
     "stock_transfer_tokens",
     "stock_transfer_requests",
     "product_packagings",
-    "product_serials"
+    "product_serials",
+    "product_kit_components"
   ],
   "sourceRoots": [
     "app",

@@ -66,6 +66,13 @@ export function describeMovement(m: MovementInput): MovementView {
       return view('label_initial')
     case 'reason_restock':
       return view('label_restock')
+    // Kits assemblés (étape 16) : entrée / sortie selon le type, la seconde ligne dit l'assemblage
+    case 'reason_kit_assembled':
+    case 'reason_kit_disassembled':
+      return view(byType, { key: d.key })
+    case 'reason_kit_component_used':
+    case 'reason_kit_component_back':
+      return view(byType, { key: d.key, params: d.params })
     case 'reason_restock_from':
       return view('label_restock', { raw: d.params.name }, { kind: 'supplier', name: d.params.name })
     case 'reason_po_received':

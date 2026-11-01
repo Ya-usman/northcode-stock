@@ -45,11 +45,12 @@ import { ProductTable, ProductTableSkeleton, OPTIONAL_COLUMNS, type ProductColum
 import { useStockViewMode } from '@/lib/hooks/use-stock-view-mode'
 import { ProductActivityJournal } from '@/components/stock/product-activity-journal'
 import { ProductDetailDrawer, type ProductDetailSection } from '@/components/stock/product-detail-drawer'
+import { BatchTreatmentDrawer, useBatchTreatmentsAvailable } from '@/components/stock/batch-treatment'
 import { isNeutralClick } from '@/lib/utils/open-on-click'
 import { PRODUCT_PUBLIC_COLUMNS } from '@/lib/products/columns'
 import { SUPPLIER_PUBLIC_COLUMNS } from '@/lib/suppliers/columns'
 import { fetchCosts, withCosts } from '@/lib/costs/client'
-import { fetchExpiryByProduct, fetchExpiredQtyByProduct, availableQty, isNearRupture, isDormant as isDormantRule, isSurstock as isSurstockRule, stockLevelOf, stockQuantities, fetchSoldQty30dForShops, readSignalsCache, shopRulesOf, writeSignalsCache } from '@/lib/stock/signals'
+import { fetchExpiryByProduct, fetchExpiredQtyByProduct, availableQty, lowStockThresholdOf, isNearRupture, isDormant as isDormantRule, isSurstock as isSurstockRule, stockLevelOf, stockQuantities, fetchSoldQty30dForShops, readSignalsCache, shopRulesOf, writeSignalsCache } from '@/lib/stock/signals'
 import { shopToday } from '@/lib/stock/sellable'
 import { addDays } from '@/lib/stock/batch-status'
 import { fetchStockPipeline, type StockPipeline } from '@/lib/stock/pipeline'
@@ -75,7 +76,7 @@ import { EmptyGuide } from '@/components/onboarding/empty-guide'
 import { useTableExport } from '@/lib/export/use-table-export'
 import { PRODUCT_UNITS } from '@/lib/import/products-import'
 import { useStockRealtime } from '@/lib/hooks/use-realtime'
-import { withTimeout } from '@/lib/utils/with-timeout'
+import { withTimeout, friendlyNetworkError } from '@/lib/utils/with-timeout'
 import { getExpiryAlertDays } from '@/lib/utils/expiry'
 
 // Fiches et modales rarement ouvertes (formulaire produit avec sa validation,
@@ -193,6 +194,9 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
   // Fiche produit : `batchesProduct` est le produit affiché ; la fiche s'ouvre en haut, ou sur ses lots (icône « Lots »)
   const [batchesProduct, setBatchesProduct] = useState<Product | null>(null)
   const [detailSection, setDetailSection] = useState<ProductDetailSection>('top')
+  // Traitement d'un lot périmé depuis la fiche (même panneau que « Lots & péremptions »)
+  const treatAvailable = useBatchTreatmentsAvailable()
+  const [treatBatch, setTreatBatch] = useState<any | null>(null)
   const [detailRefreshKey, setDetailRefreshKey] = useState(0)
   const [productBatches, setProductBatches] = useState<any[]>([])
   const [loadingBatches, setLoadingBatches] = useState(false)
@@ -663,6 +667,7 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
     })
 
 
+  const FORM_FIELDS: ProductFieldError['field'][] = ['name', 'sku', 'selling_price', 'buying_price', 'quantity', 'unit', 'location', 'low_stock_threshold', 'expiry_date']
   const saveProduct = async (data: ProductFormData): Promise<true | false | ProductFieldError> => {
     const target = createShop
     if (!target) { toast({ title: t('toast.no_active_shop'), variant: 'destructive' }); return false }
@@ -681,7 +686,7 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
           selling_price: data.selling_price,
           quantity: data.quantity,
           unit: data.unit || 'piece',
-          low_stock_threshold: data.low_stock_threshold || null,
+          low_stock_threshold: data.low_stock_threshold ?? null,
           sku: data.sku || null,
           image_url: data.image_url || null,
           location: data.location?.trim() || null,
@@ -692,13 +697,14 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
       }))
       const json = await res.json()
       if (!res.ok) {
-        if (json.field === 'sku' && json.error) return { field: 'sku', message: json.error }
+        // Refus d'un champ (règles communes du serveur, doublon de nom, code-barres pris) : affiché sous le champ
+        if (FORM_FIELDS.includes(json.field) && json.error) return { field: json.field, message: json.error }
         toast({ title: json.error || t('toast.error'), variant: 'destructive' }); return false
       }
       fetchProducts()
       return true
     } catch (err: any) {
-      toast({ title: err.message || t('toast.error'), variant: 'destructive' })
+      toast({ title: friendlyNetworkError(err, t('toast.error')), variant: 'destructive' })
       return false
     } finally {
       setSaving(false)
@@ -732,13 +738,13 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
     const next: Record<string, unknown> = {
       name: data.name, category_id: data.category_id || null, supplier_id: data.supplier_id || null,
       buying_price: data.buying_price ?? 0, selling_price: data.selling_price, unit: data.unit || 'piece',
-      low_stock_threshold: data.low_stock_threshold || null, sku: data.sku?.trim() || null, image_url: data.image_url || null,
+      low_stock_threshold: data.low_stock_threshold ?? null, sku: data.sku?.trim() || null, image_url: data.image_url || null,
       location: data.location?.replace(/\s+/g, ' ').trim() || null,
     }
     const prev: Record<string, unknown> = {
       name: p.name, category_id: p.category_id || null, supplier_id: p.supplier_id || null,
       buying_price: p.buying_price ?? 0, selling_price: p.selling_price, unit: p.unit || 'piece',
-      low_stock_threshold: p.low_stock_threshold || null, sku: p.sku?.trim() || null, image_url: p.image_url || null,
+      low_stock_threshold: p.low_stock_threshold ?? null, sku: p.sku?.trim() || null, image_url: p.image_url || null,
       location: p.location || null,
     }
     const NUMERIC = ['buying_price', 'selling_price', 'low_stock_threshold']
@@ -1014,7 +1020,7 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
         { header: col('location') }, { header: t('exports.col_category') }, { header: t('exports.col_status') },
       ],
       rows: filtered.map(p => {
-        const threshold = p.low_stock_threshold || shopById[p.shop_id]?.low_stock_threshold || shop?.low_stock_threshold || 10
+        const threshold = lowStockThresholdOf(p, shopById[p.shop_id]?.low_stock_threshold ?? shop?.low_stock_threshold)
         const level = levelOf(p)
         const status = level === 'out' ? t('status.out_of_stock') : level === 'low' ? t('status.low_stock') : t('status.in_stock')
         return [p.name, p.selling_price, p.buying_price, p.quantity, unitLabel(p.unit || 'piece'), p.sku || '', p.low_stock_threshold ?? '', p.location || '', (p as any).categories?.name || '', status]
@@ -1191,7 +1197,7 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
   }
 
   const renderProductCard = (product: Product, idx: number) => {
-    const threshold = product.low_stock_threshold || shopById[product.shop_id]?.low_stock_threshold || shop?.low_stock_threshold || 10
+    const threshold = lowStockThresholdOf(product, shopById[product.shop_id]?.low_stock_threshold ?? shop?.low_stock_threshold)
     // Disponible = vendable − réservé (expiredQtyByProduct = part non vendable, lib/stock/signals)
     const cardExpired = Math.min(product.quantity, expiredQtyByProduct[product.id] || 0)
     const cardReserved = reservedQtyByProduct[product.id] || 0
@@ -1448,7 +1454,7 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
   useEffect(() => {
     if (viewMode === 'table' && selectionMode && selectedIds.size === 0) setSelectionMode(false)
   }, [viewMode, selectionMode, selectedIds])
-  const thresholdFor = (p: Product) => p.low_stock_threshold || shopById[p.shop_id]?.low_stock_threshold || shop?.low_stock_threshold || 10
+  const thresholdFor = (p: Product) => lowStockThresholdOf(p, shopById[p.shop_id]?.low_stock_threshold ?? shop?.low_stock_threshold)
   // Produit de la fiche, dans sa version la plus récente de la liste (nom, prix, quantité après une modification)
   const detailProduct = batchesProduct ? products.find(p => p.id === batchesProduct.id) ?? batchesProduct : null
   const detailStatusLabel: Record<ProductStatus, string> = { out: t('status.out_of_stock'), low: t('status.low_stock'), dormant: t('products.card_dormant'), ok: t('status.in_stock') }
@@ -1539,6 +1545,7 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
     currency: currencySymbol,
     fullRights: canViewCostIn(formShopId),
     shopId: formShopId,
+    shopLowStockThreshold: shopById[formShopId as string]?.low_stock_threshold ?? shop?.low_stock_threshold ?? null,
   }
   const resetAddForm = () => { setShowAddModal(false); setSessionAddCount(0); setAddFormState({ dirty: false, busy: false }) }
 
@@ -1952,7 +1959,14 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
           shopLabel={createShopLabel}
           currency={currencySymbol}
           fullRights={canViewCostIn(createShop.id)}
-          onSaved={(count) => { fetchProducts() }}
+          categories={categories.filter((c: any) => c.shop_id === createShop.id).map(c => ({ id: c.id, name: c.name }))}
+          onSaved={() => { fetchProducts() }}
+          onComplete={async (id) => {
+            // Produit tout juste créé : pris dans la liste rechargée, sinon lu directement
+            const known = products.find(p => p.id === id)
+            const { data } = known ? { data: known } : await (supabase as any).from('products').select(PRODUCT_PUBLIC_COLUMNS).eq('id', id).maybeSingle()
+            if (data) { setShowAddModal(false); setShowRestockModal(false); setEditingProduct(data as Product) }
+          }}
         />
       )}
 
@@ -2032,7 +2046,7 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
             suppliers={suppliers.filter((s: any) => s.shop_id === editingProduct.shop_id)}
             shopId={editingProduct.shop_id}
             fullRights={canViewCostIn(editingProduct.shop_id)}
-            defaultValues={{ name: editingProduct.name, category_id: editingProduct.category_id || '', supplier_id: editingProduct.supplier_id || '', buying_price: editingProduct.buying_price, selling_price: editingProduct.selling_price, quantity: editingProduct.quantity, unit: editingProduct.unit, low_stock_threshold: editingProduct.low_stock_threshold || undefined, sku: editingProduct.sku || '', image_url: editingProduct.image_url || '', location: editingProduct.location || '', ...(editRestore?.values ?? {}) }}
+            defaultValues={{ name: editingProduct.name, category_id: editingProduct.category_id || '', supplier_id: editingProduct.supplier_id || '', buying_price: editingProduct.buying_price, selling_price: editingProduct.selling_price, quantity: editingProduct.quantity, unit: editingProduct.unit, low_stock_threshold: editingProduct.low_stock_threshold ?? null, sku: editingProduct.sku || '', image_url: editingProduct.image_url || '', location: editingProduct.location || '', ...(editRestore?.values ?? {}) }}
             initialPhoto={editRestore?.file ?? null}
             startDirty={!!editRestore}
             onSubmit={onEditProduct}
@@ -2300,6 +2314,18 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
         )}
       </PremiumDialog>
 
+      <BatchTreatmentDrawer
+        open={!!treatBatch}
+        expired
+        lot={treatBatch && detailProduct ? {
+          id: treatBatch.id, quantity: treatBatch.quantity, expiry_date: treatBatch.expiry_date, received_at: treatBatch.received_at,
+          productName: detailProduct.name, unit: unitLabelFor(detailProduct.unit || 'piece', treatBatch.quantity),
+          shopName: multiShopAccount ? shopById[detailProduct.shop_id]?.name : null, supplierName: null,
+        } : null}
+        onClose={() => setTreatBatch(null)}
+        onSaved={() => { setTreatBatch(null); fetchProducts(); refreshProductDetail() }}
+      />
+
       {/* Fiche produit : quantités, réservations, lots, ventes, mouvements, achat. Les lots n'ont qu'UNE
           implémentation (section de la fiche) ; leurs actions ouvrent les petites fenêtres ci-dessous. */}
       <ProductDetailDrawer
@@ -2337,6 +2363,7 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
           },
           onDelete: b => setDeleteBatchConfirm(b),
           onEditExpiry: b => setExpiryBatch(b),
+          onTreat: treatAvailable ? b => setTreatBatch(b) : undefined,
         }}
         actions={{
           // Mêmes fenêtres et mêmes routes que la liste ; chaque action n'est proposée qu'à qui peut la faire

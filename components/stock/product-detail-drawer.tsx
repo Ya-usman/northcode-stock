@@ -24,6 +24,7 @@ import { cn } from '@/lib/utils/cn'
 import { lastSaleLabel } from '@/lib/stock/last-sale'
 import { ProductPackagings } from '@/components/stock/product-packagings'
 import { ProductSerials } from '@/components/stock/product-serials'
+import { ProductKit } from '@/components/stock/product-kit'
 import { useAuthContext as useAuth } from '@/lib/contexts/auth-context'
 import { ElsewhereSheet, useElsewhere } from '@/components/stock/elsewhere/elsewhere-sheet'
 
@@ -435,6 +436,11 @@ export function ProductDetailDrawer({
             {/* ── Conditionnements d'achat (étape 9) ────────────────────── */}
             <DrawerSection title={t('packaging.title')} description={t('packaging.hint')}>
               <ProductPackagings product={{ id: product.id, shop_id: product.shop_id, unit: product.unit ?? null }} />
+            </DrawerSection>
+
+            {/* ── Kit (étape 16) : composition, assemblage, désassemblage ─────────── */}
+            <DrawerSection title={t('kits.title')} description={t('kits.hint')}>
+              <ProductKit product={{ id: product.id, shop_id: product.shop_id, name: product.name, quantity: Number(product.quantity), is_kit: (product as any).is_kit, track_serials: (product as any).track_serials }} onChanged={() => { load(); onChanged() }} />
             </DrawerSection>
 
             {/* ── Numéros de série (étape 11) ───────────────────────────── */}

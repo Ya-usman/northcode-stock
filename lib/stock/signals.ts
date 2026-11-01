@@ -344,8 +344,11 @@ export interface StockRulesContext {
 
 export const DEFAULT_LOW_STOCK_THRESHOLD = 10
 
-export function lowStockThresholdOf(p: { low_stock_threshold: number | null }, shopThreshold?: number | null): number {
-  return p.low_stock_threshold || shopThreshold || DEFAULT_LOW_STOCK_THRESHOLD
+/** Seuil d'alerte d'un produit (règle validée le 1er nov. 2026, une seule lecture pour toute l'application) :
+ *  vide = seuil de la boutique (sinon 10) ; un nombre = seuil propre ; 0 = pas d'alerte « stock faible » (le stock
+ *  à 0 reste toujours une rupture, signalée à part). Ne jamais réécrire `low_stock_threshold || …` (0 serait perdu). */
+export function lowStockThresholdOf(p: { low_stock_threshold?: number | null }, shopThreshold?: number | null): number {
+  return p.low_stock_threshold ?? (shopThreshold || DEFAULT_LOW_STOCK_THRESHOLD)
 }
 
 const rulesFor = (p: { shop_id?: string | null }, ctx: { shopRules?: Record<string, ShopStockRules> }) =>

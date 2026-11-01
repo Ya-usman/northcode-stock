@@ -69,7 +69,7 @@ export async function GET(request: Request) {
 
     const admin = await createAdminClient() as any
     // Colonnes nommées une à une : le prix d'achat n'est lu que pour qui a le droit de le voir
-    const columns = 'id, shop_id, name, sku, unit, quantity, track_serials, location, low_stock_threshold, selling_price, promo_price, promo_until, promo_start, image_url, is_active, supplier_id, categories(name, color)'
+    const columns = 'id, shop_id, name, sku, unit, quantity, track_serials, is_kit, location, low_stock_threshold, selling_price, promo_price, promo_until, promo_start, image_url, is_active, supplier_id, categories(name, color)'
     const { data: product, error: productError } = await admin.from('products')
       .select(canCost ? `${columns}, buying_price` : columns)
       .eq('id', productId).eq('shop_id', shopId).maybeSingle()

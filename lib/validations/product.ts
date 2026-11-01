@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { SKU_MAX_LENGTH } from '@/lib/import/products-import'
 
 interface ValidationMessages {
   product_name_required: string
@@ -18,15 +19,17 @@ const defaultMessages: ValidationMessages = {
 
 export function createProductSchema(msg: ValidationMessages = defaultMessages) {
   return z.object({
-    name: z.string().min(1, msg.product_name_required).max(200),
+    // Mêmes règles que le serveur (lib/import/products-import checkProductFields) : nom nettoyé, prix de vente > 0
+    name: z.string().trim().min(1, msg.product_name_required).max(200),
     category_id: z.string().uuid().optional().or(z.literal('')),
     supplier_id: z.string().uuid().optional().or(z.literal('')),
     buying_price: z.coerce.number().min(0, msg.buying_price_invalid),
-    selling_price: z.coerce.number().min(1, msg.selling_price_required),
+    selling_price: z.coerce.number().positive(msg.selling_price_required),
     quantity: z.coerce.number().int().min(0, msg.quantity_invalid),
     unit: z.string().min(1).default('piece'),
-    low_stock_threshold: z.coerce.number().int().min(0).optional(),
-    sku: z.string().max(100).optional().or(z.literal('')),
+    // Vide = seuil de la boutique (null) ; 0 = pas d'alerte « stock faible » (règle du 1er nov. 2026)
+    low_stock_threshold: z.preprocess(v => (v === '' || v === null || v === undefined ? null : Number(v)), z.number().int().min(0).nullable()).optional(),
+    sku: z.string().max(SKU_MAX_LENGTH).optional().or(z.literal('')),
     image_url: z.string().url().optional().or(z.literal('')),
     is_active: z.boolean().default(true),
     /** Date de péremption du LOT initial (création avec stock > 0) — jamais une propriété du produit */

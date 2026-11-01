@@ -29,7 +29,7 @@ const COLUMNS: { field: ImportField; width: number; validation?: TemplateColumn[
 /** Description complète du modèle produits (réutilisée par l'écran d'import commun) */
 export function productsTemplateSpec(t: TemplateTexts, shopName: string): TemplateSpec {
   return {
-    title: `${t.sheetProducts} — ${shopName}`,
+    title: `${t.sheetProducts} · ${shopName}`,
     sheetMain: t.sheetProducts, sheetGuide: t.sheetGuide, sheetLists: t.sheetLists,
     columns: COLUMNS.map(c => ({ key: c.field, width: c.width, validation: c.validation, ...t.columns[c.field] })),
     listValues: PRODUCT_UNITS.map(u => t.unitLabels[u]), listTitle: t.guideUnitsTitle,

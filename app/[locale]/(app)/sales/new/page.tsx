@@ -9,6 +9,7 @@ import {
   AlertTriangle, CreditCard, Coins, ShoppingBag, FileText, Store, Tag, TrendingUp, Hash,
 } from 'lucide-react'
 import { readTicketSettings } from '@/lib/receipt/print-settings'
+import { lowStockThresholdOf } from '@/lib/stock/signals'
 import { printSaleTicket, ticketErrorKey } from '@/lib/receipt/print-ticket'
 import { ticketLabelsFromT } from '@/lib/receipt/ticket'
 import { hideStockShopBranding } from '@/lib/receipt/branding'
@@ -1014,7 +1015,7 @@ function PosScreen({ params: { locale: _locale } }: { params: { locale: string }
   const lowStockThreshold = shop?.low_stock_threshold || 10
   const stockVariantOf = (p: Product): StockVariant => {
     const q = sellableOf(p).sellable
-    return q === 0 ? 'destructive' : q <= ((p as any).low_stock_threshold || lowStockThreshold) ? 'warning' : 'success'
+    return q === 0 ? 'destructive' : q <= lowStockThresholdOf(p as any, lowStockThreshold) ? 'warning' : 'success'
   }
   /** Rien de vendable alors qu'il en reste en rayon : tout le stock est périmé */
   const expiredOnly = (p: Product) => { const st = sellableOf(p); return st.sellable === 0 && st.physical > 0 }
@@ -2919,7 +2920,7 @@ ${normalize(p.sku ?? '')}`.includes(outHereQuery)).slice(0, 20), [outHere, outHe
           onOpenChange={setElsewhereOpen}
           shopId={shop.id}
           product={elsewhereFor
-            ? { id: elsewhereFor.id, name: elsewhereFor.name, unit: elsewhereFor.unit, threshold: (elsewhereFor as any).low_stock_threshold || lowStockThreshold, available: sellableOf(elsewhereFor).sellable }
+            ? { id: elsewhereFor.id, name: elsewhereFor.name, unit: elsewhereFor.unit, threshold: lowStockThresholdOf(elsewhereFor as any, lowStockThreshold), available: sellableOf(elsewhereFor).sellable }
             : { id: '', name: '' }}
           entry={elsewhereFor ? (elsewhere?.items[elsewhereFor.id] ?? elsewhereOut?.items[elsewhereFor.id]) : null}
           canRequest={!!(elsewhere?.canRequest || elsewhereOut?.canRequest)}

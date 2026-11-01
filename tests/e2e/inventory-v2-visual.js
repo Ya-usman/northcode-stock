@@ -36,7 +36,8 @@ const ENGLISH = /\b(Counted|Expected|Difference|Matches|Recount|Review differenc
       await page.goto(`${BASE}/${locale}/stock/inventory-count`, { waitUntil: 'domcontentloaded', timeout: 120000 })
       await page.waitForTimeout(6000)
       const tag = `${locale}-${w}`
-      const counting = await page.getByTestId('inventory-session').isVisible().catch(() => false)
+      // Attente du repère lui-même (avant : 6 s fixes, trop court sous la charge de la suite complète)
+      const counting = await page.getByTestId('inventory-session').waitFor({ state: 'visible', timeout: 30000 }).then(() => true).catch(() => false)
       ok(counting, `${tag} : étape comptage affichée`)
       const noScroll = await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1)
       ok(noScroll, `${tag} : pas de défilement horizontal`)

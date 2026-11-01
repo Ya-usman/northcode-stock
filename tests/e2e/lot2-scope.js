@@ -57,7 +57,8 @@ const pickerOptions = async page => { const p = page.getByTestId('shop-picker');
 const pick = async (page, id) => { const p = page.getByTestId('shop-picker'); await p.waitFor({ timeout: 10000 }); await p.locator(`[data-shop-option="${id}"]`).click(); await page.waitForTimeout(1200) }
 const lastWrite = (s, path, method) => [...s.writes].reverse().find(w => w.path === path && (!method || w.method === method))
 const switchTo = async (page, label) => { await page.getByTestId('header-shop-context').click(); await page.waitForTimeout(300); await page.getByTestId('header-shop-option').filter({ hasText: label }).last().click(); await page.waitForTimeout(3500) }
-const poRefs = async page => page.locator('[data-po-card]').evaluateAll(els => els.map(e => e.getAttribute('data-po-card')).sort())
+// Comptage seulement une fois le chargement du contexte terminé (squelette « po-loading » disparu)
+const poRefs = async page => (await page.getByTestId('po-loading').waitFor({ state: 'detached', timeout: 30000 }).catch(() => {}), page.locator('[data-po-card]')).evaluateAll(els => els.map(e => e.getAttribute('data-po-card')).sort())
 // Onglets de page : rôle « tab » (barre commune SegmentedTabs, 30 oct. 2026)
 const tab = (page, name) => page.getByRole('tab', { name, exact: false }).first()
 
