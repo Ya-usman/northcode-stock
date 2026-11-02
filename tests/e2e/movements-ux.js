@@ -308,6 +308,10 @@ async function openMovement(page, locale, m) {
     await openMovement(page, 'fr', m)
     await drawer(page).locator('[data-testid="movement-detail-origin-action"]').click()
     await page.waitForURL(urlRe, { timeout: 30000 })
+    // Bons de commande : on attend la fin du chargement de la liste (repère po-loading), temps mesuré pour le diagnostic
+    const tLoad = Date.now()
+    if (name === 'commande') await page.getByTestId('po-loading').waitFor({ state: 'detached', timeout: 45000 }).catch(() => {})
+    const loadMs = Date.now() - tLoad
     await page.waitForFunction(ref => (document.querySelector('main') || document.body).innerText.includes(ref), m.view.origin.ref, { timeout: 30000 }).catch(() => {})
     await page.waitForTimeout(800)
     const main = (await page.locator('main').innerText()).replace(/\s+/g, ' ')
@@ -316,7 +320,7 @@ async function openMovement(page, locale, m) {
     if (!seen) {
       await page.screenshot({ path: `${__dirname}/out/movements-origin-${name}.png` }).catch(() => {})
       const stored = await page.evaluate(() => Object.keys(sessionStorage).filter(k => k.startsWith('filters_session_')).map(k => k + '=' + sessionStorage.getItem(k))).catch(() => [])
-      console.log('    diagnostic :', JSON.stringify(stored).slice(0, 600), '|', main.slice(Math.max(0, main.length - 600)))
+      console.log('    diagnostic :', name === 'commande' ? `liste chargée en ${loadMs} ms ;` : '', JSON.stringify(stored).slice(0, 600), '|', main.slice(Math.max(0, main.length - 600)))
     }
     check(`« ${action} » : l’écran existant s’ouvre et montre ${m.view.origin.ref}`, seen, main.slice(0, 200))
   }

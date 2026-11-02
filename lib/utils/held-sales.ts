@@ -26,7 +26,8 @@ export type HeldCartChange =
 export function revalidateHeldCart(
   cart: CartItem[],
   products: Product[],
-  priceOf: (p: Product) => number,
+  /** Prix de la ligne pour cette quantité (prix de gros compris, migration 201) */
+  priceOf: (p: Product, quantity: number) => number,
   manualIds: string[] | null,
 ): { cart: CartItem[]; changes: HeldCartChange[] } {
   const byId = new Map(products.map(p => [p.id, p]))
@@ -50,7 +51,7 @@ export function revalidateHeldCart(
       : item.unit_price !== Number(item.product.selling_price)
     let unitPrice = item.unit_price
     if (!wasManual) {
-      const now = priceOf(current)
+      const now = priceOf(current, quantity)
       if (now !== item.unit_price) {
         changes.push({ kind: 'price', name: current.name, from: item.unit_price, to: now })
         unitPrice = now

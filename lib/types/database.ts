@@ -238,6 +238,8 @@ export interface Product {
   track_serials?: boolean
   /** Kit assemblé (étape 16, migration 200) : composé d'autres produits */
   is_kit?: boolean
+  /** Paliers de prix de gros, jusqu'à 3, quantités croissantes et prix décroissants (migration 202) */
+  price_tiers?: { min_qty: number; price: number }[] | null
   category_id: string | null
   supplier_id: string | null
   /** Prix d'achat : ABSENT quand la personne n'a pas le droit de le voir (lib/permissions → canViewCost).
@@ -358,6 +360,8 @@ export interface CartItem {
   subtotal: number
   /** Produit suivi (étape 11) : un numéro de série par unité ; quantity = serials.length */
   serials?: string[]
+  /** Prix fixé à la main par le caissier (au-dessus du plancher) : gardé quand la quantité change */
+  custom_price?: boolean
 }
 
 // Dashboard metrics

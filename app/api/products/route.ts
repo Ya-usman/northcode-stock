@@ -9,7 +9,7 @@ import { classifyBarcode } from '@/lib/products/barcode'
 import { normalizeLocation } from '@/lib/products/location'
 import { cleanSerials, serialErrorResponse } from '@/lib/api/serials'
 import { productsWithHistory } from '@/lib/api/product-history'
-import { newProductRow, sameNameProduct, shopProductKeys, checkProductPatch } from '@/lib/api/new-product'
+import { newProductRow, sameNameProduct, shopProductKeys, checkProductPatch, checkPriceTiers } from '@/lib/api/new-product'
 
 // Écriture de la fiche produit = niveau « modification » de Produits / Stock
 // (règle unique, lot 1 du 5 oct. 2026). Plus de passe-droit pour le caissier :
@@ -244,7 +244,9 @@ export async function PATCH(request: Request) {
       return NextResponse.json({ ok: true, updated: updated?.length ?? 0 })
     }
 
-    const { id, shop_id, ...updates } = body
+    // reception_ref : changement de prix décidé à une réception (« BC-2026-0016 », « TR-… ») : rappelé au journal
+    const { id, shop_id, reception_ref, ...updates } = body
+    const receptionRef = typeof reception_ref === 'string' && /^[A-Za-z0-9-]{1,40}$/.test(reception_ref) ? reception_ref : null
     if (!id || !shop_id) return NextResponse.json({ error: t('id_shop_id_required') }, { status: 400 })
     const role = await checkShopRole(supabase, user.id, shop_id)
     if (!role) return NextResponse.json({ error: t('permission_denied') }, { status: 403 })
@@ -262,7 +264,7 @@ export async function PATCH(request: Request) {
       'name', 'description', 'selling_price', 'buying_price', 'sku',
       'category_id', 'unit', 'image_url', 'low_stock_threshold', 'barcode',
       'supplier_name', 'supplier_id', 'promo_price', 'promo_until', 'promo_start', 'promo_reason',
-      'is_favorite', 'location', 'track_serials',
+      'is_favorite', 'location', 'track_serials', 'price_tiers',
     ])
     const safeUpdates: Record<string, unknown> = Object.fromEntries(
       Object.entries(updates).filter(([k]) => PATCHABLE.has(k))
@@ -281,6 +283,18 @@ export async function PATCH(request: Request) {
     // Mêmes règles qu'à la création, pour les champs modifiés (lot C des ajouts, 1er nov. 2026)
     const patchIssue = checkProductPatch(safeUpdates)
     if (patchIssue) return NextResponse.json({ error: t(patchIssue.key as any), field: patchIssue.field }, { status: 400 })
+    // Paliers de gros (202) : jugés sur l'état FINAL du produit (prix de détail et paliers peuvent changer ensemble)
+    if ('price_tiers' in safeUpdates || 'selling_price' in safeUpdates) {
+      const { data: cur } = await (await createAdminClient() as any).from('products').select('selling_price, price_tiers').eq('id', id).eq('shop_id', shop_id).maybeSingle()
+      if (cur) {
+        const touches = 'price_tiers' in safeUpdates
+        const w: Record<string, unknown> = { price_tiers: touches ? safeUpdates.price_tiers : cur.price_tiers }
+        const retail = 'selling_price' in safeUpdates ? Number(safeUpdates.selling_price) : Number(cur.selling_price)
+        const wIssue = (touches || w.price_tiers) ? checkPriceTiers(w, retail) : null
+        if (wIssue) return NextResponse.json({ error: t(wIssue.key as any), field: wIssue.field }, { status: 400 })
+        if (touches) safeUpdates.price_tiers = w.price_tiers
+      }
+    }
     if ('location' in safeUpdates) {
       const loc = normalizeLocation(safeUpdates.location)
       if (loc === undefined) return NextResponse.json({ error: t('location_too_long'), field: 'location' }, { status: 400 })
@@ -295,7 +309,7 @@ export async function PATCH(request: Request) {
       return NextResponse.json({ error: t('supplier_wrong_shop'), field: 'supplier_id' }, { status: 400 })
 
     // Snapshot avant modification, pour le journal d'audit
-    const TRACKED_FIELDS = ['name', 'selling_price', 'buying_price', 'low_stock_threshold', 'sku', 'category_id', 'supplier_id', 'promo_price', 'promo_until', 'promo_start', 'location', 'track_serials'] as const
+    const TRACKED_FIELDS = ['name', 'selling_price', 'buying_price', 'low_stock_threshold', 'sku', 'category_id', 'supplier_id', 'promo_price', 'promo_until', 'promo_start', 'location', 'track_serials', 'price_tiers'] as const
     const trackedChange = TRACKED_FIELDS.some(f => f in safeUpdates)
     let before: Record<string, unknown> | null = null
     if (trackedChange) {
@@ -320,8 +334,11 @@ export async function PATCH(request: Request) {
         if (!(f in safeUpdates)) continue
         const from = before[f]
         const to = (data as any)[f]
-        const same = (f === 'selling_price' || f === 'buying_price' || f === 'low_stock_threshold')
-          ? Number(from) === Number(to)
+        // Nombres comparés en tenant compte du vide (seuil vide ≠ 0 depuis le 1er nov. 2026)
+        const same = f === 'price_tiers'
+          ? JSON.stringify(from ?? null) === JSON.stringify(to ?? null)
+          : (f === 'selling_price' || f === 'buying_price' || f === 'low_stock_threshold')
+          ? (from ?? null) === null || (to ?? null) === null ? (from ?? null) === (to ?? null) : Number(from) === Number(to)
           : (from ?? null) === (to ?? null)
         if (!same) changes[f] = { from: from ?? null, to: to ?? null }
       }
@@ -361,6 +378,7 @@ export async function PATCH(request: Request) {
             actor_name: actorProfile?.full_name || user.email,
             product_name: data.name || before.name,
             changes,
+            ...(receptionRef ? { reception_ref: receptionRef } : {}),
           },
         })
       }

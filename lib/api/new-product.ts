@@ -1,6 +1,7 @@
 // Création d'un produit côté serveur (lot A des ajouts, 1er nov. 2026) : les règles de champ sont celles de l'import
 // (checkProductFields, une seule vérité) ; seuls les champs ci-dessous peuvent être fixés à la création. Le reste
 // (suivi par numéro de série, kit, promotion, archivage, identifiants, dates) ne se règle jamais par cette route.
+import { normalizeTiers, type TierProblem } from '@/lib/products/price-tiers'
 import { checkProductFields, normalizeText, PRODUCT_UNITS, SKU_MAX_LENGTH, type RowIssue } from '@/lib/import/products-import'
 
 /** Refus d'un champ → message traduit (api_errors) et champ du formulaire à signaler */
@@ -49,6 +50,13 @@ export function newProductRow(body: Record<string, any>, seesCost: boolean): New
   }
   // Prix d'achat : seulement avec le droit au coût — sinon jamais écrit (coût inconnu)
   if (seesCost) row.buying_price = c.product.buying_price
+  // Paliers de gros facultatifs (202) : mêmes règles qu'en modification
+  if (body.price_tiers !== undefined) {
+    const w: Record<string, unknown> = { price_tiers: body.price_tiers }
+    const issue = checkPriceTiers(w, c.product.selling_price)
+    if (issue) return { ok: false, key: issue.key, field: issue.field }
+    row.price_tiers = w.price_tiers
+  }
   return { ok: true, row, expiry_date: c.expiry_date }
 }
 
@@ -81,6 +89,21 @@ export function checkProductPatch(u: Record<string, unknown>): { key: string; fi
   if ('unit' in u && !(PRODUCT_UNITS as readonly string[]).includes(String(u.unit))) return { key: 'product_unit_invalid', field: 'unit' }
   if ('sku' in u && typeof u.sku === 'string' && u.sku.trim().length > SKU_MAX_LENGTH) return { key: 'sku_too_long', field: 'sku' }
   return null
+}
+
+/** Paliers de gros (migration 202) : jusqu'à 3 { min_qty, price } ; lignes entièrement vides ignorées ; quantités
+ *  entières de 2 à 100 000, toutes différentes ; chaque palier moins cher que le précédent et le premier sous le prix de
+ *  détail FINAL (un même envoi peut changer les deux). Valeur nettoyée sur place : liste triée, ou null (aucun palier). */
+export function checkPriceTiers(u: Record<string, unknown>, finalRetail: number): { key: string; field: string } | null {
+  if (!('price_tiers' in u)) return null
+  const r = normalizeTiers(u.price_tiers, finalRetail)
+  if (!r.ok) return { key: r.problem === 'invalid' ? 'invalid_data' : TIER_KEYS[r.problem], field: 'price_tiers' }
+  u.price_tiers = r.tiers
+  return null
+}
+const TIER_KEYS: Record<Exclude<TierProblem, 'invalid'>, string> = {
+  too_many: 'product_wholesale_too_many', incomplete: 'product_wholesale_incomplete', price: 'product_wholesale_price_invalid',
+  min: 'product_wholesale_min_invalid', order: 'product_wholesale_order', not_below: 'product_wholesale_not_below_retail',
 }
 
 export interface ShopProductKey { id: string; name: string; sku: string | null; is_active: boolean | null }

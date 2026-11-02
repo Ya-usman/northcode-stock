@@ -77,6 +77,7 @@ const FIELD_KEYS: Record<string, string> = {
   promo_start: 'activity_journal.field_promo_start',
   location: 'products.journal_field_location',
   track_serials: 'products.journal_field_track_serials',
+  price_tiers: 'wholesale.title',
   unit: 'products.unit',
   quantity: 'products.quantity',
 }
@@ -175,6 +176,7 @@ export function ProductActivityJournal({ open, onOpenChange, shopId, shopLabel, 
 
   const fieldLabel = (key: string) => (FIELD_KEYS[key] ? t(FIELD_KEYS[key] as any) : key)
   const fmtValue = (key: string, v: unknown) => {
+    if (key === 'price_tiers') return Array.isArray(v) && v.length ? (v as { min_qty: number; price: number }[]).map(x => t('wholesale.tier_item', { min: x.min_qty, price: formatMoney(Number(x.price)) })).join(' · ') : t('wholesale.review_none')
     if (v === null || v === undefined || v === '') return '—'
     if (PRICE_FIELDS.has(key)) return formatMoney(Number(v))
     if (DATE_FIELDS.has(key)) return new Date(String(v)).toLocaleDateString(locale)
@@ -192,7 +194,7 @@ export function ProductActivityJournal({ open, onOpenChange, shopId, shopLabel, 
         return { title: meta.product_name || t('products.journal_created'), summary: meta.source === 'transfer' && meta.reference ? tj('summary_created_transfer', { reference: meta.reference, shop: meta.from_shop || '' }) : tj('summary_created') }
       case 'update_product': {
         const keys = Object.keys(meta.changes || {})
-        return { title: meta.product_name || t('products.journal_updated'), summary: keys.length ? tj('summary_updated', { fields: keys.map(fieldLabel).join(' · ') }) : t('products.journal_updated') }
+        return { title: meta.product_name || t('products.journal_updated'), summary: keys.length ? (meta.reception_ref ? tj('summary_updated_reception', { fields: keys.map(fieldLabel).join(' · '), ref: meta.reception_ref }) : tj('summary_updated', { fields: keys.map(fieldLabel).join(' · ') })) : t('products.journal_updated') }
       }
       case 'archive_product':
         return { title: meta.product_name || '—', summary: t('products.journal_archived') }

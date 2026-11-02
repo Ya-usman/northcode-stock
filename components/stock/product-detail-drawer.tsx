@@ -16,6 +16,7 @@ import { STATUS_CHIP, type ProductStatus } from '@/components/stock/product-tabl
 import { ProductBatchesList, type ProductBatchesListProps } from '@/components/stock/product-batches-list'
 import { MovementList, type MovementLike } from '@/components/stock/movement-list'
 import { useUnitLabel } from '@/lib/products/use-unit-label'
+import { tiersOf } from '@/lib/sales/pricing'
 import { dateLocaleTag } from '@/lib/i18n/date-format'
 import { withTimeout } from '@/lib/utils/with-timeout'
 import { useOffline } from '@/lib/offline/use-offline'
@@ -256,6 +257,12 @@ export function ProductDetailDrawer({
                   <span className="font-bold text-stockshop-blue dark:text-blue-400">{formatPrice(product.selling_price)}</span>
                 )}
               </p>
+              {/* Paliers de gros (202) : rappelés sous le prix de vente */}
+              {tiersOf(product).length > 0 && (
+                <p className="mt-0.5 text-xs text-emerald-700 dark:text-emerald-300" data-testid="product-detail-wholesale">
+                  {t('wholesale.tiers_line', { tiers: tiersOf(product).map(x => t('wholesale.tier_item', { min: x.min_qty, price: formatPrice(x.price) })).join(' · ') })}
+                </p>
+              )}
             </div>
           </div>
         )}

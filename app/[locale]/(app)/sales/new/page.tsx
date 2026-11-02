@@ -18,7 +18,7 @@ import { useAuthContext as useAuth } from '@/lib/contexts/auth-context'
 import { useRolePermissions, useShopPermissions } from '@/lib/hooks/use-role-permissions'
 import { useShopScope, useHeaderShop } from '@/lib/shops/use-shop-scope'
 import { Skeleton } from '@/components/ui/skeleton'
-import { effectivePrice as sharedEffectivePrice } from '@/lib/sales/pricing'
+import { effectivePrice as sharedEffectivePrice, linePrice as sharedLinePrice, nextTier, tiersOf } from '@/lib/sales/pricing'
 import { ShopSelector } from '@/components/layout/shop-selector'
 import { ProductCard, type StockVariant } from '@/components/sales/product-card'
 import { ProductThumbnail } from '@/components/stock/product-thumbnail'
@@ -99,6 +99,12 @@ const PhoneInput = dynamic(() => import('@/components/ui/phone-input').then(m =>
 // ligne — au-dessus, libre.
 function effectivePrice(product: Product, frontBatchPromo?: Record<string, { price: number; until: string; start: string | null }>): number {
   return sharedEffectivePrice(product, frontBatchPromo?.[product.id] ?? null)
+}
+
+/** Prix d'une ligne pour sa quantité (prix de gros dès la quantité minimale, migration 201) : même règle que le
+ *  serveur (lib/api/sale-validation) ; le moins cher entre prix en vigueur et prix de gros */
+function linePriceOf(product: Product, quantity: number, frontBatchPromo?: Record<string, { price: number; until: string; start: string | null }>) {
+  return sharedLinePrice(product, quantity, frontBatchPromo?.[product.id] ?? null)
 }
 
 interface Draft {
@@ -555,6 +561,10 @@ function PosScreen({ params: { locale: _locale } }: { params: { locale: string }
   // fonctions addToCart/toggleFavorite sont recréées à chaque rendu, une
   // ref les relaie sans changer l'identité passée aux cartes.
   const addToCartRef = useRef<(p: Product) => void>(() => {})
+  // Colis de la boutique, pour le bouton « + 1 carton » d'une ligne (en ligne ; hors ligne : pas de bouton)
+  const [packsByProduct, setPacksByProduct] = useState<Record<string, { unit: string; units_per_pack: number }>>({})
+  // Colis scanné : toujours la dernière version (prix, promos et panier à jour) derrière le scan mémorisé
+  const addPackRef = useRef<(p: Product, pack: { unit: string; units_per_pack: number }) => void>(() => {})
   const toggleFavoriteRef = useRef<(p: Product, e: React.MouseEvent) => void>(() => {})
   const handleAddProduct = useCallback((p: Product) => addToCartRef.current(p), [])
   const handleToggleFavorite = useCallback((p: Product, e: React.MouseEvent) => toggleFavoriteRef.current(p, e), [])
@@ -623,19 +633,37 @@ function PosScreen({ params: { locale: _locale } }: { params: { locale: string }
           return
         }
       }
-      // Code d'un colis (étape 9) : la caisse vend à l'unité, on le dit au lieu de « code non trouvé »
+      // Code d'un colis (étape 9) : le colis entier est ajouté (1er nov. 2026, avant : refusé, « la caisse vend à
+      // l'unité ») ; le prix de la ligne suit la quantité (prix de gros s'il est atteint)
       const lookup = shopId && isOnline
         ? fetch(`/api/products/packagings?shop_id=${shopId}&barcode=${encodeURIComponent(code)}`).then(r => (r.ok ? r.json() : null)).catch(() => null)
         : Promise.resolve(null)
       lookup.then(j => {
         const k = j?.data
-        if (k) toast({ title: t('toast.pack_scanned', { name: k.name }), description: t('toast.pack_scanned_desc', { pack: unitLabel(k.unit, 1), count: k.units_per_pack, base: unitLabel(k.base_unit || 'piece', k.units_per_pack) }), variant: 'destructive' })
+        const packProduct = k ? products.find(p => p.id === k.product_id) : null
+        if (k && packProduct) addPackRef.current(packProduct, k)
+        else if (k) toast({ title: t('toast.pack_product_unavailable', { name: k.name }), variant: 'destructive' })
         else toast({ title: t('toast.barcode_not_found', { code }), variant: 'destructive' })
       })
     }
   }, [products, toast, shop?.id, isOnline, unitLabel])
 
   useEffect(() => { if (cart.length === 0) reservedWarnedRef.current.clear() }, [cart.length])
+
+  useEffect(() => {
+    if (!shop?.id || !isOnline) return
+    let cancelled = false
+    fetch(`/api/products/packagings?shop_id=${shop.id}&pos=1`).then(r => (r.ok ? r.json() : null)).then(j => {
+      if (cancelled || !j?.data) return
+      // Un colis par produit : celui par défaut, sinon le plus petit (liste triée par taille)
+      const map: Record<string, { unit: string; units_per_pack: number }> = {}
+      for (const k of j.data as { product_id: string; unit: string; units_per_pack: number; is_default: boolean }[]) {
+        if (!map[k.product_id] || k.is_default) map[k.product_id] = { unit: k.unit, units_per_pack: k.units_per_pack }
+      }
+      setPacksByProduct(map)
+    }).catch(() => {})
+    return () => { cancelled = true }
+  }, [shop?.id, isOnline])
 
   // Stock déjà gardé pour une autre facture en attente : avertissement, une fois par produit et par
   // panier, dès que la quantité voulue dépasse ce qui reste libre. La vente reste possible.
@@ -667,10 +695,24 @@ function PosScreen({ params: { locale: _locale } }: { params: { locale: string }
     setCart(prev => {
       const existing = prev.find(i => i.product.id === product.id)
       if (!serials.length) return prev.filter(i => i.product.id !== product.id)
-      const price = existing ? existing.unit_price : effectivePrice(product, frontBatchPromo)
+      const price = existing?.custom_price ? Math.max(existing.unit_price, linePriceOf(product, serials.length, frontBatchPromo).price) : linePriceOf(product, serials.length, frontBatchPromo).price
       const line = { ...(existing ?? { product }), product, quantity: serials.length, unit_price: price, subtotal: serials.length * price, serials }
       return existing ? prev.map(i => (i.product.id === product.id ? line : i)) : [...prev, line]
     })
+  }
+
+  // Nouvelle quantité d'une ligne : prix recalculé pour cette quantité (détail, promo ou gros, le moins cher) ;
+  // un prix fixé à la main est gardé, jamais sous le nouveau plancher
+  // « Gros dès 12 » sur la carte de la grille (premier palier) : seulement si le prix de gros est réellement plus bas
+  const wholesaleLabelOf = (product: Product): string | undefined => {
+    const first = tiersOf(product)[0]
+    return first && first.price < effectivePrice(product, frontBatchPromo) ? t('sales.wholesale_from', { min: first.min_qty, unit: unitLabel(product.unit || 'piece', first.min_qty) }) : undefined
+  }
+
+  const withQty = (item: CartItem, qty: number): CartItem => {
+    const floor = linePriceOf(item.product, qty, frontBatchPromo).price
+    const price = item.custom_price ? Math.max(item.unit_price, floor) : floor
+    return { ...item, quantity: qty, unit_price: price, subtotal: Math.round(qty * price) }
   }
 
   const addToCartNow = (product: Product) => {
@@ -683,15 +725,31 @@ function PosScreen({ params: { locale: _locale } }: { params: { locale: string }
           toast({ title: t('toast.max_stock', { qty: max, unit: unitLabel(product.unit || 'piece', max) }), variant: 'destructive' })
           return prev
         }
-        return prev.map(i =>
-          i.product.id === product.id
-            ? { ...i, quantity: i.quantity + 1, subtotal: (i.quantity + 1) * i.unit_price }
-            : i
-        )
+        return prev.map(i => (i.product.id === product.id ? withQty(i, i.quantity + 1) : i))
       }
-      const price = effectivePrice(product, frontBatchPromo)
+      const price = linePriceOf(product, 1, frontBatchPromo).price
       return [...prev, { product, quantity: 1, unit_price: price, subtotal: price }]
     })
+  }
+
+  // Colis scanné : ses pièces entrent d'un coup (jamais un colis partiel : s'il manque du stock, rien n'est ajouté)
+  const addPackToCart = (product: Product, pack: { unit: string; units_per_pack: number }) => {
+    if (product.track_serials) { setSerialFor(product); return }
+    const inCart = cartRef.current.find(i => i.product.id === product.id)?.quantity || 0
+    const sellable = sellableOf(product).sellable
+    if (inCart + pack.units_per_pack > sellable) {
+      toast({ title: t('toast.pack_not_enough', { pack: unitLabel(pack.unit, 1), count: pack.units_per_pack, available: Math.max(0, sellable - inCart), unit: unitLabel(product.unit || 'piece', Math.max(0, sellable - inCart)) }), variant: 'destructive' })
+      return
+    }
+    warnIfReserved(product, inCart + pack.units_per_pack)
+    setCart(prev => {
+      const existing = prev.find(i => i.product.id === product.id)
+      if (existing) return prev.map(i => (i.product.id === product.id ? withQty(i, i.quantity + pack.units_per_pack) : i))
+      const price = linePriceOf(product, pack.units_per_pack, frontBatchPromo).price
+      return [...prev, { product, quantity: pack.units_per_pack, unit_price: price, subtotal: Math.round(pack.units_per_pack * price) }]
+    })
+    setScanFlash(true); setTimeout(() => setScanFlash(false), 600)
+    toast({ title: t('toast.pack_added', { pack: unitLabel(pack.unit, 1), count: pack.units_per_pack, unit: unitLabel(product.unit || 'piece', pack.units_per_pack), name: product.name }), variant: 'success' })
   }
 
   const addToCart = (product: Product) => {
@@ -715,7 +773,7 @@ function PosScreen({ params: { locale: _locale } }: { params: { locale: string }
           toast({ title: t('toast.max_stock', { qty: max, unit: unitLabel(item.product.unit || 'piece', max) }), variant: 'destructive' })
           return item
         }
-        return { ...item, quantity: newQty, subtotal: newQty * item.unit_price }
+        return withQty(item, newQty)
       })
       .filter(Boolean) as CartItem[]
     )
@@ -728,7 +786,7 @@ function PosScreen({ params: { locale: _locale } }: { params: { locale: string }
     setCart(prev => prev.map(item => {
       if (item.product.id !== productId) return item
       const capped = Math.min(qty, sellableOf(item.product).sellable)
-      return { ...item, quantity: capped, subtotal: capped * item.unit_price }
+      return withQty(item, capped)
     }))
   }
 
@@ -769,15 +827,16 @@ function PosScreen({ params: { locale: _locale } }: { params: { locale: string }
   // callbacks stables passés aux cartes (voir handleAddProduct).
   useEffect(() => {
     addToCartRef.current = addToCart
+    addPackRef.current = addPackToCart
     toggleFavoriteRef.current = toggleFavorite
   })
 
   const updateItemPrice = (productId: string, newPrice: number) => {
     setCart(prev => prev.map(item => {
       if (item.product.id !== productId) return item
-      const minPrice = effectivePrice(item.product, frontBatchPromo)
+      const minPrice = linePriceOf(item.product, item.quantity, frontBatchPromo).price
       const price = Math.max(minPrice, newPrice)
-      return { ...item, unit_price: price, subtotal: Math.round(item.quantity * price) }
+      return { ...item, unit_price: price, subtotal: Math.round(item.quantity * price), custom_price: price > minPrice }
     }))
   }
 
@@ -841,7 +900,7 @@ function PosScreen({ params: { locale: _locale } }: { params: { locale: string }
       customerId: selectedCustomer?.id ?? null,
       label: label.trim() || undefined,
       manualPriceIds: cart
-        .filter(i => i.unit_price !== effectivePrice(i.product, frontBatchPromo))
+        .filter(i => i.custom_price || i.unit_price !== linePriceOf(i.product, i.quantity, frontBatchPromo).price)
         .map(i => i.product.id),
     }
     const updated = drafts.filter(d => d.id !== draft.id)
@@ -866,7 +925,7 @@ function PosScreen({ params: { locale: _locale } }: { params: { locale: string }
       : revalidateHeldCart(
       draft.cart,
       products,
-      p => effectivePrice(p, frontBatchPromo),
+      (p, q) => linePriceOf(p, q, frontBatchPromo).price,
       draft.manualPriceIds ?? null,
     )
     setCart(freshCart)
@@ -2031,6 +2090,7 @@ ${normalize(p.sku ?? '')}`.includes(outHereQuery)).slice(0, 20), [outHere, outHe
                 stockVariant={stockVariantOf(product)}
                 isExpired={expiredOnly(product)}
                 sellableQty={sellableOf(product).sellable}
+                wholesaleLabel={wholesaleLabelOf(product)}
                 currencyCode={currencyCode}
                 favoriteLabel={favoriteLabel}
                 expiredLabel={expiredLabel}
@@ -2066,6 +2126,7 @@ ${normalize(p.sku ?? '')}`.includes(outHereQuery)).slice(0, 20), [outHere, outHe
                   stockVariant={stockVariantOf(product)}
                   isExpired={expiredOnly(product)}
                   sellableQty={sellableOf(product).sellable}
+                wholesaleLabel={wholesaleLabelOf(product)}
                   currencyCode={currencyCode}
                   favoriteLabel={favoriteLabel}
                   expiredLabel={expiredLabel}
@@ -2227,13 +2288,25 @@ ${normalize(p.sku ?? '')}`.includes(outHereQuery)).slice(0, 20), [outHere, outHe
                         >
                           <span className="whitespace-nowrap">{formatNaira(item.unit_price)}</span>
                           <Edit2 className="h-3 w-3 opacity-60 transition-opacity group-hover:opacity-100" />
-                          {item.unit_price === effectivePrice(item.product, frontBatchPromo) && item.unit_price !== item.product.selling_price ? (
+                          {(() => { const lp = linePriceOf(item.product, item.quantity, frontBatchPromo); return lp.wholesale && item.unit_price === lp.price })() ? (
+                            <span className="rounded bg-emerald-100 px-1 text-[10px] font-medium text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300" data-testid="cart-wholesale-badge">{t('sales.wholesale_badge_saving', { amount: formatNaira(Math.max(0, Math.round((effectivePrice(item.product, frontBatchPromo) - item.unit_price) * item.quantity))) })}</span>
+                          ) : item.unit_price === linePriceOf(item.product, item.quantity, frontBatchPromo).price && item.unit_price !== item.product.selling_price ? (
                             <span className="rounded bg-stockshop-blue-muted px-1 text-[10px] font-medium text-stockshop-blue dark:bg-blue-900/40 dark:text-blue-400">{t('products.promo_badge')}</span>
-                          ) : item.unit_price !== item.product.selling_price && (
+                          ) : item.unit_price !== linePriceOf(item.product, item.quantity, frontBatchPromo).price && (
                             <span className="rounded bg-amber-100 px-1 text-[10px] font-medium text-amber-600 dark:bg-amber-900/40 dark:text-amber-400">{t('payments.edited_badge')}</span>
                           )}
                         </button>
                       </div>
+                      {/* Palier suivant pas encore atteint : ce qu'il manque (aide à la vente, rien d'imposé) */}
+                      {(() => {
+                        const next = nextTier(item.product, item.quantity)
+                        // Utile seulement quand on approche du palier (au moins la moitié) et s'il fait vraiment baisser le prix
+                        return next && next.price < item.unit_price && item.quantity * 2 >= next.min_qty ? (
+                          <p className="text-[11px] text-emerald-700 dark:text-emerald-300" data-testid="cart-wholesale-hint">
+                            {t('sales.wholesale_missing', { count: next.missing, unit: unitLabel(item.product.unit || 'piece', next.missing), price: formatNaira(next.price) })}
+                          </p>
+                        ) : null
+                      })()}
                       {/* Produit suivi : numéros de série de la ligne */}
                       {item.serials?.length ? (
                         <p className="truncate font-mono text-[11px] text-muted-foreground" data-testid="cart-serials-list">{item.serials.join(' · ')}</p>
@@ -2247,6 +2320,13 @@ ${normalize(p.sku ?? '')}`.includes(outHereQuery)).slice(0, 20), [outHere, outHe
                             <Hash className="h-3.5 w-3.5" aria-hidden="true" />{t('serials.cart_button', { count: item.quantity })}
                           </button>
                         ) : (
+                        <div className="flex items-center gap-1.5">
+                        {packsByProduct[item.product.id] && (
+                          <button type="button" onClick={() => addPackToCart(item.product, packsByProduct[item.product.id])} data-testid="cart-add-pack"
+                            className="flex h-9 shrink-0 items-center whitespace-nowrap rounded-lg border border-input px-2 text-xs font-medium text-stockshop-blue hover:bg-stockshop-blue-muted dark:text-blue-400 dark:hover:bg-blue-950/40">
+                            {t('sales.add_one_pack', { pack: unitLabel(packsByProduct[item.product.id].unit, 1) })}
+                          </button>
+                        )}
                         <div className="flex items-center overflow-hidden rounded-lg border border-input">
                           <button
                             type="button"
@@ -2279,6 +2359,7 @@ ${normalize(p.sku ?? '')}`.includes(outHereQuery)).slice(0, 20), [outHere, outHe
                           >
                             <Plus className="h-3.5 w-3.5" />
                           </button>
+                        </div>
                         </div>
                         )}
                         <p className="text-right text-sm font-bold tabular-nums">{formatNaira(item.subtotal)}</p>
@@ -2880,7 +2961,7 @@ ${normalize(p.sku ?? '')}`.includes(outHereQuery)).slice(0, 20), [outHere, outHe
         testId="price-dialog"
       >
         {priceModalItem && (() => {
-          const minPrice = effectivePrice(priceModalItem.product, frontBatchPromo)
+          const minPrice = linePriceOf(priceModalItem.product, priceModalItem.quantity, frontBatchPromo).price
           const value = Number(priceModalInput)
           const valid = !!priceModalInput && value >= minPrice
           const confirmPrice = () => { if (!valid) return; updateItemPrice(priceModalItem.product.id, value); setPriceModalItem(null) }

@@ -46,6 +46,8 @@ import { useStockViewMode } from '@/lib/hooks/use-stock-view-mode'
 import { ProductActivityJournal } from '@/components/stock/product-activity-journal'
 import { ProductDetailDrawer, type ProductDetailSection } from '@/components/stock/product-detail-drawer'
 import { BatchTreatmentDrawer, useBatchTreatmentsAvailable } from '@/components/stock/batch-treatment'
+import { NewPackagingInline } from '@/components/stock/new-packaging-inline'
+import { ReceptionPrices, initialPriceReview, priceReviewChanges, priceReviewProblem, type PriceReview } from '@/components/stock/reception-prices'
 import { isNeutralClick } from '@/lib/utils/open-on-click'
 import { PRODUCT_PUBLIC_COLUMNS } from '@/lib/products/columns'
 import { SUPPLIER_PUBLIC_COLUMNS } from '@/lib/suppliers/columns'
@@ -110,7 +112,7 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
   const effectiveRole = roleInActiveShop ?? profile?.role
   const { canAccess, canWrite, canViewCost } = useRolePermissions()
   // Prix d'achat (saisie comprise) : droit au coût DANS la boutique du produit — « Stock en modification » ne le donne plus
-  const { canViewCostIn } = useShopPermissions()
+  const { canViewCostIn, canWriteIn } = useShopPermissions()
   const isMultiShop = effectiveShopIds.length > 1
   const { fmt: formatNaira, symbol: currencySymbol } = useCurrency()
   const supabase = createClient()
@@ -219,6 +221,10 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
   // Conditionnements d'achat du produit (étape 9) : « Saisir en » pièces ou en colis ; '' = unité de base
   const [restockPacks, setRestockPacks] = useState<Packaging[]>([])
   const [restockPackId, setRestockPackId] = useState('')
+  // « + Nouveau conditionnement » ouvert dans la fenêtre de réassort
+  const [restockNewPack, setRestockNewPack] = useState(false)
+  // Conditionnements du produit connus : « Saisir en » ne s'affiche qu'ensuite (jamais « pièces » puis « carton » un instant après)
+  const [restockPacksReady, setRestockPacksReady] = useState(false)
   // Produit suivi (étape 11) : numéros reçus, un par ligne (saisie ou scan)
   const [restockSerials, setRestockSerials] = useState('')
   const restockSerialList = restockSerials.split(/[\n\r,;]+/).map(s => s.trim()).filter(Boolean)
@@ -667,11 +673,16 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
     })
 
 
-  const FORM_FIELDS: ProductFieldError['field'][] = ['name', 'sku', 'selling_price', 'buying_price', 'quantity', 'unit', 'location', 'low_stock_threshold', 'expiry_date']
+  const FORM_FIELDS: ProductFieldError['field'][] = ['name', 'sku', 'selling_price', 'buying_price', 'quantity', 'unit', 'location', 'low_stock_threshold', 'expiry_date', 'price_tiers']
   const saveProduct = async (data: ProductFormData): Promise<true | false | ProductFieldError> => {
     const target = createShop
     if (!target) { toast({ title: t('toast.no_active_shop'), variant: 'destructive' }); return false }
     setSaving(true)
+    // Stock de départ et prix d'achat saisis par colis : convertis à la pièce (le stock est toujours compté à la pièce)
+    const packUnits = data.pack_unit ? Number(data.pack_units) || 0 : 0
+    const inPacks = !!data.initial_in_packs && packUnits >= 2
+    const quantity = inPacks ? packToBase(Number(data.quantity) || 0, packUnits) : data.quantity
+    const buying = inPacks && data.buying_price ? packPriceToUnit(Number(data.buying_price), packUnits) : (data.buying_price ?? 0)
     try {
       const res = await withTimeout(fetch('/api/products', {
         method: 'POST',
@@ -682,9 +693,11 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
           name: data.name,
           category_id: data.category_id || null,
           supplier_id: data.supplier_id || null,
-          buying_price: data.buying_price ?? 0,
+          buying_price: buying,
           selling_price: data.selling_price,
-          quantity: data.quantity,
+          quantity,
+          // Paliers de gros (202) : le serveur nettoie (lignes vides retirées) et contrôle
+          price_tiers: data.price_tiers ?? null,
           unit: data.unit || 'piece',
           low_stock_threshold: data.low_stock_threshold ?? null,
           sku: data.sku || null,
@@ -692,7 +705,7 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
           location: data.location?.trim() || null,
           is_active: true,
           // Date du LOT initial créé avec le stock (jamais enregistrée sur le produit)
-          expiry_date: Number(data.quantity) > 0 && data.expiry_date ? data.expiry_date : null,
+          expiry_date: Number(quantity) > 0 && data.expiry_date ? data.expiry_date : null,
         }),
       }))
       const json = await res.json()
@@ -700,6 +713,16 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
         // Refus d'un champ (règles communes du serveur, doublon de nom, code-barres pris) : affiché sous le champ
         if (FORM_FIELDS.includes(json.field) && json.error) return { field: json.field, message: json.error }
         toast({ title: json.error || t('toast.error'), variant: 'destructive' }); return false
+      }
+      // Carton / paquet d'achat créé avec le produit (mêmes contrôles que depuis la fiche) ; un échec ne défait
+      // pas le produit : il est signalé, à compléter depuis la fiche
+      if (data.pack_unit && packUnits >= 2 && json.data?.id) {
+        const pr = await fetch('/api/products/packagings', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ shop_id: target.id, product_id: json.data.id, unit: data.pack_unit, units_per_pack: packUnits, barcode: data.pack_barcode?.trim() || null, is_default: true }) }).catch(() => null)
+        if (!pr || !pr.ok) {
+          const pj = pr ? await pr.json().catch(() => ({})) : {}
+          toast({ title: t('wholesale.pack_not_saved', { reason: pj.error || '' }), variant: 'destructive' })
+        }
       }
       fetchProducts()
       return true
@@ -729,6 +752,13 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
     toast({ title: t('toast.product_added'), variant: 'success' })
   }
 
+  // Paliers comparables : lignes vides retirées, triés par quantité, nombres (null = aucun)
+  const cleanTiers = (raw: unknown): { min_qty: number; price: number }[] | null => {
+    const rows = (Array.isArray(raw) ? raw : []).map((r: any) => ({ min_qty: Number(r?.min_qty), price: Number(r?.price) }))
+      .filter(r => r.min_qty > 0 || r.price > 0).sort((x, y) => x.min_qty - y.min_qty)
+    return rows.length ? rows : null
+  }
+
   const onEditProduct = async (data: ProductFormData): Promise<void | ProductFieldError> => {
     if (!editingProduct) return
     // Seulement ce qui a changé : ajouter une photo ne touche que la photo (une ancienne
@@ -740,16 +770,18 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
       buying_price: data.buying_price ?? 0, selling_price: data.selling_price, unit: data.unit || 'piece',
       low_stock_threshold: data.low_stock_threshold ?? null, sku: data.sku?.trim() || null, image_url: data.image_url || null,
       location: data.location?.replace(/\s+/g, ' ').trim() || null,
+      price_tiers: cleanTiers(data.price_tiers),
     }
     const prev: Record<string, unknown> = {
       name: p.name, category_id: p.category_id || null, supplier_id: p.supplier_id || null,
       buying_price: p.buying_price ?? 0, selling_price: p.selling_price, unit: p.unit || 'piece',
       low_stock_threshold: p.low_stock_threshold ?? null, sku: p.sku?.trim() || null, image_url: p.image_url || null,
       location: p.location || null,
+      price_tiers: cleanTiers(p.price_tiers),
     }
     const NUMERIC = ['buying_price', 'selling_price', 'low_stock_threshold']
     const changes = Object.fromEntries(Object.entries(next).filter(([k, v]) =>
-      NUMERIC.includes(k) ? (v === null ? null : Number(v)) !== (prev[k] === null ? null : Number(prev[k])) : v !== prev[k]))
+      k === 'price_tiers' ? JSON.stringify(v) !== JSON.stringify(prev[k]) : NUMERIC.includes(k) ? (v === null ? null : Number(v)) !== (prev[k] === null ? null : Number(prev[k])) : v !== prev[k]))
     if (Object.keys(changes).length === 0) { setEditingProduct(null); return }
     setSaving(true)
     try {
@@ -760,7 +792,7 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
       }))
       const json = await res.json()
       if (!res.ok) {
-        if (json.field === 'sku' && json.error) return { field: 'sku', message: json.error }
+        if (FORM_FIELDS.includes(json.field) && json.error) return { field: json.field, message: json.error }
         toast({ title: json.error || t('toast.error'), variant: 'destructive' }); return
       }
       toast({ title: t('toast.product_updated'), variant: 'success' })
@@ -774,16 +806,22 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
   }
 
   useEffect(() => {
-    setRestockPacks([]); setRestockPackId('')
-    if (!restockProduct || !navigator.onLine) return
+    setRestockPacks([]); setRestockPackId(''); setRestockNewPack(false); setRestockPacksReady(false)
+    if (!restockProduct) return
+    if (!navigator.onLine) { setRestockPacksReady(true); return }
     let cancelled = false
     fetch(`/api/products/packagings?shop_id=${restockProduct.shop_id}&product_id=${restockProduct.id}`)
       .then(r => (r.ok ? r.json() : { data: [] }))
-      .then(j => { if (cancelled) return; const list: Packaging[] = j.data || []; setRestockPacks(list); setRestockPackId(list.find(p => p.is_default)?.id ?? '') })
-      .catch(() => {})
+      .then(j => { if (cancelled) return; const list: Packaging[] = j.data || []; setRestockPacks(list); setRestockPackId(list.find(p => p.is_default)?.id ?? ''); setRestockPacksReady(true) })
+      .catch(() => { if (!cancelled) setRestockPacksReady(true) })
     return () => { cancelled = true }
   }, [restockProduct?.id])
   const restockPack = restockPacks.find(p => p.id === restockPackId) ?? null
+  // Prix de vente revus à la réception (prix de gros, 1er nov. 2026) : proposés avec leurs marges sur le nouveau coût
+  const [priceReview, setPriceReview] = useState<PriceReview | null>(null)
+  useEffect(() => { setPriceReview(showRestockModal && restockProduct ? initialPriceReview(restockProduct) : null) }, [showRestockModal, restockProduct?.id]) // eslint-disable-line react-hooks/exhaustive-deps
+  const restockBuying = Number(restockForm.watch('buying_price')) || 0
+  const restockUnitCost = restockBuying > 0 ? (restockPack ? packPriceToUnit(restockBuying, restockPack.units_per_pack) : restockBuying) : null
 
   // Réapprovisionner : fournisseur habituel du produit proposé d'office (s'il existe encore dans sa boutique)
   const restockDefaults = (p: Product): RestockFormData => {
@@ -801,6 +839,10 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
     const qty = restockTracked ? restockSerialList.length : pack ? packToBase(Number(data.quantity), pack.units_per_pack) : Number(data.quantity)
     if (restockTracked && qty < 1) { toast({ title: t('serials.restock_none'), variant: 'destructive' }); return }
     const unitPrice = pack && data.buying_price ? packPriceToUnit(Number(data.buying_price), pack.units_per_pack) : data.buying_price
+    // Prix de vente : un problème (marge négative non confirmée, gros au-dessus du détail…) bloque avant tout envoi
+    const reviewProblem = priceReview ? priceReviewProblem(restockProduct, priceReview, restockUnitCost) : null
+    if (reviewProblem) { setPriceReview(r => (r ? { ...r, open: true } : r)); toast({ title: t(`wholesale.${reviewProblem}` as any), variant: 'destructive' }); return }
+    const priceChanges = priceReview && canWriteIn(restockProduct.shop_id, 'stock') ? priceReviewChanges(restockProduct, priceReview) : null
     setSaving(true)
 
     // Offline path — save to IndexedDB and update local cache optimistically
@@ -826,6 +868,7 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
       registerBackgroundSync()
       setSaving(false)
       toast({ title: t('toast.restock_done', { qty, name: restockProduct.name }), variant: 'success' })
+      if (priceChanges) toast({ title: t('wholesale.review_offline'), variant: 'destructive' })
       setShowRestockModal(false)
       restockForm.reset()
       // Update UI locally — no network call
@@ -857,6 +900,13 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
       const json = await res.json()
       if (!res.ok) { toast({ title: json.error || t('toast.error'), variant: 'destructive' }); return }
       toast({ title: t('toast.restock_done', { qty, name: restockProduct.name }), variant: 'success' })
+      // Prix revus : envoyés après le réassort (règles et droits contrôlés par le serveur) ; un refus n'annule pas le réassort
+      if (priceChanges) {
+        const pr = await fetch('/api/products', { method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ id: restockProduct.id, shop_id: restockProduct.shop_id, ...priceChanges }) }).catch(() => null)
+        const pj = pr ? await pr.json().catch(() => ({})) : {}
+        toast(pr && pr.ok ? { title: t('wholesale.review_saved'), variant: 'success' } : { title: t('wholesale.review_not_saved', { reason: pj.error || '' }), variant: 'destructive' })
+      }
     } catch (err: any) {
       toast({ title: err.message || t('toast.error'), variant: 'destructive' })
       return
@@ -2046,7 +2096,7 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
             suppliers={suppliers.filter((s: any) => s.shop_id === editingProduct.shop_id)}
             shopId={editingProduct.shop_id}
             fullRights={canViewCostIn(editingProduct.shop_id)}
-            defaultValues={{ name: editingProduct.name, category_id: editingProduct.category_id || '', supplier_id: editingProduct.supplier_id || '', buying_price: editingProduct.buying_price, selling_price: editingProduct.selling_price, quantity: editingProduct.quantity, unit: editingProduct.unit, low_stock_threshold: editingProduct.low_stock_threshold ?? null, sku: editingProduct.sku || '', image_url: editingProduct.image_url || '', location: editingProduct.location || '', ...(editRestore?.values ?? {}) }}
+            defaultValues={{ name: editingProduct.name, category_id: editingProduct.category_id || '', supplier_id: editingProduct.supplier_id || '', buying_price: editingProduct.buying_price, selling_price: editingProduct.selling_price, quantity: editingProduct.quantity, unit: editingProduct.unit, low_stock_threshold: editingProduct.low_stock_threshold ?? null, sku: editingProduct.sku || '', image_url: editingProduct.image_url || '', location: editingProduct.location || '', price_tiers: editingProduct.price_tiers ?? null, ...(editRestore?.values ?? {}) }}
             initialPhoto={editRestore?.file ?? null}
             startDirty={!!editRestore}
             onSubmit={onEditProduct}
@@ -2139,16 +2189,22 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
                 <p className="text-xs text-muted-foreground" data-testid="restock-serials-count">{t('serials.restock_count', { count: restockSerialList.length })}</p>
               </div>
             ) : (<>
-            {restockPacks.length > 0 && (
+            {restockProduct && restockPacksReady && (restockPacks.length > 0 || (canWriteIn(restockProduct.shop_id, 'stock') && typeof navigator !== 'undefined' && navigator.onLine)) && (
               <div className="space-y-1.5" data-testid="restock-pack">
                 <Label>{t('packaging.enter_in')}</Label>
-                <Select value={restockPackId || 'base'} onValueChange={v => setRestockPackId(v === 'base' ? '' : v)}>
+                <Select value={restockNewPack ? '__new__' : restockPackId || 'base'} onValueChange={v => { if (v === '__new__') { setRestockNewPack(true); return } setRestockNewPack(false); setRestockPackId(v === 'base' ? '' : v) }}>
                   <SelectTrigger data-testid="restock-pack-select"><SelectValue /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="base">{unitLabelFor(restockProduct?.unit || 'piece', 2)}</SelectItem>
                     {restockPacks.map(p => <SelectItem key={p.id} value={p.id}>{t('packaging.pack_of', { pack: unitLabelFor(p.unit, 1), count: p.units_per_pack, base: unitLabelFor(restockProduct?.unit || 'piece', p.units_per_pack) })}</SelectItem>)}
+                    {canWriteIn(restockProduct.shop_id, 'stock') && <SelectItem value="__new__">{t('packaging.new_option')}</SelectItem>}
                   </SelectContent>
                 </Select>
+                {restockNewPack && (
+                  <NewPackagingInline shopId={restockProduct.shop_id} productId={restockProduct.id} baseUnit={restockProduct.unit || 'piece'} makeDefault={restockPacks.length === 0} unitLabel={unitLabelFor}
+                    onCreated={p => { setRestockPacks(prev => [...prev, p]); setRestockPackId(p.id); setRestockNewPack(false); toast({ title: t('packaging.added', { pack: t('packaging.pack_of', { pack: unitLabelFor(p.unit, 1), count: p.units_per_pack, base: unitLabelFor(restockProduct.unit || 'piece', p.units_per_pack) }) }), variant: 'success' }) }}
+                    onCancel={() => setRestockNewPack(false)} />
+                )}
               </div>
             )}
             <div className="space-y-1.5">
@@ -2174,6 +2230,10 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
                 {/* Exemple : prix d'un colis (prix unitaire × unités) quand la saisie est en colis */}
                 <Input type="number" {...restockForm.register('buying_price')} placeholder={restockProduct?.buying_price != null ? String(Math.round(Number(restockProduct.buying_price) * (restockPack?.units_per_pack ?? 1) * 100) / 100) : ''} />
               </div>
+            )}
+            {restockProduct && priceReview && (
+              <ReceptionPrices product={restockProduct} unitCost={restockUnitCost} seesCost={canViewCostIn(restockProduct.shop_id)} canEdit={canWriteIn(restockProduct.shop_id, 'stock')}
+                value={priceReview} onChange={setPriceReview} currency={currencySymbol} unitLabel={unitLabelFor} />
             )}
             {/* Chaque réassort crée un NOUVEAU lot, avec sa propre date (facultative) */}
             <ExpiryDateField id="restock-expiry-date" value={restockForm.watch('expiry_date')} onChange={v => restockForm.setValue('expiry_date', v, { shouldDirty: true })} />

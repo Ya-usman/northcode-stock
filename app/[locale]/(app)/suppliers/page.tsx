@@ -6,6 +6,7 @@ import { useSearchParams, useRouter, usePathname } from 'next/navigation'
 import { usePersistedFilters } from '@/lib/hooks/use-persisted-filters'
 import { lowStockThresholdOf } from '@/lib/stock/signals'
 import { normalize } from '@/lib/utils/normalize'
+import { ReceptionPrices, initialPriceReview, priceReviewChanges, priceReviewProblem, type PriceReview } from '@/components/stock/reception-prices'
 import { useTranslations, useLocale } from 'next-intl'
 import { useUnitLabel } from '@/lib/products/use-unit-label'
 import { dateLocaleTag } from '@/lib/i18n/date-format'
@@ -170,10 +171,11 @@ export default function SuppliersPage() {
   // boutique par boutique (useShopPermissions) — jamais sur la boutique active cachée.
   const scope = useShopScope()
   const scopeKey = scope.shopIds.join(',')
-  // Contexte courant au moment où une réponse arrive : une réponse d'un contexte précédent (changement de boutique
-  // pendant le chargement) est ignorée, elle n'écrase jamais la liste du contexte affiché
-  const liveScope = useRef({ scopeKey, shops: effectiveShopIds.join(',') })
-  liveScope.current = { scopeKey, shops: effectiveShopIds.join(',') }
+  // Seule la DERNIÈRE demande de chaque liste est appliquée : une réponse plus ancienne (changement de boutique pendant
+  // le chargement) n'écrase jamais la liste affichée. Numéros de requête, comme l'Historique (avant : référence mise à
+  // jour pendant le rendu, qu'un rendu abandonné par React pouvait fausser : la bonne réponse était jetée et la liste
+  // restait en chargement)
+  const reqSeq = useRef({ suppliers: 0, prices: 0, orders: 0 })
   const filterScope = useFilterScope()
   const { canWriteIn, canAccessIn, canViewCostIn } = useShopPermissions()
   // Payer une dette fournisseur (même à la réception) : Crédits en modification ET Fournisseurs en lecture — même règle
@@ -289,6 +291,7 @@ export default function SuppliersPage() {
   const trackedLine = (it: any) => !!it.product_id && !!(products as any[]).find(p => p.id === it.product_id)?.track_serials
   const pastExpiry = usePastExpiryConfirm()
   const [receiveNotes, setReceiveNotes] = useState<Record<string, string>>({})
+  const [receivePrices, setReceivePrices] = useState<Record<string, PriceReview>>({})
   const [receivePaymentStatus, setReceivePaymentStatus] = useState<'paid' | 'partial' | 'credit'>('credit')
   const [receivePaymentAmount, setReceivePaymentAmount] = useState('')
   const [receivePaymentMethod, setReceivePaymentMethod] = useState('cash')
@@ -342,6 +345,7 @@ export default function SuppliersPage() {
 
   const fetchSuppliers = async () => {
     if (!effectiveShopIds.length) return
+    const seq = ++reqSeq.current.suppliers
     const cacheKey = `suppliers_${effectiveShopIds.join(',')}`
     const cached = getPageCache<{ suppliers: Supplier[]; products: Product[] }>(cacheKey)
     if (cached) { setSuppliers(cached.suppliers); setProducts(cached.products); setLoading(false) }
@@ -350,9 +354,9 @@ export default function SuppliersPage() {
       // a while can never leave `loading` stuck true forever.
       const [suppliersRes, productsRes] = await withTimeout(Promise.all([
         supabase.from('suppliers').select(SUPPLIER_PUBLIC_COLUMNS).in('shop_id', effectiveShopIds).order('name'),
-        supabase.from('products').select('id, name, selling_price, quantity, unit, supplier_id, shop_id, track_serials').in('shop_id', effectiveShopIds).eq('is_active', true),
+        supabase.from('products').select('id, name, selling_price, quantity, unit, supplier_id, shop_id, track_serials, price_tiers').in('shop_id', effectiveShopIds).eq('is_active', true),
       ]), 20_000, 'Chargement des fournisseurs trop lent : réessayez.')
-      if (liveScope.current.shops !== effectiveShopIds.join(',')) return
+      if (seq !== reqSeq.current.suppliers) return
       // A transient auth/RLS hiccup can resolve with data: null instead of
       // throwing — check explicitly so the catch below preserves the cache
       // already on screen instead of zeroing it out.
@@ -389,13 +393,14 @@ export default function SuppliersPage() {
 
   const fetchProductPrices = async () => {
     if (!scopeKey || !showCost) return
+    const seq = ++reqSeq.current.prices
     try {
       // Bounded so a stale connection/session after the app sat backgrounded
       // a while can never leave a hung request retried forever.
       const res = await withTimeout(fetch(`/api/product-supplier-prices?shop_ids=${scopeKey}`), 20_000)
       if (!res.ok) return
       const json = await res.json()
-      if (liveScope.current.scopeKey !== scopeKey) return
+      if (seq !== reqSeq.current.prices) return
       setProductPrices(json.data || [])
     } catch {
       // silencieux — comparaison purement informative
@@ -405,16 +410,17 @@ export default function SuppliersPage() {
   const fetchPurchaseOrders = async () => {
     if (!scopeKey) return
     const key = scopeKey
+    const seq = ++reqSeq.current.orders
     try {
       // Bons de toutes les boutiques du contexte (avant : boutique active cachée seulement)
       const res = await withTimeout(fetch(`/api/purchase-orders?shop_ids=${key}`), 20_000)
       if (!res.ok) throw new Error('purchase_orders')
       const json = await res.json()
-      if (liveScope.current.scopeKey !== key) return
+      if (seq !== reqSeq.current.orders) return
       setPurchaseOrders(json.data || [])
       setPoState('ready')
     } catch {
-      if (liveScope.current.scopeKey !== key) return
+      if (seq !== reqSeq.current.orders) return
       // Échec : on garde la liste connue ; sans liste connue, message + « Réessayer » (jamais « aucun bon » trompeur)
       setPoState(prev => (prev === 'ready' ? 'ready' : 'error'))
     }
@@ -891,6 +897,13 @@ export default function SuppliersPage() {
     setReceivePaymentAmount('')
     setReceivePaymentMethod('cash')
     setReceiveTouched(false)
+    // Prix de vente revus à la réception (prix de gros, 1er nov. 2026) : une revue par ligne dont le produit est connu
+    const reviews: Record<string, PriceReview> = {}
+    for (const it of po.purchase_order_items || []) {
+      const prod = products.find(x => x.id === it.product_id)
+      if (prod) reviews[it.id] = initialPriceReview(prod as any)
+    }
+    setReceivePrices(reviews)
     setReceivingPo(po)
   }
 
@@ -901,6 +914,20 @@ export default function SuppliersPage() {
 
   const submitReceivePo = async () => {
     if (!receivingPo) return
+    // Prix de vente des lignes reçues : un problème (marge négative non confirmée…) bloque avant tout envoi
+    const reviewed = (receivingPo.purchase_order_items || []).filter((it: any) => Number(receiveQuantities[it.id]) > 0 && receivePrices[it.id])
+    for (const it of reviewed) {
+      const prod = products.find(x => x.id === it.product_id)
+      const cost = canViewCostIn(receivingPo.shop_id) && Number(it.unit_price) > 0 ? Number(it.unit_price) : null
+      const problem = prod ? priceReviewProblem(prod as any, receivePrices[it.id], cost) : null
+      if (problem) {
+        setReceivePrices(prev => ({ ...prev, [it.id]: { ...prev[it.id], open: true } }))
+        toast({ title: `${it.product_name} : ${t(`wholesale.${problem}` as any)}`, variant: 'destructive' }); return
+      }
+    }
+    const priceUpdates = canWriteIn(receivingPo.shop_id, 'stock')
+      ? reviewed.map((it: any) => { const prod = products.find(x => x.id === it.product_id); const ch = prod ? priceReviewChanges(prod as any, receivePrices[it.id]) : null; return ch ? { id: it.product_id, name: it.product_name, ch } : null }).filter(Boolean) as { id: string; name: string; ch: Record<string, unknown> }[]
+      : []
     // Une date de péremption déjà passée sur une ligne reçue : avertissement et confirmation, jamais interdite
     const datesReceived = (receivingPo.purchase_order_items || []).filter((it: any) => Number(receiveQuantities[it.id]) > 0).map((it: any) => receiveExpiryDates[it.id])
     if (!(await pastExpiry.confirm(datesReceived))) return
@@ -940,6 +967,14 @@ export default function SuppliersPage() {
       const json = await res.json()
       if (!res.ok) { toast({ title: json.error || t('toast.error'), variant: 'destructive' }); return }
       toast({ title: t('suppliers.po_received_success'), variant: 'success' })
+      // Prix revus : envoyés après la réception (règles et droits contrôlés par le serveur, rappelés au journal avec le bon)
+      const failed: string[] = []
+      for (const u of priceUpdates) {
+        const pr = await fetch('/api/products', { method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ id: u.id, shop_id: receivingPo.shop_id, ...u.ch, reception_ref: receivingPo.reference }) }).catch(() => null)
+        if (!pr || !pr.ok) failed.push(u.name)
+      }
+      if (priceUpdates.length) toast(failed.length ? { title: t('wholesale.review_not_saved', { reason: failed.join(', ') }), variant: 'destructive' } : { title: t('wholesale.review_saved'), variant: 'success' })
       setReceivingPo(null)
       fetchPurchaseOrders()
       fetchSuppliers()
@@ -2155,6 +2190,17 @@ export default function SuppliersPage() {
                         value={receiveExpiryDates[it.id] ?? ''}
                         onChange={v => { setReceiveTouched(true); setReceiveExpiryDates(prev => ({ ...prev, [it.id]: v })) }}
                       />
+                      {(() => {
+                        const prod = products.find(x => x.id === it.product_id)
+                        const review = receivePrices[it.id]
+                        if (!prod || !review || !(Number(receiveQuantities[it.id]) > 0)) return null
+                        return (
+                          <ReceptionPrices product={prod as any} unitCost={canViewCostIn(receivingPo.shop_id) && Number(it.unit_price) > 0 ? Number(it.unit_price) : null}
+                            seesCost={canViewCostIn(receivingPo.shop_id)} canEdit={canWriteIn(receivingPo.shop_id, 'stock')}
+                            value={review} onChange={v => { setReceiveTouched(true); setReceivePrices(prev => ({ ...prev, [it.id]: v })) }}
+                            currency={symbolIn(receivingPo.shop_id)} unitLabel={unitLabel} />
+                        )
+                      })()}
                       {isShort && (
                         <Input
                           value={receiveNotes[it.id] ?? ''}

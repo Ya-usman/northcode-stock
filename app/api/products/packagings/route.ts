@@ -43,14 +43,16 @@ export async function GET(request: Request) {
   try {
     const p = new URL(request.url).searchParams
     const barcode = (p.get('barcode') || '').trim()
-    const a = await access(t, p.get('shop_id'), barcode ? 'member' : 'view')
+    // Caisse (?pos=1) : tout membre, colonnes utiles à la vente seulement (bouton « + 1 carton »)
+    const pos = p.get('pos') === '1'
+    const a = await access(t, p.get('shop_id'), barcode || pos ? 'member' : 'view')
     if ('response' in a) return a.response
     if (barcode) {
       // Caisse : un colis scanné ne s'ajoute pas au panier, on dit lequel c'est (produit, colis) sans rien d'autre
       const { data: k } = await a.admin.from('product_packagings').select('product_id, unit, units_per_pack, products(name, unit)').eq('shop_id', p.get('shop_id')).eq('barcode', barcode).maybeSingle()
       return NextResponse.json({ data: k ? { product_id: k.product_id, name: k.products?.name ?? '', base_unit: k.products?.unit ?? null, unit: k.unit, units_per_pack: k.units_per_pack } : null })
     }
-    let q = a.admin.from('product_packagings').select(COLUMNS).eq('shop_id', p.get('shop_id')).order('units_per_pack')
+    let q = a.admin.from('product_packagings').select(pos ? 'product_id, unit, units_per_pack, is_default' : COLUMNS).eq('shop_id', p.get('shop_id')).order('units_per_pack')
     if (p.get('product_id')) q = q.eq('product_id', p.get('product_id'))
     const { data, error } = await q
     if (error) return NextResponse.json({ error: error.message }, { status: 400 })

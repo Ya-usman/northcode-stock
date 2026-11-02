@@ -7,7 +7,7 @@
 //   3. sous-total, taxe et total sont recalculés depuis les lignes.
 // Tolérance d'une demi-unité : absorbe les arrondis, pas une manipulation.
 
-import { effectivePrice, computeTotals, type PromoWindow } from '@/lib/sales/pricing'
+import { linePrice, computeTotals, type PromoWindow } from '@/lib/sales/pricing'
 
 export interface SaleLineInput { product_id: string; product_name?: string; quantity: number; unit_price: number }
 export interface SaleAmountsInput { subtotal: number; discount: number; tax: number; total: number }
@@ -33,20 +33,33 @@ async function loadFrontBatchPromos(admin: any, shopId: string, productIds: stri
   return out
 }
 
+/** Produits et leurs prix (paliers de gros compris). Base sans la colonne de la 202 (code en ligne avant la migration) :
+ *  relecture sans elles, le contrôle du prix reste fait. Échec de lecture : null (la vente est refusée, jamais acceptée
+ *  sans contrôle). */
+async function loadPricedProducts(admin: any, shopId: string, ids: string[]): Promise<{ data: any[] | null }> {
+  const base = 'id, name, selling_price, promo_price, promo_until, promo_start'
+  const first = await admin.from('products').select(base + ', price_tiers').eq('shop_id', shopId).in('id', ids)
+  if (!first.error) return { data: first.data || [] }
+  const again = await admin.from('products').select(base).eq('shop_id', shopId).in('id', ids)
+  return { data: again.error ? null : again.data || [] }
+}
+
 /** Plancher de prix seul (modification d'une vente : le total est recalculé par edit_sale) */
 export async function validateLinePrices(admin: any, shopId: string, items: SaleLineInput[]): Promise<SaleValidation> {
   const priced = items.filter(i => i.product_id)
   if (!priced.length) return { ok: true }
   const ids = Array.from(new Set(priced.map(i => i.product_id)))
   const [{ data: products }, batchPromos] = await Promise.all([
-    admin.from('products').select('id, name, selling_price, promo_price, promo_until, promo_start').eq('shop_id', shopId).in('id', ids),
+    loadPricedProducts(admin, shopId, ids),
     loadFrontBatchPromos(admin, shopId, ids),
   ])
+  if (!products) return { ok: false, error: 'invalid_data' } // lecture impossible : jamais de vente sans contrôle du prix
   const byId = new Map<string, any>((products || []).map((p: any) => [p.id, p]))
   const now = new Date().toISOString()
   for (const it of priced) {
     const p = byId.get(it.product_id); if (!p) continue
-    const floor = effectivePrice(p, batchPromos[it.product_id] ?? null, now)
+    // Plancher de la ligne : prix en vigueur, ou meilleur palier de gros atteint par sa quantité (202)
+    const floor = linePrice(p, Number(it.quantity), batchPromos[it.product_id] ?? null, now).price
     if (Number(it.unit_price) < floor - 0.005) return { ok: false, error: 'price_below_floor', params: { name: p.name, floor } }
   }
   return { ok: true }
@@ -67,16 +80,18 @@ export async function validateSale(
   }
   const ids = Array.from(new Set(items.map(i => i.product_id)))
   const [{ data: products }, batchPromos, { data: shop }] = await Promise.all([
-    admin.from('products').select('id, name, selling_price, promo_price, promo_until, promo_start').eq('shop_id', shopId).in('id', ids),
+    loadPricedProducts(admin, shopId, ids),
     loadFrontBatchPromos(admin, shopId, ids),
     admin.from('shops').select('tax_rate').eq('id', shopId).maybeSingle(),
   ])
+  if (!products) return { ok: false, error: 'invalid_data' } // lecture impossible : jamais de vente sans contrôle du prix
   const byId = new Map<string, any>((products || []).map((p: any) => [p.id, p]))
   const now = opts.at || new Date().toISOString()
   for (const it of items) {
     const p = byId.get(it.product_id)
     if (!p) continue // produit d'une autre boutique : refusé par complete_sale (P0008)
-    const floor = effectivePrice(p, batchPromos[it.product_id] ?? null, now)
+    // Plancher de la ligne : prix en vigueur, ou meilleur palier de gros atteint par sa quantité (202)
+    const floor = linePrice(p, Number(it.quantity), batchPromos[it.product_id] ?? null, now).price
     if (Number(it.unit_price) < floor - 0.005) {
       return { ok: false, error: 'price_below_floor', params: { name: p.name, floor } }
     }

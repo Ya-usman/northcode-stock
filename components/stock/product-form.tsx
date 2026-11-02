@@ -2,10 +2,13 @@
 
 import { useForm, Controller } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
-import { useTranslations } from 'next-intl'
+import { useLocale, useTranslations } from 'next-intl'
+import { PACK_UNITS, packToBase, packPriceToUnit } from '@/lib/products/packaging'
+import { MAX_TIERS, tierPresets } from '@/lib/products/price-tiers'
 import { useUnitLabel } from '@/lib/products/use-unit-label'
 import { useState, useRef, useEffect } from 'react'
 import { Input } from '@/components/ui/input'
+import { Button } from '@/components/ui/button'
 import { NumericInput } from '@/components/ui/numeric-input'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
@@ -62,10 +65,10 @@ interface ProductFormProps {
 }
 
 /** Champs de « Plus d'options » : une erreur sur l'un d'eux ouvre la section */
-const MORE_FIELDS: string[] = ['category_id', 'sku', 'low_stock_threshold', 'supplier_id', 'location']
+const MORE_FIELDS: string[] = ['category_id', 'sku', 'low_stock_threshold', 'supplier_id', 'location', 'price_tiers', 'pack_unit', 'pack_units', 'pack_barcode']
 
 /** Erreur renvoyée par le serveur pour un champ précis du formulaire */
-export type ProductFieldError = { field: 'sku' | 'name' | 'selling_price' | 'buying_price' | 'quantity' | 'unit' | 'location' | 'low_stock_threshold' | 'expiry_date'; message: string }
+export type ProductFieldError = { field: 'sku' | 'name' | 'selling_price' | 'buying_price' | 'quantity' | 'unit' | 'location' | 'low_stock_threshold' | 'expiry_date' | 'price_tiers'; message: string }
 
 const FieldError = ({ message }: { message?: string }) =>
   message ? <p className="text-xs text-destructive">{message}</p> : null
@@ -88,7 +91,8 @@ export function ProductForm({
   const [imagePreview, setImagePreview] = useState<string>(defaultValues?.image_url || '')
   // « Plus d'options » ouvertes d'emblée si l'un de leurs champs porte déjà une valeur
   const [moreOpen, setMoreOpen] = useState(() => !!(defaultValues?.category_id || defaultValues?.sku || defaultValues?.supplier_id || defaultValues?.location
-    || (defaultValues?.low_stock_threshold !== undefined && defaultValues?.low_stock_threshold !== null)))
+    || (defaultValues?.low_stock_threshold !== undefined && defaultValues?.low_stock_threshold !== null)
+    || (Array.isArray(defaultValues?.price_tiers) && defaultValues!.price_tiers!.length > 0)))
   // Chargé à la demande : le panneau hôte a déjà posé son focus avant que ce
   // formulaire existe. Sur ordinateur, le nom prend le focus au montage ; sur
   // téléphone, non (le clavier ne doit pas surgir à l'ouverture).
@@ -100,6 +104,12 @@ export function ProductForm({
     buying_price_invalid: t('errors.buying_price_invalid'),
     quantity_invalid: t('errors.quantity_invalid'),
     restock_min_qty: t('errors.restock_min_qty'),
+    wholesale_incomplete: t('wholesale.error_incomplete'),
+    wholesale_not_below_retail: t('wholesale.error_not_below_retail'),
+    wholesale_min_invalid: t('wholesale.error_min'),
+    wholesale_order: t('wholesale.error_order'),
+    wholesale_price_invalid: t('wholesale.error_price'),
+    pack_units_invalid: t('wholesale.error_pack_units'),
   })
 
   const form = useForm<ProductFormData>({
@@ -131,6 +141,37 @@ export function ProductForm({
   const NONE = '__none__'
   const unit = form.watch('unit') || 'piece'
   const categoryId = form.watch('category_id') || NONE
+  // Vente en gros et colis : exemples calculés en direct (rien n'est enregistré tant qu'on n'envoie pas)
+  const locale = useLocale()
+  const money = (n: number) => `${Math.round(n).toLocaleString(locale)} ${currency}`
+  const packUnit = form.watch('pack_unit') || ''
+  const packUnits = Number(form.watch('pack_units')) || 0
+  const retailNow = Number(form.watch('selling_price')) || 0
+  // Paliers : au moins une ligne affichée (vide = pas de prix de gros)
+  const tierValues = (form.watch('price_tiers') as { min_qty?: number | null; price?: number | null }[] | null | undefined) || []
+  const tierRows = tierValues.length ? tierValues : [{ min_qty: null, price: null }]
+  const writeTiers = (rows: { min_qty?: number | null; price?: number | null }[]) => form.setValue('price_tiers', rows as any, { shouldDirty: true, shouldValidate: form.formState.isSubmitted })
+  const setTier = (i: number, patch: { min_qty?: number | null; price?: number | null }) => writeTiers(tierRows.map((r, j) => (j === i ? { ...r, ...patch } : r)))
+  const addTier = () => { if (tierRows.length < MAX_TIERS) writeTiers([...tierRows, { min_qty: null, price: null }]) }
+  const removeTier = (i: number) => writeTiers(tierRows.length > 1 ? tierRows.filter((_, j) => j !== i) : [{ min_qty: null, price: null }])
+  // Quantité tout prête : posée sur le premier palier sans quantité, sinon sur un nouveau palier
+  const applyPreset = (qty: number) => {
+    const i = tierRows.findIndex(r => !r.min_qty)
+    if (i >= 0) setTier(i, { min_qty: qty })
+    else if (tierRows.length < MAX_TIERS) writeTiers([...tierRows, { min_qty: qty, price: null }])
+  }
+  const tierExample = (r: { min_qty?: number | null; price?: number | null }) => {
+    const w = Number(r.price) || 0, m = Number(r.min_qty) || 0
+    return w > 0 && m >= 2 && retailNow > 0 && w < retailNow
+      ? t('wholesale.example', { min: m, unit: unitLabel(unit, m), total: money(w * m), normal: money(retailNow * m), price: money(w), percent: Math.round((1 - w / retailNow) * 100) })
+      : null
+  }
+  const inPacks = !isEdit && !!form.watch('initial_in_packs') && packUnits >= 2
+  const qtyNow = Number(form.watch('quantity')) || 0
+  const buyNow = Number(form.watch('buying_price')) || 0
+  const packConversion = inPacks && qtyNow > 0
+    ? t(buyNow > 0 && fullRights ? 'wholesale.pack_conversion_price' : 'wholesale.pack_conversion', { packs: qtyNow, pack: unitLabel(packUnit, qtyNow), total: packToBase(qtyNow, packUnits), unit: unitLabel(unit, packToBase(qtyNow, packUnits)), unitPrice: buyNow > 0 && fullRights ? money(packPriceToUnit(buyNow, packUnits)) : '' })
+    : null
   const supplierId = form.watch('supplier_id') || NONE
 
   const handleBarcodeDetected = (code: string) => {
@@ -298,7 +339,7 @@ export function ProductForm({
           </div>
           {fullRights && (
             <div className="space-y-1.5">
-              <Label>{t('products.buying_price')}</Label>
+              <Label>{inPacks ? t('packaging.price_per_pack', { pack: unitLabel(packUnit, 1) }) : t('products.buying_price')}</Label>
               <Controller control={form.control} name="buying_price" render={({ field }) => (
                 <InputGroup suffix={currency}>
                   <NumericInput value={field.value} onChange={field.onChange} onBlur={field.onBlur} placeholder="0" currency={currency} className="h-10" />
@@ -324,7 +365,7 @@ export function ProductForm({
             <div className="space-y-1.5">
               <Label>{t('product_form.initial_stock')}<RequiredMark /></Label>
               <Controller control={form.control} name="quantity" render={({ field }) => (
-                <InputGroup suffix={unitLabel(unit, Number(field.value) || 2)}>
+                <InputGroup suffix={inPacks ? unitLabel(packUnit, Number(field.value) || 2) : unitLabel(unit, Number(field.value) || 2)}>
                   <NumericInput value={field.value} onChange={field.onChange} onBlur={field.onBlur} placeholder="0" currency={currency} className="h-10" aria-invalid={!!errors.quantity} />
                 </InputGroup>
               )} />
@@ -500,6 +541,93 @@ export function ProductForm({
           <Input id="product-location" {...form.register('location')} maxLength={60} placeholder={t('product_form.location_placeholder')} className="h-10" data-testid="product-location" />
           <FieldError message={errors.location?.message} />
         </div>
+
+        {/* Vente en gros par paliers (202) : « dès 12 : 470 F · dès 24 : 450 F » ; en caisse, toute la ligne prend le
+            meilleur palier atteint. Un palier d'abord, « + Ajouter un palier » jusqu'à 3 ; quantités proposées en un geste. */}
+        <div className="space-y-2 rounded-lg border border-border p-3" data-testid="product-wholesale">
+          <div>
+            <p className="text-sm font-medium">{t('wholesale.title')} {optional}</p>
+            <p className="text-xs text-muted-foreground">{t('wholesale.hint')}</p>
+          </div>
+          {tierRows.map((row, i) => (
+            <div key={i} className="space-y-1" data-testid="product-tier">
+              <div className="grid grid-cols-[1fr_1fr_auto] items-end gap-2">
+                <div className="space-y-1">
+                  <Label className="text-xs">{t('wholesale.min_label')}</Label>
+                  <InputGroup suffix={unitLabel(unit, 2)}>
+                    <NumericInput allowEmpty value={row.min_qty ?? null} onChange={v => setTier(i, { min_qty: v })} placeholder={i === 0 ? '12' : '24'} className="h-10" data-testid="product-tier-min" aria-label={t('wholesale.min_label')} />
+                  </InputGroup>
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs">{t('wholesale.price_label')}</Label>
+                  <InputGroup suffix={currency}>
+                    <NumericInput allowEmpty value={row.price ?? null} onChange={v => setTier(i, { price: v })} placeholder="0" className="h-10" data-testid="product-tier-price" aria-label={t('wholesale.price_label')} />
+                  </InputGroup>
+                </div>
+                <Button type="button" variant="ghost" size="icon" className="h-10 w-10 text-muted-foreground" onClick={() => removeTier(i)} aria-label={t('wholesale.remove_tier')} disabled={tierRows.length === 1 && !row.min_qty && !row.price}>
+                  <X className="h-4 w-4" />
+                </Button>
+              </div>
+              {tierExample(row) && <p className="text-xs text-emerald-700 dark:text-emerald-300" data-testid="product-wholesale-example">{tierExample(row)}</p>}
+            </div>
+          ))}
+          <div className="flex flex-wrap items-center gap-1.5" data-testid="product-tier-presets">
+            {tierPresets(packUnits).map(pr => (
+              <button key={pr.key} type="button" onClick={() => applyPreset(pr.qty)} className="h-8 rounded-full border border-input px-2.5 text-xs hover:bg-accent">
+                {t(`wholesale.preset_${pr.key}` as any, { count: pr.qty, pack: unitLabel(packUnit || 'carton', 1) })}
+              </button>
+            ))}
+            {tierRows.length < MAX_TIERS && (
+              <button type="button" onClick={addTier} className="h-8 rounded-full px-2.5 text-xs font-medium text-stockshop-blue hover:bg-stockshop-blue-muted dark:text-blue-400 dark:hover:bg-blue-950/40" data-testid="product-tier-add">
+                {t('wholesale.add_tier')}
+              </button>
+            )}
+          </div>
+          <FieldError message={(errors as any).price_tiers?.message} />
+        </div>
+
+        {/* Acheté en carton / paquet (création ; ensuite : fiche › Conditionnements) */}
+        {!isEdit && (
+          <div className="space-y-2 rounded-lg border border-border p-3" data-testid="product-pack">
+            <div>
+              <p className="text-sm font-medium">{t('wholesale.pack_title')} {optional}</p>
+              <p className="text-xs text-muted-foreground">{t('wholesale.pack_hint')}</p>
+            </div>
+            <div className="grid grid-cols-2 items-start gap-3">
+              <div className="space-y-1.5">
+                <Label>{t('wholesale.pack_type')}</Label>
+                <Select value={packUnit || NONE} onValueChange={v => form.setValue('pack_unit', v === NONE ? '' : v, { shouldDirty: true })}>
+                  <SelectTrigger className="h-10" data-testid="product-pack-unit"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value={NONE}>{t('wholesale.pack_none')}</SelectItem>
+                    {PACK_UNITS.map(u => <SelectItem key={u} value={u}>{unitLabel(u, 1)}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+              {packUnit && (
+                <div className="space-y-1.5">
+                  <Label htmlFor="product-pack-units">{t('packaging.units_placeholder', { base: unitLabel(unit, 2) })}</Label>
+                  <Controller control={form.control} name="pack_units" render={({ field }) => (
+                    <NumericInput allowEmpty id="product-pack-units" value={field.value ?? null} onChange={field.onChange} onBlur={field.onBlur} placeholder="24" className="h-10" data-testid="product-pack-units" />
+                  )} />
+                  <FieldError message={errors.pack_units?.message} />
+                </div>
+              )}
+            </div>
+            {packUnit && (
+              <>
+                <Input {...form.register('pack_barcode')} maxLength={32} placeholder={t('packaging.barcode_placeholder')} className="h-10 font-mono text-sm" data-testid="product-pack-barcode" />
+                {packUnits && packUnits >= 2 ? (
+                  <label className="flex items-start gap-2 text-sm">
+                    <input type="checkbox" className="mt-0.5 h-4 w-4" checked={!!form.watch('initial_in_packs')} onChange={e => form.setValue('initial_in_packs', e.target.checked, { shouldDirty: true })} data-testid="product-initial-in-packs" />
+                    <span>{t('wholesale.initial_in_packs', { pack: unitLabel(packUnit, 2) })}</span>
+                  </label>
+                ) : null}
+                {packConversion && <p className="text-xs text-muted-foreground" data-testid="product-pack-conversion">{packConversion}</p>}
+              </>
+            )}
+          </div>
+        )}
       </DrawerSection>
     </form>
     {pastExpiry.dialog}

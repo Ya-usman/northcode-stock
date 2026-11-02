@@ -32,6 +32,8 @@ interface ProductCardProps {
   onElsewhere?: (product: Product) => void
   /** Rangée Favoris : tuile compacte à largeur fixe, étoile toujours pleine. */
   compact?: boolean
+  /** « Gros dès 24 » : le produit a un prix de gros (migration 201) ; absent sinon */
+  wholesaleLabel?: string
 }
 
 // Carte produit de « Nouvelle vente » — mémoïsée : tant que ses props ne
@@ -41,7 +43,7 @@ interface ProductCardProps {
 // figeait l'écran ~360 ms (mesuré, CPU ralenti ×6).
 function ProductCardImpl({
   product, price, stockVariant, isExpired, sellableQty, currencyCode, favoriteLabel, expiredLabel, reservedLabel,
-  elsewhereLabel, onElsewhere, onAdd, onToggleFavorite, compact = false,
+  elsewhereLabel, onElsewhere, onAdd, onToggleFavorite, compact = false, wholesaleLabel,
 }: ProductCardProps) {
   const unitLabel = useUnitLabel()
   const onKeyDown = (e: KeyboardEvent<HTMLDivElement>) => {
@@ -140,6 +142,7 @@ function ProductCardImpl({
             {sellableQty ?? product.quantity} {unitLabel(product.unit, sellableQty ?? product.quantity)}
           </Badge>
         </div>
+        {wholesaleLabel && <p className="mt-0.5 truncate text-[10px] font-medium text-emerald-700 dark:text-emerald-300" data-testid="card-wholesale">{wholesaleLabel}</p>}
       </div>
     </div>
   )
