@@ -145,7 +145,7 @@ export default function SalesHistoryPage() {
           receiptUrl: receiptUrl(sale.receipt_token),
           saleNumber: sale.sale_number,
           createdAt: sale.created_at,
-          items: (s.sale_items || []).map((i: any) => ({ name: i.product_name, qty: Number(i.quantity), unitPrice: Number(i.unit_price), subtotal: Number(i.subtotal), serials: serialsByItem[i.id] })),
+          items: (s.sale_items || []).map((i: any) => ({ name: i.product_name, qty: Number(i.quantity), unitPrice: Number(i.unit_price), subtotal: Number(i.subtotal), serials: serialsByItem[i.id], originalPrice: i.original_price != null ? Number(i.original_price) : null })),
           subtotal: Number(sale.subtotal), discount: Number(sale.discount), tax: Number(sale.tax), total: Number(sale.total),
           amountPaid: Number(sale.amount_paid), balance: Number(sale.balance),
           paymentLabel: (sale.payment_method as string) === 'mixed' ? t('receipt.method_mixed') : payMethodLabel(sale.payment_method, s.shop_id),
@@ -353,7 +353,7 @@ export default function SalesHistoryPage() {
   const buildSalesQuery = (start: Date, end: Date, offset: number, searchMode = false) => {
     let query = supabase
       .from('sales')
-      .select('*, customers(name, phone), sale_items(id, product_id, product_name, quantity, unit_price, subtotal, stock_shortfall, products(image_url, track_serials))')
+      .select('*, customers(name, phone), sale_items(id, product_id, product_name, quantity, unit_price, original_price, subtotal, stock_shortfall, products(image_url, track_serials))')
       .in('shop_id', effectiveShopIds)
       .gte('created_at', start.toISOString())
       .lte('created_at', end.toISOString())

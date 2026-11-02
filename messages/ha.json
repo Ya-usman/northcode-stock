@@ -1293,6 +1293,8 @@
     "client_debts_timeout": "Loda bashin abokan ciniki yana ɗaukar lokaci mai yawa: sake gwadawa."
   },
   "receipt": {
+    "saving": "ragi",
+    "total_saving": "Kun ragi",
     "serial": "Lambar serial",
     "receipt": "Rasiti",
     "cashier": "Ma'aunin Kudi",

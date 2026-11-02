@@ -4,7 +4,7 @@ import { FileQuestion, MessageCircle } from 'lucide-react'
 import { createAdminClient } from '@/lib/supabase/server'
 import { RECEIPT_TOKEN_RE } from '@/lib/receipt/receipt-link'
 import { hideStockShopBranding } from '@/lib/receipt/branding'
-import { textLines } from '@/lib/receipt/ticket'
+import { textLines, lineSaving } from '@/lib/receipt/ticket'
 import { getCountry, getPaymentMethodLabel } from '@/lib/saas/countries'
 import { formatCurrency } from '@/lib/utils/currency'
 import { BrandLogo } from '@/components/brand/brand-logo'
@@ -101,6 +101,8 @@ export default async function PublicReceiptPage({ params }: { params: { token: s
   const cancelled = sale.sale_status === 'cancelled'
   const hideBranding = hideStockShopBranding(shop)
   const discount = Number(sale.discount) || 0
+  // Économie du client (prix de gros, promotions) : même règle que le ticket imprimé (lib/receipt/ticket lineSaving)
+  const totalSaving = items.reduce((s, it) => s + lineSaving({ qty: Number(it.quantity), unitPrice: Number(it.unit_price), originalPrice: it.original_price }), 0)
   const tax = Number(sale.tax) || 0
   const balance = Number(sale.balance) || 0
   const payRows: { amount: number; method: string }[] = Array.isArray(payments) && payments.length > 1 ? payments : []
@@ -173,6 +175,10 @@ export default async function PublicReceiptPage({ params }: { params: { token: s
                 <td className="py-2 pr-2">
                   <span className="text-slate-400">{i + 1}.</span> {it.product_name}
                   <div className="text-xs text-slate-500">{it.quantity} × {fmt(it.unit_price)}</div>
+                  {/* Vendu sous le prix catalogue du moment (prix de gros, promotion) : économie du client */}
+                  {lineSaving({ qty: Number(it.quantity), unitPrice: Number(it.unit_price), originalPrice: it.original_price }) > 0 && (
+                    <div className="text-xs text-emerald-700 dark:text-emerald-400">{R.promo_was} {fmt(Number(it.original_price))} · {R.saving} -{fmt(lineSaving({ qty: Number(it.quantity), unitPrice: Number(it.unit_price), originalPrice: it.original_price }))}</div>
+                  )}
                 </td>
                 <td className="py-2 text-center tabular-nums">{it.quantity}</td>
                 <td className="py-2 text-right font-medium tabular-nums">{fmt(it.subtotal)}</td>
@@ -190,6 +196,7 @@ export default async function PublicReceiptPage({ params }: { params: { token: s
             <span>{R.total}</span>
             <span className="tabular-nums">{fmt(sale.total)}</span>
           </div>
+          {totalSaving > 0 && <Row label={R.total_saving} value={fmt(totalSaving)} className="text-emerald-700 dark:text-emerald-400" />}
           {balance > 0 && <Row label={R.balance_due} value={fmt(balance)} className="font-semibold text-amber-700 dark:text-amber-400" />}
           <Row label={R.amount_paid} value={fmt(sale.amount_paid)} className={balance > 0 ? '' : 'font-semibold'} />
           {payRows.map((p, i) => <Row key={i} label={`· ${payLabel(p.method)}`} value={fmt(p.amount)} className="text-slate-500" />)}

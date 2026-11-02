@@ -1293,6 +1293,8 @@
     "client_debts_timeout": "Chargement des dettes clients trop lent : réessayez."
   },
   "receipt": {
+    "saving": "économie",
+    "total_saving": "Vous économisez",
     "serial": "N° série",
     "receipt": "Reçu",
     "cashier": "Caissier",

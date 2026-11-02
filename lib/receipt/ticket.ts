@@ -65,6 +65,11 @@ export interface TicketLabels {
   itemCount: (n: number) => string
   /** « N° série » devant les numéros d'un produit suivi (étape 11) */
   serial?: string
+  /** « Prix normal » et « économie » sous une ligne vendue moins cher (prix de gros, promotion) */
+  normalPrice?: string
+  saving?: string
+  /** « Vous économisez » sous le total */
+  totalSaving?: string
 }
 
 /** Libellés depuis next-intl (`t` de useTranslations()). */
@@ -92,12 +97,23 @@ export function ticketLabelsFromT(t: (key: string, values?: Record<string, strin
     thankYou: t('receipt.thank_you'),
     seeYouSoon: t('receipt.see_you_soon'),
     serial: t('receipt.serial'),
+    normalPrice: t('receipt.promo_was'),
+    saving: t('receipt.saving'),
+    totalSaving: t('receipt.total_saving'),
     generatedBy: t('receipt.generated_by'),
     poweredBy: t('receipt.powered_by'),
     scanHint: t('receipt.scan_hint'),
     // Pas de pluriel ICU dans les messages du projet : deux clés
     itemCount: (n) => (n === 1 ? t('receipt.item_count_one') : t('receipt.item_count_other', { count: n })),
   }
+}
+
+/** Économie d'une ligne : (prix catalogue au moment de la vente − prix vendu) × quantité ; 0 si rien n'est connu ou
+ *  si le prix vendu est au-dessus (marchandage à la hausse). Arrondie comme les montants de la caisse. */
+export function lineSaving(it: { qty: number; unitPrice: number; originalPrice?: number | null }): number {
+  const o = Number(it.originalPrice)
+  if (!(o > 0) || !(o > it.unitPrice + 0.005)) return 0
+  return Math.round((o - it.unitPrice) * it.qty)
 }
 
 export interface TicketItem {
@@ -107,6 +123,9 @@ export interface TicketItem {
   subtotal: number
   /** Numéros de série vendus (produit suivi, étape 11) : une ligne sous l'article */
   serials?: string[]
+  /** Prix catalogue au moment de la vente (sale_items.original_price) : s'il est plus haut que le prix vendu (prix de
+   *  gros, promotion), l'économie est imprimée sous la ligne */
+  originalPrice?: number | null
 }
 
 export interface TicketData {
@@ -202,12 +221,16 @@ export function buildSaleTicket(d: TicketData, width: TicketWidth): TicketLine[]
     d.items.forEach((it, i) => {
       push({ kind: 'cols', cells: [String(i + 1), it.name, String(it.qty), short(it.unitPrice), short(it.subtotal)], widths, aligns, size: 'sm' })
       if (it.serials?.length) push({ kind: 'text', text: `   ${L.serial ?? 'S/N'} : ${it.serials.join(', ')}`, size: 'sm' })
+      const sv = lineSaving(it)
+      if (sv > 0) push({ kind: 'text', text: `   ${L.normalPrice ?? ''} ${short(Number(it.originalPrice))} · ${L.saving ?? ''} -${short(sv)}`, size: 'sm' })
     })
   } else {
     d.items.forEach((it, i) => {
       push({ kind: 'text', text: `${i + 1}. ${it.name}`, size: 'md' })
       push({ kind: 'row', left: `  ${it.qty} × ${short(it.unitPrice)}`, right: d.fmt(it.subtotal), size: 'sm' })
       if (it.serials?.length) push({ kind: 'text', text: `  ${L.serial ?? 'S/N'} : ${it.serials.join(', ')}`, size: 'sm' })
+      const sv = lineSaving(it)
+      if (sv > 0) push({ kind: 'text', text: `  ${L.normalPrice ?? ''} ${short(Number(it.originalPrice))} · ${L.saving ?? ''} -${short(sv)}`, size: 'sm' })
     })
   }
   // Nombre d'unités ; une quantité décimale (1,5 kg) compte pour un article
@@ -220,6 +243,9 @@ export function buildSaleTicket(d: TicketData, width: TicketWidth): TicketLine[]
   if (d.discount > 0) push({ kind: 'row', left: L.discount, right: `-${d.fmt(d.discount)}`, size: 'sm' })
   if (d.tax > 0) push({ kind: 'row', left: L.tax, right: d.fmt(d.tax), size: 'sm' })
   push({ kind: 'row', left: L.total, right: d.fmt(d.total), bold: true, size: 'xl' })
+  // Économie du client sur les lignes vendues sous le prix catalogue (gros, promotion) ; la remise est à part, au-dessus
+  const totalSaving = d.items.reduce((s, it) => s + lineSaving(it), 0)
+  if (totalSaving > 0 && L.totalSaving) push({ kind: 'row', left: L.totalSaving, right: d.fmt(totalSaving), size: 'sm' })
   push({ kind: 'rule' })
 
   // ─── Paiement : un seul bloc, jamais répété ───

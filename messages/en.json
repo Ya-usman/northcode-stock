@@ -1293,6 +1293,8 @@
     "client_debts_timeout": "Customer debts are taking too long to load: try again."
   },
   "receipt": {
+    "saving": "saving",
+    "total_saving": "You save",
     "serial": "S/N",
     "receipt": "Receipt",
     "cashier": "Cashier",

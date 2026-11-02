@@ -1878,7 +1878,7 @@ ${normalize(p.sku ?? '')}`.includes(outHereQuery)).slice(0, 20), [outHere, outHe
           saleNumber: sale.sale_number,
           createdAt: sale.created_at,
           items: ((sale as any).sale_items || []).map((i: any) => ({
-            name: i.product_name, qty: Number(i.quantity), unitPrice: Number(i.unit_price), subtotal: Number(i.subtotal), serials: i.serials,
+            name: i.product_name, qty: Number(i.quantity), unitPrice: Number(i.unit_price), subtotal: Number(i.subtotal), serials: i.serials, originalPrice: i.original_price != null ? Number(i.original_price) : null,
           })),
           subtotal: Number(sale.subtotal), discount: Number(sale.discount), tax: Number(sale.tax), total: Number(sale.total),
           amountPaid: Number(sale.amount_paid), balance: Number(sale.balance),
