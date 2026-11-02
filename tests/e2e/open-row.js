@@ -45,9 +45,11 @@ const closeAll = async page => { for (let i = 0; i < 5 && (await page.locator('[
     check('marge de la cellule de la case : n’ouvre PAS la fiche non plus', (await sheet(page).count()) === 0)
     if (await row.locator('input[type="checkbox"]').isChecked()) await row.locator('input[type="checkbox"]').click()
     await page.waitForTimeout(400)
-    // Bouton Réapprovisionner : sa fenêtre seulement
-    await row.locator('button[title="Réapprovisionner"]').click(); await page.waitForTimeout(1000)
-    check('bouton « Réapprovisionner » : ouvre sa fenêtre, PAS la fiche', (await sheet(page).count()) === 0 && (await page.locator('[role="dialog"]').filter({ has: page.locator('form') }).count()) >= 1)
+    // Réapprovisionner : bouton de la ligne en stock bas, sinon dans « … » (lot « simplicité » n° 2) ; sa fenêtre seulement
+    if (await row.locator('[data-row-restock]').count()) await row.locator('[data-row-restock]').click()
+    else { await row.getByRole('button', { name: /Plus d’actions/ }).click(); await page.waitForTimeout(400); await page.getByRole('menuitem', { name: 'Réapprovisionner' }).click() }
+    await page.waitForTimeout(1000)
+    check('« Réapprovisionner » : ouvre sa fenêtre, PAS la fiche', (await sheet(page).count()) === 0 && (await page.locator('[role="dialog"]').filter({ has: page.locator('form') }).count()) >= 1)
     await closeAll(page)
     // Menu « Plus d'actions » puis « Modifier » : le panneau de modification, pas la fiche
     await row.getByRole('button', { name: 'Plus d’actions' }).click(); await page.waitForTimeout(600)
@@ -60,10 +62,13 @@ const closeAll = async page => { for (let i = 0; i < 5 && (await page.locator('[
     await page.getByRole('menuitem', { name: 'Voir les lots' }).click(); await page.waitForTimeout(1800)
     check('menu → « Voir les lots » : la fiche, ouverte sur ses lots — une seule fiche', (await sheet(page).count()) === 1 && (await page.evaluate(() => document.querySelector('[data-testid="product-detail"] .overflow-y-auto').scrollTop)) > 50)
     await closeAll(page)
-    // Mention « N périmés » (raccourci Lots) : la fiche sur ses lots, une seule fois
-    const expiredBtn = page.locator('main table tbody tr[data-product-row] button', { hasText: /périmé/ }).first()
+    // Mention « N périmés » : explication au toucher, puis « Voir les lots » (lot « simplicité » n° 2) → la fiche sur
+    // ses lots, une seule fois
+    const expiredBtn = page.locator('main table tbody tr[data-product-row] [data-testid="row-hint-expired"]').first()
     if (await expiredBtn.count()) {
-      await expiredBtn.click(); await page.waitForTimeout(1800)
+      await expiredBtn.click(); await page.waitForTimeout(600)
+      check('« N périmés » : explication affichée, la fiche ne s’ouvre pas encore', (await sheet(page).count()) === 0 && (await page.getByTestId('row-hint-expired-text').innerText().catch(() => '')).length > 20)
+      await page.getByTestId('row-hint-expired-action').click(); await page.waitForTimeout(1800)
       const scroll = await page.evaluate(() => { const b = document.querySelector('[data-testid="product-detail"] .overflow-y-auto'); return b ? b.scrollTop : -1 })
       check('raccourci « N périmés » : la fiche s’ouvre sur ses lots (pas en haut)', (await sheet(page).count()) === 1 && scroll > 50, scroll)
       await closeAll(page)
@@ -101,9 +106,12 @@ const closeAll = async page => { for (let i = 0; i < 5 && (await page.locator('[
     await card.tap({ position: { x: box.width - 6, y: box.height - 6 } }); await page.waitForTimeout(1200)
     check('toucher le coin de la carte (marge intérieure) : la fiche s’ouvre', (await sheet(page).count()) === 1)
     await closeAll(page)
+    // Réapprovisionner : bouton de la carte en stock bas, sinon dans « … » (lot « simplicité » n° 2)
     const restock = card.getByRole('button', { name: /Réapprovisionner/ })
-    await restock.tap(); await page.waitForTimeout(1200)
-    check('bouton « Réapprovisionner » de la carte : sa fenêtre seulement, PAS la fiche', (await sheet(page).count()) === 0 && (await page.locator('[role="dialog"]').filter({ has: page.locator('form') }).count()) >= 1)
+    if (await restock.count()) await restock.tap()
+    else { await card.getByRole('button', { name: /Plus d’actions/ }).tap(); await page.waitForTimeout(500); await page.getByRole('menuitem', { name: 'Réapprovisionner' }).tap() }
+    await page.waitForTimeout(1200)
+    check('« Réapprovisionner » de la carte : sa fenêtre seulement, PAS la fiche', (await sheet(page).count()) === 0 && (await page.locator('[role="dialog"]').filter({ has: page.locator('form') }).count()) >= 1)
     await closeAll(page)
     // Mise à jour (23 oct. 2026) — ancienne hypothèse : plusieurs boutons à icône sur la carte (Lots, Modifier…). Réel :
     // depuis la simplification de Produits, la carte n'a que « Réapprovisionner » et « Plus d’actions » (le reste est dans le menu).

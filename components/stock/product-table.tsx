@@ -1,5 +1,6 @@
 'use client'
 
+import { TapHint } from '@/components/ui/tap-hint'
 import { displayUnitPrice, isFineUnit, stockAmount } from '@/lib/products/sale-measures'
 import { useEffect, useMemo, useRef } from 'react'
 import { useLocale, useTranslations } from 'next-intl'
@@ -146,15 +147,16 @@ export function ProductTable({
       switch (sort.key) {
         case 'name': return p.name
         case 'sku': return p.sku || ''
-        case 'price': return effectivePrice(p)
-        case 'quantity': return availableQty(p.quantity, expiredQty(p), reservedQty(p))
+        // Tri sur ce qui est AFFICHÉ : produits en grammes / millilitres au kilo / au litre (« 750 F / kg », « 37,5 kg »)
+        case 'price': return displayUnitPrice(effectivePrice(p), p.unit)
+        case 'quantity': return stockAmount(availableQty(p.quantity, expiredQty(p), reservedQty(p)), p.unit).count
         case 'sold': return soldQty(p) ?? -1
         case 'status': return STATUS_RANK[statusFor(p)]
         case 'category': return p.categories?.name || ''
         case 'supplier': return p.suppliers?.name || ''
         // Sans emplacement : en fin de liste dans l'ordre croissant
         case 'location': return p.location || '\uffff'
-        case 'cost': return Number(p.buying_price || 0)
+        case 'cost': return displayUnitPrice(Number(p.buying_price || 0), p.unit)
         case 'stockValue': return Number(p.quantity) * Number(p.buying_price || 0)
         case 'coverage': {
           const c = coverageInfo(availableQty(p.quantity, expiredQty(p)), soldQty(p))
@@ -365,13 +367,13 @@ export function ProductTable({
                   <span className={cn('font-semibold', qtyTone)}>{stockAmount(available, product.unit, locale).value}</span>
                   <span className="ml-1 text-xs text-muted-foreground">{unitLabel(stockAmount(available, product.unit, locale).unit, stockAmount(available, product.unit, locale).count)}</span>
                   {expired > 0 && (
-                    <button type="button" onClick={() => onBatches(product)} title={t('products.expired_qty_hint')} className="block w-0 min-w-full text-right text-[11px] font-medium leading-tight text-red-600 hover:underline dark:text-red-400">{/* w-0 + min-w-full : la mention suit la largeur de la colonne sans jamais l'élargir */}
-                      {t('products.expired_qty', { count: expired })}
-                    </button>
+                    <span className="block w-0 min-w-full text-right text-[11px] font-medium leading-tight">{/* w-0 + min-w-full : la mention suit la largeur de la colonne sans jamais l'élargir */}
+                      <TapHint testId="row-hint-expired" className="text-red-600 dark:text-red-400" hint={t('products.expired_qty_hint')} label={t('products.expired_qty', { count: expired })} action={{ label: t('products.view_batches'), onClick: () => onBatches(product) }} />
+                    </span>
                   )}
                   {reserved > 0 && (
-                    <span title={t('products.reserved_hint')} className="block w-0 min-w-full text-right text-[11px] font-medium leading-tight text-stockshop-blue dark:text-blue-400">
-                      {t('products.reserved_qty', { count: reserved })}
+                    <span className="block w-0 min-w-full text-right text-[11px] font-medium leading-tight">
+                      <TapHint testId="row-hint-reserved" className="text-stockshop-blue dark:text-blue-400" hint={t('products.reserved_hint')} label={t('products.reserved_qty', { count: reserved })} />
                     </span>
                   )}
                 </td>
@@ -408,23 +410,22 @@ export function ProductTable({
                   </td>
                 )}
                 <td className={cn('whitespace-nowrap', CELL)}>
-                  <span className={cn('inline-flex rounded-full px-2 py-0.5 text-[11px] font-semibold', STATUS_CHIP[status])}>
-                    {statusLabel[status]}
-                  </span>
+                  {status !== 'ok' && (
+                    <span className={cn('inline-flex rounded-full px-2 py-0.5 text-[11px] font-semibold', STATUS_CHIP[status])}>
+                      {statusLabel[status]}
+                    </span>
+                  )}
                   {nearRupture?.near && (
                     <span data-near-rupture={nearRupture.coveredByIncoming ? 'incoming' : 'yes'} className={cn('mt-1 flex w-fit rounded-full px-2 py-0.5 text-[10px] font-semibold', nearRupture.coveredByIncoming ? 'bg-stockshop-blue-muted text-stockshop-blue dark:bg-blue-950/40 dark:text-blue-400' : 'bg-amber-50 text-amber-700 dark:bg-amber-950/40 dark:text-amber-400')}>
                       {nearRupture.coveredByIncoming ? t('products.near_rupture_incoming_badge') : t('products.near_rupture_badge')}
                     </span>
                   )}
-                  {flow?.surstock && (
-                    <span data-surstock className="mt-1 flex w-fit rounded-full bg-stockshop-blue-muted px-2 py-0.5 text-[10px] font-semibold text-stockshop-blue dark:bg-blue-950/40 dark:text-blue-400">{t('products.surstock_badge')}</span>
-                  )}
                   {flow?.lastSale && <span data-last-sale className="mt-1 block text-[10px] text-muted-foreground">{flow.lastSale}</span>}
                 </td>
                 <td className={cn('whitespace-nowrap text-right', CELL)}>
                   <div className="inline-flex items-center gap-0.5">
-                    {canWriteStock && (
-                      <Button variant="outline" size="sm" className={ICON_BTN} disabled={busy} title={t('actions.restock')} onClick={() => onRestock(product)}>
+                    {canWriteStock && (available <= threshold || !!nearRupture?.near) && (
+                      <Button variant="outline" size="sm" className={ICON_BTN} disabled={busy} title={t('actions.restock')} onClick={() => onRestock(product)} data-row-restock>
                         <ArrowDown className="h-3 w-3" />
                         <span className="sr-only">{t('actions.restock')}</span>
                       </Button>
@@ -435,18 +436,6 @@ export function ProductTable({
                         <span className="sr-only">{t('products.edit_title')}</span>
                       </Button>
                     )}
-                    {canWriteStock && (
-                      <Button
-                        variant="outline" size="sm"
-                        className={cn(ICON_BTN, stale ? 'border-red-300 text-red-600 dark:border-red-700 dark:text-red-400' : promoActive ? 'border-stockshop-blue/20 text-stockshop-blue dark:border-blue-800 dark:text-blue-400' : suggestion ? 'border-amber-300 text-amber-600 dark:border-amber-700 dark:text-amber-400' : '')}
-                        disabled={busy}
-                        title={stale ? t('products.promo_stale_hint') : suggestion ?? t('products.promo_action')}
-                        onClick={() => onPromo(product)}
-                      >
-                        <Tag className="h-3 w-3" />
-                        <span className="sr-only">{t('products.promo_action')}</span>
-                      </Button>
-                    )}
                     {/* Actions secondaires dans un menu : la colonne reste étroite */}
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
@@ -455,7 +444,19 @@ export function ProductTable({
                           <span className="sr-only">{t('products.more_actions')}</span>
                         </Button>
                       </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end" className="min-w-[180px]">
+                      <DropdownMenuContent align="end" className="min-w-[200px]">
+                        {canWriteStock && !(available <= threshold || !!nearRupture?.near) && (
+                          <DropdownMenuItem onClick={() => onRestock(product)} data-row-menu-restock>
+                            <ArrowDown className="mr-2 h-3.5 w-3.5" /> {t('actions.restock')}
+                          </DropdownMenuItem>
+                        )}
+                        {canWriteStock && (
+                          <DropdownMenuItem onClick={() => onPromo(product)} data-row-promo>
+                            <Tag className="mr-2 h-3.5 w-3.5" /> {t('products.promo_action')}
+                            {stale ? <span className="ml-auto pl-3 text-[11px] font-medium text-red-600 dark:text-red-400">{t('products.promo_stale_badge')}</span>
+                              : suggestion ? <span className="ml-auto pl-3 text-[11px] font-medium text-amber-600 dark:text-amber-400" data-promo-suggested>{t('products.promo_suggested_tag')}</span> : null}
+                          </DropdownMenuItem>
+                        )}
                         {canOrderStock && available <= threshold && (
                           <DropdownMenuItem onClick={() => onOrder(product)}>
                             <ShoppingCart className="mr-2 h-3.5 w-3.5" /> {t('actions.order')}

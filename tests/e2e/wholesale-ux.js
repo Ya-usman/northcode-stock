@@ -128,7 +128,10 @@ process.on('unhandledRejection', e => { if (/has been closed/.test(String(e && e
   console.log('\n3. Réassort : prix de vente proposés')
   await page.goto(`${BASE}/fr/stock/products`, { waitUntil: 'domcontentloaded', timeout: 120000 }); await wait(6000)
   await page.getByLabel(m.products.search_placeholder).first().fill(P.name.trim()); await wait(1500)
-  await page.locator(`[data-product-card="${P.id}"], tr`).filter({ hasText: P.name.trim() }).first().getByRole('button', { name: new RegExp(m.actions.restock) }).first().click()
+  // « Réapprovisionner » : bouton de la ligne quand le stock est bas, sinon dans « … » (lot « simplicité » n° 2)
+  const row = page.locator(`[data-product-card="${P.id}"], tr`).filter({ hasText: P.name.trim() }).first()
+  if (await row.getByRole('button', { name: new RegExp(m.actions.restock) }).count()) await row.getByRole('button', { name: new RegExp(m.actions.restock) }).first().click()
+  else { await row.getByRole('button', { name: m.products.more_actions }).first().click(); await wait(400); await page.getByRole('menuitem', { name: m.actions.restock }).click() }
   const rp = page.getByTestId('reception-prices'); await rp.waitFor({ timeout: 15000 }).catch(() => {})
   const sum = (await page.getByTestId('reception-prices-summary').innerText().catch(() => '')).replace(/\s+/g, ' ')
   ok(sum.includes('Détail') && sum.includes('Gros') && sum.includes(String(MIN)), `résumé : « ${sum} »`)

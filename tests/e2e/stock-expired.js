@@ -64,7 +64,8 @@ const rupturesIs = (text, n) => new RegExp(`\\| ${n} \\| Ruptures`).test(text)
     const pain = await rowOf(page, 'Pain de campagne')
     check('pain : 0 disponible, « 78 périmés », statut « Rupture de stock » (plus « En stock »)', !!pain && /(^|\D)0\s?pièce/.test(pain) && pain.includes('78 périmés') && /Rupture de stock/.test(pain) && !/En stock/.test(pain), pain)
     const ail = await rowOf(page, 'Ail 250 g')
-    check('produit sain : toujours « En stock »', !!ail && /En stock/.test(ail), ail)
+    // Lot « simplicité » n° 2 (2 nov. 2026) : un produit sain ne porte plus de pastille (« En stock » retiré)
+    check('produit sain : aucune pastille d’alerte (ni « En stock », ni rupture, ni stock faible)', !!ail && !/En stock|Rupture|Stock faible/.test(ail), ail)
     // Filtre « Rupture » : le pain y apparaît avec les mangues
     await page.goto(`${BASE}/fr/stock/products?status=out`, { waitUntil: 'domcontentloaded', timeout: 120000 }); await page.waitForTimeout(9000)
     const names = await page.evaluate(() => [...document.querySelectorAll('main table tbody tr')].map(tr => tr.children[1].innerText.split('\n')[0].trim()))
@@ -100,9 +101,11 @@ const rupturesIs = (text, n) => new RegExp(`\\| ${n} \\| Ruptures`).test(text)
     check('pas de débordement de la page', await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth) <= 1)
     if (locale === 'fr') {
       await page.screenshot({ path: `${OUT}/fr-ordinateur-produits.png` })
-      // « 20 périmés » ouvre les lots du produit
-      await page.locator('main table tbody tr', { hasText: 'Pain de campagne' }).getByRole('button', { name: w.expired }).click(); await page.waitForTimeout(2500)
-      check('clic sur « 20 périmés » : ouvre les lots du produit', await page.evaluate(() => !!document.querySelector('[role="dialog"]') && /Pain de campagne/.test(document.querySelector('[role="dialog"]').innerText)))
+      // « 20 périmés » : explication au toucher, puis « Voir les lots » ouvre les lots du produit (lot « simplicité » n° 2)
+      await page.locator('main table tbody tr', { hasText: 'Pain de campagne' }).getByRole('button', { name: w.expired }).click(); await page.waitForTimeout(600)
+      check('clic sur « 20 périmés » : explication affichée', (await page.getByTestId('row-hint-expired-text').innerText().catch(() => '')).length > 20)
+      await page.getByTestId('row-hint-expired-action').click(); await page.waitForTimeout(2500)
+      check('… « Voir les lots » : ouvre les lots du produit', await page.evaluate(() => !!document.querySelector('[role="dialog"]') && /Pain de campagne/.test(document.querySelector('[role="dialog"]').innerText)))
     }
     await browser.close()
 

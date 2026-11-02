@@ -17,7 +17,7 @@ const headersOf = async page => (await page.locator('table').first().locator('th
 
   // ── Colonnes par défaut ──────────────────────────────────────────────────
   let headers = await headersOf(page)
-  const expected = ['Produit', 'SKU / Code-barres', 'Prix', 'Disponible', 'Ventes 30 j', 'Statut', 'Actions']
+  const expected = ['Produit', "Code-barres / référence", 'Prix', 'Disponible', 'Ventes 30 j', 'Statut', 'Actions']
   ok(expected.every(h => headers.some(x => x.includes(h))) && !headers.some(h => /Coût|Valeur du stock|Catégorie/.test(h)),
     `colonnes par défaut : ${headers.join(' | ')}`)
   const priceCells = await page.locator('table tbody tr td:nth-child(4)').allInnerTexts()

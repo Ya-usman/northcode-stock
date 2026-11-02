@@ -20,7 +20,7 @@ async function stockColumns(page) {
   // Une liste de valeurs par tableau
   return page.locator('table').evaluateAll(tables => tables.map(tbl =>
     // Le disponible est le premier nombre de la cellule (une mention « N périmés » peut suivre, depuis le 13 oct.)
-    [...tbl.querySelectorAll('tbody tr td:nth-child(5)')].map(td => parseInt((td.querySelector('span') || td).textContent.replace(/[^\d]/g, ''), 10))
+    [...tbl.querySelectorAll('tbody tr td:nth-child(5)')].map(td => parseFloat((td.querySelector('span') || td).textContent.replace(/[\s  ]/g, '').replace(',', '.').replace(/[^\d.]/g, '')))
   ))
 }
 
@@ -33,7 +33,7 @@ async function stockColumns(page) {
   const nTables = await tables.count()
   ok(nTables >= 1, `A) tableau par défaut sur ordinateur (premier passage) : ${nTables} tableau(x), un par boutique`)
   const headers = (await tables.first().locator('thead th').allInnerTexts()).map(h => h.trim()).filter(Boolean)
-  const expected = ['Produit', 'SKU', 'Prix', 'Disponible', 'Ventes 30 j', 'Statut', 'Actions']
+  const expected = ['Produit', "Code-barres / référence", 'Prix', 'Disponible', 'Ventes 30 j', 'Statut', 'Actions']
   ok(expected.every(h => headers.some(x => x.toLowerCase().includes(h.toLowerCase()))), `A) colonnes : ${headers.join(' | ')}`)
   const countText = await page.getByTestId('products-count').innerText()
   const rows = await page.locator('table tbody tr').count()
@@ -43,7 +43,9 @@ async function stockColumns(page) {
   const sales = await page.locator('table tbody tr td:nth-child(6)').allInnerTexts()
   ok(sales.every(s => /^\s*(\d+|—)\s*$/.test(s)), 'A) colonne Ventes 30 j renseignée (chiffre, ou tiret tant que non chargé)')
   const firstRowActions = await page.locator('table tbody tr').first().locator('td:last-child button').count()
-  ok(firstRowActions >= 3, `A) ${firstRowActions} boutons d’action en ligne sur la première ligne (réappro, modifier, promo, ⋯)`)
+  // Lot « simplicité » n° 2 : Modifier + ⋯ ; « Réapprovisionner » en plus seulement si le stock est bas (promo dans ⋯)
+  const firstRowLow = /Stock faible|Rupture/.test(await page.locator('table tbody tr').first().innerText())
+  ok(firstRowActions === (firstRowLow ? 3 : 2), `A) ${firstRowActions} boutons d’action en ligne sur la première ligne (modifier, ⋯${firstRowLow ? ', réappro' : ''})`)
   const fit = await tables.first().evaluate(tbl => ({ sw: tbl.parentElement.scrollWidth, cw: tbl.parentElement.clientWidth }))
   ok(fit.sw <= fit.cw, `A) le tableau tient sans défilement horizontal à 1280 px (${fit.sw} ≤ ${fit.cw})`)
   await page.locator('table tbody tr').first().getByRole('button', { name: 'Plus d’actions' }).click()
@@ -113,8 +115,8 @@ async function stockColumns(page) {
   ok(scroll.sw > scroll.cw, `E) téléphone : défilement horizontal (${scroll.sw} > ${scroll.cw})`)
   const sticky = await m.page.locator('table tbody tr').first().locator('td:nth-child(2)').evaluate(td => getComputedStyle(td).position)
   ok(sticky === 'sticky', `E) téléphone : colonne Produit figée (position: ${sticky})`)
-  const skuHidden = await m.page.locator('table').first().locator('thead th', { hasText: 'SKU' }).evaluate(th => getComputedStyle(th).display === 'none')
-  ok(skuHidden, 'E) téléphone : colonne SKU repliée sous le nom')
+  const skuHidden = await m.page.locator('table').first().locator('thead th', { hasText: "Code-barres / référence" }).evaluate(th => getComputedStyle(th).display === 'none')
+  ok(skuHidden, 'E) téléphone : colonne code-barres / référence repliée sous le nom')
   await m.page.locator('table').first().scrollIntoViewIfNeeded()
   await m.page.waitForTimeout(300)
   await m.page.screenshot({ path: SCR + '/stock-table-phone.png' })

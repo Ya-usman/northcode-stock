@@ -81,8 +81,9 @@ async function openFromPriority(page, locale, key) {
     if (desktop) { await page.getByTitle(m.products.view_table).first().click().catch(() => {}); await wait(2000) }
     const nS = await (desktop ? page.locator('tbody tr') : page.locator('[data-product-card]')).count()
     const nBadge = await page.locator('[data-surstock]').count()
-    ok(nS === num(surText) && nBadge === nS, `liste surstock : ${nS} produit(s) = priorité (${num(surText)}), pastille sur chacun (${nBadge})`)
-    ok((await page.locator('[data-surstock]').first().innerText()) === m.products.surstock_badge, 'pastille traduite')
+    // Lot « simplicité » n° 2 (2 nov. 2026) : le surstock se lit dans la Vue d'ensemble, le filtre Statut et la fiche,
+    // plus sur chaque carte ou ligne de la liste
+    ok(nS === num(surText) && nBadge === 0, `liste surstock : ${nS} produit(s) = priorité (${num(surText)}), aucune pastille sur la liste (${nBadge})`)
     if (!desktop) {
       await page.locator('[data-product-card]').first().locator('[data-product-name]').click(); await wait(4000)
       const note = page.getByTestId('product-detail-surstock')

@@ -77,7 +77,9 @@ import { useRolePermissions, useShopPermissions } from '@/lib/hooks/use-role-per
 import { EmptyGuide } from '@/components/onboarding/empty-guide'
 import { useTableExport } from '@/lib/export/use-table-export'
 import { PRODUCT_UNITS } from '@/lib/import/products-import'
-import { normalizeMeasures, displayUnitPrice, isFineUnit, stockAmount } from '@/lib/products/sale-measures'
+import { normalizeMeasures, displayUnitPrice, isFineUnit, stockAmount, measuresOf, measureName } from '@/lib/products/sale-measures'
+import { capitalize } from '@/components/stock/sale-measures-field'
+import { TapHint } from '@/components/ui/tap-hint'
 import { useStockRealtime } from '@/lib/hooks/use-realtime'
 import { withTimeout, friendlyNetworkError } from '@/lib/utils/with-timeout'
 import { getExpiryAlertDays } from '@/lib/utils/expiry'
@@ -100,7 +102,8 @@ function StockBadge({ quantity, threshold }: { quantity: number; threshold: numb
   const t = useTranslations('status')
   if (quantity === 0) return <Badge variant="danger">{t('out_of_stock')}</Badge>
   if (quantity <= threshold) return <Badge variant="warning">{t('low_stock')}</Badge>
-  return <Badge variant="success">{t('in_stock')}</Badge>
+  // Lot « simplicité » n° 2 : pas de pastille quand tout va bien, l'œil va directement à ce qui demande de l'attention
+  return null
 }
 
 export default function StockPage({ params: { locale } }: { params: { locale: string } }) {
@@ -1346,14 +1349,14 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
                     {nearRupture.coveredByIncoming ? t('products.near_rupture_incoming_badge') : t('products.near_rupture_badge')}
                   </span>
                 )}
-                {flow.surstock && (
-                  <span data-surstock className="text-[10px] font-semibold rounded-full px-1.5 py-0.5 bg-stockshop-blue-muted dark:bg-blue-950/40 text-stockshop-blue dark:text-blue-400">
-                    {t('products.surstock_badge')}
-                  </span>
-                )}
               </div>
               {flow.lastSale && (
                 <p data-last-sale className="mt-0.5 text-[11px] text-stockshop-blue dark:text-blue-400">{flow.lastSale}</p>
+              )}
+              {measuresOf(product).length > 0 && (
+                <p data-card-measures className="mt-0.5 truncate text-[11px] text-muted-foreground">
+                  {measuresOf(product).map(m => capitalize(measureName(m, 1, (k: string, v?: Record<string, string | number>) => t(`measures.${k}` as any, v as any)))).join(' · ')}
+                </p>
               )}
             </div>
           </div>
@@ -1382,10 +1385,10 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
           if (!cardExpired && !cardReserved && !inc.inTransit && !inc.onOrder) return null
           return (
             <p className="flex flex-wrap justify-end gap-x-2 text-xs font-medium" data-card-notes>
-              {cardExpired > 0 && <span className="text-red-600 dark:text-red-400" title={t('products.expired_qty_hint')}>{t('products.expired_qty', { count: cardExpired })}</span>}
-              {cardReserved > 0 && <span className="text-stockshop-blue dark:text-blue-400" title={t('products.reserved_hint')}>{t('products.reserved_qty', { count: cardReserved })}</span>}
-              {!!inc.inTransit && <span className="text-stockshop-blue dark:text-blue-400" title={t('products.in_transit_hint')}>{t('products.incoming_transit', { count: inc.inTransit })}</span>}
-              {!!inc.onOrder && <span className="text-stockshop-blue dark:text-blue-400" title={t('products.on_order_hint')}>{t('products.incoming_order', { count: inc.onOrder })}</span>}
+              {cardExpired > 0 && <TapHint testId="hint-expired" className="text-red-600 dark:text-red-400" hint={t('products.expired_qty_hint')} label={t('products.expired_qty', { count: cardExpired })} action={{ label: t('products.view_batches'), onClick: () => openProductBatches(product) }} />}
+              {cardReserved > 0 && <TapHint testId="hint-reserved" className="text-stockshop-blue dark:text-blue-400" hint={t('products.reserved_hint')} label={t('products.reserved_qty', { count: cardReserved })} />}
+              {!!inc.inTransit && <TapHint testId="hint-transit" className="text-stockshop-blue dark:text-blue-400" hint={t('products.in_transit_hint')} label={t('products.incoming_transit', { count: inc.inTransit })} />}
+              {!!inc.onOrder && <TapHint testId="hint-order" className="text-stockshop-blue dark:text-blue-400" hint={t('products.on_order_hint')} label={t('products.incoming_order', { count: inc.onOrder })} />}
             </p>
           )
         })()}
@@ -1394,6 +1397,7 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
         {(() => {
           const showCost = canViewCost && product.buying_price != null
           const low = cardAvailable <= threshold
+          const restockShown = low || nearRupture.near
           const hasActions = !selectionMode && (canWriteStock || fullStock || (canOrderStock && low))
           if (!showCost && !hasActions) return null
           return (
@@ -1401,7 +1405,7 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
               {showCost ? <span className="min-w-0 truncate text-xs text-muted-foreground" data-card-cost>{t('products.cost_label')}: {formatNaira(product.buying_price!)}</span> : <span />}
               {hasActions && (
                 <div className="flex shrink-0 items-center gap-1">
-                  {canWriteStock && (
+                  {canWriteStock && restockShown && (
                     <Button
                       variant="outline" size="sm" className="h-8 px-2.5 text-xs"
                       disabled={saving}
@@ -1420,6 +1424,11 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
                       </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end" className="min-w-[200px]">
+                      {canWriteStock && !restockShown && (
+                        <DropdownMenuItem data-card-menu-restock onClick={() => { setEditingProduct(null); setShowAddModal(false); setRestockProduct(product); restockForm.reset(restockDefaults(product)); setShowRestockModal(true) }}>
+                          <ArrowDown className="mr-2 h-4 w-4" /> {t('actions.restock')}
+                        </DropdownMenuItem>
+                      )}
                       {canOrderStock && low && (
                         <DropdownMenuItem onClick={() => { const href = `/${locale}/stock/replenishment?product=${product.id}`; startNavigationProgress(href); router.push(href) }}>
                           <ShoppingCart className="mr-2 h-4 w-4" /> {t('actions.order')}
@@ -1889,8 +1898,10 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
       ) : filtered.length === 0 ? (
         <div className="flex h-48 flex-col items-center justify-center text-muted-foreground">
           <Package className="h-12 w-12 mb-3 opacity-30" />
-          <p>{t('products.no_products')}</p>
-          <p className="text-sm mt-1">{t('products.add_first')}</p>
+          <p data-testid="products-no-match">{search.trim() ? t('products.no_match_search', { query: search.trim() }) : t('products.no_match_filters')}</p>
+          <Button variant="outline" size="sm" className="mt-3" onClick={resetFilters} data-testid="products-clear-filters">
+            {t('products.clear_search_filters')}
+          </Button>
         </div>
       ) : viewMode === 'table' ? (
         isMultiShop ? (

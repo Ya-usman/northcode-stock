@@ -31,7 +31,7 @@ const HEADER_WORDS: Record<ImportField, string[]> = {
   buying_price: ['buying_price', "prix d'achat", 'prix achat', 'pa', "cout d'achat", 'cout', 'buying price', 'cost', 'cost price', 'purchase price', 'farashin saya', 'farashin sayayya'],
   quantity: ['quantity', 'quantite', 'quantite en stock', 'qte', 'stock', 'qty', 'quantity in stock', 'yawa', 'adadi', 'adadi a hannu'],
   unit: ['unit', 'unite', 'unite (piece, kg, litre…)', 'unit (piece, kg, litre…)', 'naui', 'naui (piece, kg, litre…)', "ma'auni", 'mauni'],
-  sku: ['sku', 'code-barres', 'code barres', 'code-barres / sku', 'sku / code-barres', 'code', 'reference', 'ref', 'barcode', 'barcode / sku', 'sku / barcode', 'lambar kaya', 'lambar barcode'],
+  sku: ['sku', 'code-barres', 'code barres', 'code-barres / sku', 'code-barres / reference', 'code-barres ou reference', 'barcode / reference', 'barcode or reference', 'lambar barcode / lambar kaya', 'sku / code-barres', 'code', 'reference', 'ref', 'barcode', 'barcode / sku', 'sku / barcode', 'lambar kaya', 'lambar barcode'],
   low_stock_threshold: ['low_stock_threshold', 'seuil stock faible', "seuil d'alerte", "seuil d'alerte stock", 'seuil', 'alerte', 'low stock threshold', 'alert threshold', 'reorder level', 'kananan hannun kaya', 'kananan hanawa', 'iyakar fadakarwa'],
   // Emplacement dans la boutique (étape 10, migration 196), facultatif
   location: ['location', 'emplacement', 'rayon', 'etagere', 'emplacement (rayon, etagere)', 'position', 'shelf', 'aisle', 'bin', 'wuri', 'wurin kaya'],
