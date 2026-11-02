@@ -308,7 +308,7 @@ export async function syncSaleNow(shopId: string, localId: string, timeoutMs = 1
     const { data } = await supabase
       .from('sales')
       // Lignes de vente sans leur prix d'achat : le reçu n'en a pas besoin
-      .select('*, sale_items(id, sale_id, product_id, product_name, quantity, unit_price, subtotal, original_price, stock_shortfall), customers(id, name, phone)')
+      .select('*, sale_items(id, sale_id, product_id, product_name, quantity, unit_price, subtotal, original_price, stock_shortfall, measure_key, measure_label, measure_qty, measure_units), customers(id, name, phone)')
       .in('client_request_id', onlineKey ? [localId, onlineKey] : [localId])
       .limit(1)
       .maybeSingle()

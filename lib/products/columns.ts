@@ -8,6 +8,7 @@ export const PRODUCT_PUBLIC_COLUMNS = [
   'selling_price', 'quantity', 'unit', 'low_stock_threshold', 'image_url', 'is_active',
   'promo_price', 'promo_until', 'promo_start', 'promo_reason', 'is_favorite', 'location', 'track_serials', 'is_kit',
   'price_tiers', // paliers de prix de gros (migration 202)
+  'sale_measures', // mesures de vente (migration 203)
   'created_at', 'updated_at',
 ].join(', ')
 

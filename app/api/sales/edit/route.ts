@@ -41,6 +41,9 @@ export async function POST(request: Request) {
       const pids = Array.from(new Set(items.map((i: any) => i?.product_id).filter(Boolean)))
       const { count: tracked } = pids.length ? await admin.from('products').select('id', { count: 'exact', head: true }).in('id', pids).eq('track_serials', true) : { count: 0 }
       if ((sold || 0) > 0 || (tracked || 0) > 0) return NextResponse.json({ error: t('sale_has_serials_not_editable'), code: 'sale_has_serials_not_editable' }, { status: 400 })
+      // Mesures de vente (203) : même règle, edit_sale recréerait les lignes sans leur mesure (« 3 boîtes » perdu)
+      const { count: measured } = await admin.from('sale_items').select('id', { count: 'exact', head: true }).eq('sale_id', sale_id).not('measure_key', 'is', null)
+      if ((measured || 0) > 0 || items.some((i: any) => i?.measure_key)) return NextResponse.json({ error: t('sale_has_measures_not_editable'), code: 'sale_has_measures_not_editable' }, { status: 400 })
     }
 
     // Verify caller has access (owner/manager/shop_manager always; cashier only today's own)

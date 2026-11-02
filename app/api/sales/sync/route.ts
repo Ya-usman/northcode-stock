@@ -21,7 +21,7 @@ import { withCleanSerials } from '@/lib/api/serials'
 // erreurs (données invalides, produit ou client d'une autre boutique,
 // paiements supérieurs au total) sont refusées et restent sur l'appareil.
 
-const REVIEWABLE = new Set(['price_below_floor', 'discount_not_allowed', 'sale_total_mismatch'])
+const REVIEWABLE = new Set(['price_below_floor', 'discount_not_allowed', 'sale_total_mismatch', 'measure_invalid'])
 const MAX_FUTURE_MS = 10 * 60_000
 
 export async function POST(request: Request) {
@@ -73,6 +73,8 @@ export async function POST(request: Request) {
       unit_price: Number(i.unit_price),
       original_price: i.original_price ?? null,
       serials: i.serials,
+      // Ligne vendue à la mesure (203) : gardée telle quelle (« 3 boîtes »), contrôlée par complete_sale
+      ...(i.measure_key ? { measure_key: String(i.measure_key), measure_label: i.measure_label ?? null, measure_qty: Number(i.measure_qty), measure_units: Number(i.measure_units) } : {}),
     })))
     const items: any[] = await withServerCost(admin, shopId, lines)
 

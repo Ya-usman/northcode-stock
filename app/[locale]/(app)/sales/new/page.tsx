@@ -55,6 +55,9 @@ import { revalidateHeldCart, heldAgeDays, HELD_STALE_DAYS, type HeldCartChange }
 import { PRODUCT_PUBLIC_COLUMNS, withoutProductCost } from '@/lib/products/columns'
 import { useUnitLabel } from '@/lib/products/use-unit-label'
 import { SerialPicker } from '@/components/sales/serial-picker'
+import { MeasurePicker } from '@/components/sales/measure-picker'
+import { capitalize } from '@/components/stock/sale-measures-field'
+import { measuresOf, measureLineFields, measureName, receiptView, stockAmount, isFineUnit, soldOnlyByMeasures, FINE_FACTOR, type SaleMeasure } from '@/lib/products/sale-measures'
 import { fetchReservationRows, reservedByProduct, releasedHeldRefs, readSyncedAt, markReservationPending, flushReservations, type ReservationRow } from '@/lib/stock/reservations'
 import { clearPageCache, clearPageCacheByPrefix } from '@/lib/offline/page-cache'
 import { cashSuggestions } from '@/lib/utils/cash-suggestions'
@@ -106,6 +109,16 @@ function effectivePrice(product: Product, frontBatchPromo?: Record<string, { pri
 function linePriceOf(product: Product, quantity: number, frontBatchPromo?: Record<string, { price: number; until: string; start: string | null }>) {
   return sharedLinePrice(product, quantity, frontBatchPromo?.[product.id] ?? null)
 }
+
+/** Identité d'une ligne du panier : le produit, et la mesure vendue (« Riz · boîte » et « Riz · seau » : deux lignes) */
+const lineKeyOf = (i: Pick<CartItem, 'product' | 'measure'>) => (i.measure ? `${i.product.id}|${i.measure.key}|${(i.measure.label || '').toLowerCase()}` : i.product.id)
+/** Unités de stock déjà au panier pour un produit, toutes lignes confondues (sauf la ligne exceptKey) */
+const baseIn = (list: CartItem[], productId: string, exceptKey?: string) =>
+  list.reduce((s, i) => (i.product.id === productId && lineKeyOf(i) !== exceptKey ? s + i.quantity : s), 0)
+/** Ligne vendue à la mesure (203) : champs envoyés au serveur et gardés dans la file hors ligne */
+const measureFieldsOf = (i: CartItem) => (i.measure
+  ? { measure_key: i.measure.key, measure_label: i.measure.label, measure_qty: i.measure.qty, measure_units: i.measure.units }
+  : {})
 
 interface Draft {
   id: string
@@ -209,6 +222,12 @@ export default function NewSalePage(props: { params: { locale: string } }) {
 function PosScreen({ params: { locale: _locale } }: { params: { locale: string } }) {
   const t = useTranslations()
   const locale = useLocale()
+  const tM = useTranslations('measures')
+  /** Ligne du ticket ; vendue à la mesure : « Riz · boîte », 3 au prix de la boîte, jamais en grammes */
+  const ticketItemOf = (raw: any) => {
+    const i = receiptView(raw, tM as any)
+    return { name: i.product_name, qty: Number(i.quantity), unitPrice: Number(i.unit_price), subtotal: Number(i.subtotal), serials: i.serials, originalPrice: i.original_price != null ? Number(i.original_price) : null }
+  }
   const { profile, shop, userShops } = useAuth()
   // Remise : droit « Accorder une remise » (règle unique des permissions)
   const { canAccess } = useRolePermissions()
@@ -253,6 +272,8 @@ function PosScreen({ params: { locale: _locale } }: { params: { locale: string }
   const [cart, setCart] = useState<CartItem[]>([])
   // Produit suivi dont on choisit les numéros de série (fenêtre de la caisse)
   const [serialFor, setSerialFor] = useState<Product | null>(null)
+  // Produit vendu à la mesure (203) : fenêtre « Choisir la mesure »
+  const [measureFor, setMeasureFor] = useState<Product | null>(null)
   // Tour guidé « Faire une vente » : un article vient d'entrer dans le panier
   const cartLenRef = useRef(0)
   useEffect(() => {
@@ -686,6 +707,8 @@ function PosScreen({ params: { locale: _locale } }: { params: { locale: string }
     }
     // Produit suivi par numéro de série : on choisit (ou scanne) les numéros, la quantité suit
     if (product.track_serials) { setSerialFor(product); return true }
+    // Produit vendu à la mesure (203) : on choisit la mesure (verre, boîte, seau…), ou l'unité
+    if (measuresOf(product).length) { setMeasureFor(product); return true }
     addToCartNow(product)
     return true
   }
@@ -693,11 +716,11 @@ function PosScreen({ params: { locale: _locale } }: { params: { locale: string }
   // Numéros choisis pour un produit suivi : la ligne du panier porte un numéro par unité
   const applySerials = (product: Product, serials: string[]) => {
     setCart(prev => {
-      const existing = prev.find(i => i.product.id === product.id)
-      if (!serials.length) return prev.filter(i => i.product.id !== product.id)
+      const existing = prev.find(i => lineKeyOf(i) === product.id)
+      if (!serials.length) return prev.filter(i => lineKeyOf(i) !== product.id)
       const price = existing?.custom_price ? Math.max(existing.unit_price, linePriceOf(product, serials.length, frontBatchPromo).price) : linePriceOf(product, serials.length, frontBatchPromo).price
       const line = { ...(existing ?? { product }), product, quantity: serials.length, unit_price: price, subtotal: serials.length * price, serials }
-      return existing ? prev.map(i => (i.product.id === product.id ? line : i)) : [...prev, line]
+      return existing ? prev.map(i => (lineKeyOf(i) === product.id ? line : i)) : [...prev, line]
     })
   }
 
@@ -709,6 +732,50 @@ function PosScreen({ params: { locale: _locale } }: { params: { locale: string }
     return first && first.price < effectivePrice(product, frontBatchPromo) ? t('sales.wholesale_from', { min: first.min_qty, unit: unitLabel(product.unit || 'piece', first.min_qty) }) : undefined
   }
 
+  // Ligne à la mesure : N mesures au prix de la mesure (ni promotion ni palier : le prix de la mesure est fixe)
+  const withMeasureQty = (item: CartItem, n: number): CartItem => {
+    const m = item.measure!
+    const f = measureLineFields({ key: m.key as SaleMeasure['key'], label: m.label, units: m.units, price: m.price }, n)
+    return { ...item, quantity: f.quantity, unit_price: f.unit_price, subtotal: f.subtotal, measure: { ...m, qty: f.measure_qty } }
+  }
+
+  const addMeasureToCart = (product: Product, m: SaleMeasure) => {
+    const line = { product, measure: { key: m.key, label: m.label ?? null, units: m.units, price: m.price, qty: 1 } }
+    const key = lineKeyOf(line)
+    const sellable = sellableOf(product).sellable
+    const inCart = baseIn(cartRef.current, product.id)
+    if (inCart + m.units > sellable) {
+      const left = stockAmount(Math.max(0, sellable - inCart), product.unit, locale)
+      toast({ title: tM('not_enough', { measure: measureName(m, 1, tM as any), name: product.name, amount: `${left.value} ${unitLabel(left.unit, left.count)}` }), variant: 'destructive' })
+      return
+    }
+    warnIfReserved(product, inCart + m.units)
+    setCart(prev => {
+      const existing = prev.find(i => lineKeyOf(i) === key)
+      if (existing) return prev.map(i => (lineKeyOf(i) === key ? withMeasureQty(i, existing.measure!.qty + 1) : i))
+      const f = measureLineFields(m, 1)
+      return [...prev, { ...line, quantity: f.quantity, unit_price: f.unit_price, subtotal: f.subtotal }]
+    })
+  }
+
+  // Carte produit (203) : mesures proposées, prix au kilo / au litre pour un produit compté en grammes ou en millilitres,
+  // prix de la plus petite mesure pour un produit vendu uniquement par mesures ; stock en kg ou en litres
+  const measuresLabelOf = (product: Product): string | undefined => {
+    const ms = measuresOf(product)
+    return ms.length ? ms.map(m => capitalize(measureName(m, 1, tM as any))).join(' · ') : undefined
+  }
+  const priceTextOf = (product: Product): string | undefined => {
+    if (!isFineUnit(product.unit)) return undefined
+    const ms = measuresOf(product)
+    if (soldOnlyByMeasures(product)) return `${formatNaira(ms[0].price)} / ${measureName(ms[0], 1, tM as any)}`
+    return `${formatNaira(effectivePrice(product, frontBatchPromo) * FINE_FACTOR)} / ${unitLabel(product.unit === 'ml' ? 'litre' : 'kg', 1)}`
+  }
+  const stockTextOf = (product: Product): string | undefined => {
+    if (!isFineUnit(product.unit)) return undefined
+    const a = stockAmount(sellableOf(product).sellable, product.unit, locale)
+    return `${a.value} ${unitLabel(a.unit, a.count)}`
+  }
+
   const withQty = (item: CartItem, qty: number): CartItem => {
     const floor = linePriceOf(item.product, qty, frontBatchPromo).price
     const price = item.custom_price ? Math.max(item.unit_price, floor) : floor
@@ -716,16 +783,16 @@ function PosScreen({ params: { locale: _locale } }: { params: { locale: string }
   }
 
   const addToCartNow = (product: Product) => {
-    warnIfReserved(product, (cartRef.current.find(i => i.product.id === product.id)?.quantity || 0) + 1)
+    warnIfReserved(product, baseIn(cartRef.current, product.id) + 1)
     setCart(prev => {
-      const existing = prev.find(i => i.product.id === product.id)
-      if (existing) {
-        const max = sellableOf(product).sellable
-        if (existing.quantity >= max) {
+      const existing = prev.find(i => lineKeyOf(i) === product.id)
+      const max = Math.max(0, sellableOf(product).sellable - baseIn(prev, product.id, product.id))
+      if (existing || max < 1) {
+        if ((existing?.quantity || 0) >= max) {
           toast({ title: t('toast.max_stock', { qty: max, unit: unitLabel(product.unit || 'piece', max) }), variant: 'destructive' })
           return prev
         }
-        return prev.map(i => (i.product.id === product.id ? withQty(i, i.quantity + 1) : i))
+        if (existing) return prev.map(i => (lineKeyOf(i) === product.id ? withQty(i, i.quantity + 1) : i))
       }
       const price = linePriceOf(product, 1, frontBatchPromo).price
       return [...prev, { product, quantity: 1, unit_price: price, subtotal: price }]
@@ -735,7 +802,7 @@ function PosScreen({ params: { locale: _locale } }: { params: { locale: string }
   // Colis scanné : ses pièces entrent d'un coup (jamais un colis partiel : s'il manque du stock, rien n'est ajouté)
   const addPackToCart = (product: Product, pack: { unit: string; units_per_pack: number }) => {
     if (product.track_serials) { setSerialFor(product); return }
-    const inCart = cartRef.current.find(i => i.product.id === product.id)?.quantity || 0
+    const inCart = baseIn(cartRef.current, product.id)
     const sellable = sellableOf(product).sellable
     if (inCart + pack.units_per_pack > sellable) {
       toast({ title: t('toast.pack_not_enough', { pack: unitLabel(pack.unit, 1), count: pack.units_per_pack, available: Math.max(0, sellable - inCart), unit: unitLabel(product.unit || 'piece', Math.max(0, sellable - inCart)) }), variant: 'destructive' })
@@ -743,8 +810,8 @@ function PosScreen({ params: { locale: _locale } }: { params: { locale: string }
     }
     warnIfReserved(product, inCart + pack.units_per_pack)
     setCart(prev => {
-      const existing = prev.find(i => i.product.id === product.id)
-      if (existing) return prev.map(i => (i.product.id === product.id ? withQty(i, i.quantity + pack.units_per_pack) : i))
+      const existing = prev.find(i => lineKeyOf(i) === product.id)
+      if (existing) return prev.map(i => (lineKeyOf(i) === product.id ? withQty(i, i.quantity + pack.units_per_pack) : i))
       const price = linePriceOf(product, pack.units_per_pack, frontBatchPromo).price
       return [...prev, { product, quantity: pack.units_per_pack, unit_price: price, subtotal: Math.round(pack.units_per_pack * price) }]
     })
@@ -760,38 +827,45 @@ function PosScreen({ params: { locale: _locale } }: { params: { locale: string }
     ;(document.activeElement as HTMLElement)?.blur()
   }
 
-  const updateQty = (productId: string, delta: number) => {
-    const line = cartRef.current.find(i => i.product.id === productId)
-    if (line && delta > 0) warnIfReserved(line.product, line.quantity + delta)
+  // Nombre affiché sur une ligne : mesures pour une ligne à la mesure (3 boîtes), sinon unités ; le stock est partagé
+  // entre toutes les lignes du même produit
+  const lineCount = (item: CartItem) => (item.measure ? item.measure.qty : item.quantity)
+  const lineMax = (item: CartItem, list: CartItem[]) => Math.floor(Math.max(0, sellableOf(item.product).sellable - baseIn(list, item.product.id, lineKeyOf(item))) / (item.measure?.units || 1))
+  const lineUnit = (item: CartItem, n: number) => (item.measure ? measureName(item.measure, n, tM as any) : unitLabel(item.product.unit || 'piece', n))
+  const withCount = (item: CartItem, n: number) => (item.measure ? withMeasureQty(item, n) : withQty(item, n))
+
+  const updateQty = (key: string, delta: number) => {
+    const line = cartRef.current.find(i => lineKeyOf(i) === key)
+    if (line && delta > 0) warnIfReserved(line.product, baseIn(cartRef.current, line.product.id) + delta * (line.measure?.units || 1))
     setCart(prev => prev
       .map(item => {
-        if (item.product.id !== productId) return item
-        const newQty = item.quantity + delta
+        if (lineKeyOf(item) !== key) return item
+        const newQty = lineCount(item) + delta
         if (newQty <= 0) return null
-        const max = sellableOf(item.product).sellable
+        const max = lineMax(item, prev)
         if (newQty > max) {
-          toast({ title: t('toast.max_stock', { qty: max, unit: unitLabel(item.product.unit || 'piece', max) }), variant: 'destructive' })
+          toast({ title: t('toast.max_stock', { qty: max, unit: lineUnit(item, max) }), variant: 'destructive' })
           return item
         }
-        return withQty(item, newQty)
+        return withCount(item, newQty)
       })
       .filter(Boolean) as CartItem[]
     )
   }
 
-  const setQtyDirect = (productId: string, qty: number) => {
+  const setQtyDirect = (key: string, qty: number) => {
     if (isNaN(qty) || qty < 1) return
-    const line = cartRef.current.find(i => i.product.id === productId)
-    if (line) warnIfReserved(line.product, Math.min(qty, sellableOf(line.product).sellable))
+    const line = cartRef.current.find(i => lineKeyOf(i) === key)
+    if (line) warnIfReserved(line.product, baseIn(cartRef.current, line.product.id, key) + Math.min(qty, lineMax(line, cartRef.current)) * (line.measure?.units || 1))
     setCart(prev => prev.map(item => {
-      if (item.product.id !== productId) return item
-      const capped = Math.min(qty, sellableOf(item.product).sellable)
-      return withQty(item, capped)
+      if (lineKeyOf(item) !== key) return item
+      const capped = Math.max(1, Math.min(qty, lineMax(item, prev)))
+      return withCount(item, capped)
     }))
   }
 
-  const removeFromCart = (productId: string) => {
-    setCart(prev => prev.filter(i => i.product.id !== productId))
+  const removeFromCart = (key: string) => {
+    setCart(prev => prev.filter(i => lineKeyOf(i) !== key))
   }
 
   // Favoris : curation manuelle, stable (jamais recalculée automatiquement
@@ -833,7 +907,7 @@ function PosScreen({ params: { locale: _locale } }: { params: { locale: string }
 
   const updateItemPrice = (productId: string, newPrice: number) => {
     setCart(prev => prev.map(item => {
-      if (item.product.id !== productId) return item
+      if (lineKeyOf(item) !== productId) return item
       const minPrice = linePriceOf(item.product, item.quantity, frontBatchPromo).price
       const price = Math.max(minPrice, newPrice)
       return { ...item, unit_price: price, subtotal: Math.round(item.quantity * price), custom_price: price > minPrice }
@@ -900,7 +974,7 @@ function PosScreen({ params: { locale: _locale } }: { params: { locale: string }
       customerId: selectedCustomer?.id ?? null,
       label: label.trim() || undefined,
       manualPriceIds: cart
-        .filter(i => i.custom_price || i.unit_price !== linePriceOf(i.product, i.quantity, frontBatchPromo).price)
+        .filter(i => !i.measure && (i.custom_price || i.unit_price !== linePriceOf(i.product, i.quantity, frontBatchPromo).price))
         .map(i => i.product.id),
     }
     const updated = drafts.filter(d => d.id !== draft.id)
@@ -1470,9 +1544,10 @@ ${normalize(p.sku ?? '')}`.includes(outHereQuery)).slice(0, 20), [outHere, outHe
               product_name: item.product.name,
               quantity: item.quantity,
               unit_price: item.unit_price,
-              original_price: item.product.selling_price,
+              original_price: item.measure ? item.unit_price : item.product.selling_price,
               subtotal: item.quantity * item.unit_price,
               ...(item.serials?.length ? { serials: item.serials } : {}),
+              ...measureFieldsOf(item),
             })),
             payments: paymentsPayload,
             // Champs historiques, gardés cohérents avec `payments`.
@@ -1533,9 +1608,10 @@ ${normalize(p.sku ?? '')}`.includes(outHereQuery)).slice(0, 20), [outHere, outHe
           product_name: item.product.name,
           quantity: item.quantity,
           unit_price: item.unit_price,
-          original_price: item.product.selling_price,
+          original_price: item.measure ? item.unit_price : item.product.selling_price,
           subtotal: item.quantity * item.unit_price,
           ...(item.serials?.length ? { serials: item.serials } : {}),
+          ...measureFieldsOf(item),
         })),
       } as any)
       // Vente en attente reprise puis validée HORS LIGNE : elle doit quitter
@@ -1615,9 +1691,11 @@ ${normalize(p.sku ?? '')}`.includes(outHereQuery)).slice(0, 20), [outHere, outHe
               quantity: Math.round(item.quantity),
               unit_price: item.unit_price,
               // Pas de prix d'achat : le serveur le lit lui-même (lib/api/sale-cost)
-              original_price: item.product.selling_price,
+              // Ligne à la mesure (203) : prix catalogue = prix de la mesure (aucune « économie » imprimée)
+              original_price: item.measure ? item.unit_price : item.product.selling_price,
               // Produit suivi : un numéro par unité, revérifiés par le serveur (complete_sale, migration 198)
               ...(item.serials?.length ? { serials: item.serials } : {}),
+              ...measureFieldsOf(item),
             })),
             payments: paymentsPayload,
           })
@@ -1815,7 +1893,7 @@ ${normalize(p.sku ?? '')}`.includes(outHereQuery)).slice(0, 20), [outHere, outHe
       shopName: shop?.name || '',
       saleNumber: sale.sale_number,
       date: new Date(sale.created_at).toLocaleString(locale, { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit' }),
-      items: ((sale as any).sale_items || []).map((i: any) => ({ name: i.product_name, qty: i.quantity, price: i.unit_price })),
+      items: ((sale as any).sale_items || []).map((raw: any) => { const i = receiptView(raw, tM as any); return { name: i.product_name, qty: i.quantity, price: i.unit_price } }),
       total: sale.total,
       paid: sale.amount_paid,
       balance: sale.balance,
@@ -1877,9 +1955,7 @@ ${normalize(p.sku ?? '')}`.includes(outHereQuery)).slice(0, 20), [outHere, outHe
           receiptUrl: receiptUrl(sale.receipt_token),
           saleNumber: sale.sale_number,
           createdAt: sale.created_at,
-          items: ((sale as any).sale_items || []).map((i: any) => ({
-            name: i.product_name, qty: Number(i.quantity), unitPrice: Number(i.unit_price), subtotal: Number(i.subtotal), serials: i.serials, originalPrice: i.original_price != null ? Number(i.original_price) : null,
-          })),
+          items: ((sale as any).sale_items || []).map((i: any) => ticketItemOf(i)),
           subtotal: Number(sale.subtotal), discount: Number(sale.discount), tax: Number(sale.tax), total: Number(sale.total),
           amountPaid: Number(sale.amount_paid), balance: Number(sale.balance),
           paymentLabel: methodLabel(sale.payment_method),
@@ -2012,6 +2088,15 @@ ${normalize(p.sku ?? '')}`.includes(outHereQuery)).slice(0, 20), [outHere, outHe
         </button>
       </div>
 
+      <MeasurePicker
+        product={measureFor} onClose={() => setMeasureFor(null)}
+        room={measureFor ? sellableOf(measureFor).sellable - baseIn(cart, measureFor.id) : 0}
+        unitPrice={measureFor ? linePriceOf(measureFor, 1, frontBatchPromo).price : 0}
+        fmt={formatNaira}
+        onPickUnit={p => addToCartNow(p)}
+        onPickMeasure={(p, m) => addMeasureToCart(p, m)}
+      />
+
       <SerialPicker
         open={!!serialFor} onOpenChange={o => { if (!o) setSerialFor(null) }}
         product={serialFor} shopId={shop?.id ?? null} isOnline={isOnline}
@@ -2091,6 +2176,9 @@ ${normalize(p.sku ?? '')}`.includes(outHereQuery)).slice(0, 20), [outHere, outHe
                 isExpired={expiredOnly(product)}
                 sellableQty={sellableOf(product).sellable}
                 wholesaleLabel={wholesaleLabelOf(product)}
+                measuresLabel={measuresLabelOf(product)}
+                priceText={priceTextOf(product)}
+                stockText={stockTextOf(product)}
                 currencyCode={currencyCode}
                 favoriteLabel={favoriteLabel}
                 expiredLabel={expiredLabel}
@@ -2127,6 +2215,9 @@ ${normalize(p.sku ?? '')}`.includes(outHereQuery)).slice(0, 20), [outHere, outHe
                   isExpired={expiredOnly(product)}
                   sellableQty={sellableOf(product).sellable}
                 wholesaleLabel={wholesaleLabelOf(product)}
+                measuresLabel={measuresLabelOf(product)}
+                priceText={priceTextOf(product)}
+                stockText={stockTextOf(product)}
                   currencyCode={currencyCode}
                   favoriteLabel={favoriteLabel}
                   expiredLabel={expiredLabel}
@@ -2258,7 +2349,7 @@ ${normalize(p.sku ?? '')}`.includes(outHereQuery)).slice(0, 20), [outHere, outHe
           </div>
           <AnimatePresence>
             {cart.map(item => (
-              <motion.div key={item.product.id} initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 20 }}>
+              <motion.div key={lineKeyOf(item)} initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 20 }}>
                 <Card className="border-0 shadow-sm">
                   <CardContent className="flex gap-2.5 p-2.5">
                     {/* Miniature : l'article se reconnaît d'un coup d'œil (les
@@ -2267,10 +2358,13 @@ ${normalize(p.sku ?? '')}`.includes(outHereQuery)).slice(0, 20), [outHere, outHe
                     <div className="flex min-w-0 flex-1 flex-col gap-1.5">
                       {/* Ligne 1 : nom + corbeille */}
                       <div className="flex items-start gap-1">
-                        <p className="min-w-0 flex-1 truncate text-sm font-medium leading-5">{item.product.name}</p>
+                        <p className="min-w-0 flex-1 truncate text-sm font-medium leading-5">
+                          {item.product.name}
+                          {item.measure && <span className="font-normal text-muted-foreground" data-testid="cart-measure"> · {capitalize(measureName(item.measure, item.measure.qty, tM as any))}</span>}
+                        </p>
                         <button
                           type="button"
-                          onClick={() => removeFromCart(item.product.id)}
+                          onClick={() => removeFromCart(lineKeyOf(item))}
                           className="-mr-1 -mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-red-50 hover:text-destructive dark:hover:bg-red-950/40"
                           aria-label={t('actions.remove')}
                         >
@@ -2280,6 +2374,12 @@ ${normalize(p.sku ?? '')}`.includes(outHereQuery)).slice(0, 20), [outHere, outHe
                       {/* Ligne 2 : prix unitaire (modifiable) + alerte lot périmé —
                           l'alerte reste rouge : c'est un signal, pas de la marque. */}
                       <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                        {item.measure ? (
+                          // Ligne à la mesure : prix fixe de la mesure (« 550 F / boîte »)
+                          <span className="text-xs font-medium text-stockshop-blue dark:text-blue-400" data-testid="cart-measure-price">
+                            {tM('cart_price', { price: formatNaira(item.measure.price), measure: measureName(item.measure, 1, tM as any) })}
+                          </span>
+                        ) : (
                         <button
                           type="button"
                           onClick={() => { setPriceModalItem(item); setPriceModalInput(String(item.unit_price)) }}
@@ -2296,10 +2396,11 @@ ${normalize(p.sku ?? '')}`.includes(outHereQuery)).slice(0, 20), [outHere, outHe
                             <span className="rounded bg-amber-100 px-1 text-[10px] font-medium text-amber-600 dark:bg-amber-900/40 dark:text-amber-400">{t('payments.edited_badge')}</span>
                           )}
                         </button>
+                        )}
                       </div>
                       {/* Palier suivant pas encore atteint : ce qu'il manque (aide à la vente, rien d'imposé) */}
                       {(() => {
-                        const next = nextTier(item.product, item.quantity)
+                        const next = item.measure ? null : nextTier(item.product, item.quantity)
                         // Utile seulement quand on approche du palier (au moins la moitié) et s'il fait vraiment baisser le prix
                         return next && next.price < item.unit_price && item.quantity * 2 >= next.min_qty ? (
                           <p className="text-[11px] text-emerald-700 dark:text-emerald-300" data-testid="cart-wholesale-hint">
@@ -2321,7 +2422,7 @@ ${normalize(p.sku ?? '')}`.includes(outHereQuery)).slice(0, 20), [outHere, outHe
                           </button>
                         ) : (
                         <div className="flex items-center gap-1.5">
-                        {packsByProduct[item.product.id] && (
+                        {!item.measure && packsByProduct[item.product.id] && (
                           <button type="button" onClick={() => addPackToCart(item.product, packsByProduct[item.product.id])} data-testid="cart-add-pack"
                             className="flex h-9 shrink-0 items-center whitespace-nowrap rounded-lg border border-input px-2 text-xs font-medium text-stockshop-blue hover:bg-stockshop-blue-muted dark:text-blue-400 dark:hover:bg-blue-950/40">
                             {t('sales.add_one_pack', { pack: unitLabel(packsByProduct[item.product.id].unit, 1) })}
@@ -2330,7 +2431,7 @@ ${normalize(p.sku ?? '')}`.includes(outHereQuery)).slice(0, 20), [outHere, outHe
                         <div className="flex items-center overflow-hidden rounded-lg border border-input">
                           <button
                             type="button"
-                            onClick={() => updateQty(item.product.id, -1)}
+                            onClick={() => updateQty(lineKeyOf(item), -1)}
                             className="flex h-9 w-10 items-center justify-center text-stockshop-blue transition-colors hover:bg-stockshop-blue-muted active:bg-stockshop-blue-muted dark:text-blue-400 dark:hover:bg-blue-950/40 dark:active:bg-blue-950/40"
                             aria-label={t('sales.qty_decrease')}
                           >
@@ -2339,21 +2440,21 @@ ${normalize(p.sku ?? '')}`.includes(outHereQuery)).slice(0, 20), [outHere, outHe
                           <input
                             type="number"
                             min={1}
-                            max={sellableOf(item.product).sellable}
-                            value={qtyInputs[item.product.id] ?? String(item.quantity)}
+                            max={lineMax(item, cart)}
+                            value={qtyInputs[lineKeyOf(item)] ?? String(lineCount(item))}
                             onChange={e => {
                               const raw = e.target.value
-                              setQtyInputs(prev => ({ ...prev, [item.product.id]: raw }))
+                              setQtyInputs(prev => ({ ...prev, [lineKeyOf(item)]: raw }))
                               const qty = parseInt(raw)
-                              if (!isNaN(qty) && qty >= 1) setQtyDirect(item.product.id, qty)
+                              if (!isNaN(qty) && qty >= 1) setQtyDirect(lineKeyOf(item), qty)
                             }}
-                            onBlur={() => setQtyInputs(prev => { const n = { ...prev }; delete n[item.product.id]; return n })}
-                            aria-label={t('products.quantity')}
+                            onBlur={() => setQtyInputs(prev => { const n = { ...prev }; delete n[lineKeyOf(item)]; return n })}
+                            aria-label={item.measure ? capitalize(measureName(item.measure, 2, tM as any)) : t('products.quantity')}
                             className="h-9 w-10 border-x border-input bg-card p-0 text-center text-sm font-bold tabular-nums outline-none focus-visible:bg-stockshop-blue-muted dark:focus-visible:bg-blue-950/40 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
                           />
                           <button
                             type="button"
-                            onClick={() => updateQty(item.product.id, 1)}
+                            onClick={() => updateQty(lineKeyOf(item), 1)}
                             className="flex h-9 w-10 items-center justify-center text-stockshop-blue transition-colors hover:bg-stockshop-blue-muted active:bg-stockshop-blue-muted dark:text-blue-400 dark:hover:bg-blue-950/40 dark:active:bg-blue-950/40"
                             aria-label={t('sales.qty_increase')}
                           >

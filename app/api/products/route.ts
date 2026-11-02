@@ -9,7 +9,7 @@ import { classifyBarcode } from '@/lib/products/barcode'
 import { normalizeLocation } from '@/lib/products/location'
 import { cleanSerials, serialErrorResponse } from '@/lib/api/serials'
 import { productsWithHistory } from '@/lib/api/product-history'
-import { newProductRow, sameNameProduct, shopProductKeys, checkProductPatch, checkPriceTiers } from '@/lib/api/new-product'
+import { newProductRow, sameNameProduct, shopProductKeys, checkProductPatch, checkPriceTiers, checkSaleMeasures } from '@/lib/api/new-product'
 
 // Écriture de la fiche produit = niveau « modification » de Produits / Stock
 // (règle unique, lot 1 du 5 oct. 2026). Plus de passe-droit pour le caissier :
@@ -264,7 +264,7 @@ export async function PATCH(request: Request) {
       'name', 'description', 'selling_price', 'buying_price', 'sku',
       'category_id', 'unit', 'image_url', 'low_stock_threshold', 'barcode',
       'supplier_name', 'supplier_id', 'promo_price', 'promo_until', 'promo_start', 'promo_reason',
-      'is_favorite', 'location', 'track_serials', 'price_tiers',
+      'is_favorite', 'location', 'track_serials', 'price_tiers', 'sale_measures',
     ])
     const safeUpdates: Record<string, unknown> = Object.fromEntries(
       Object.entries(updates).filter(([k]) => PATCHABLE.has(k))
@@ -295,6 +295,19 @@ export async function PATCH(request: Request) {
         if (touches) safeUpdates.price_tiers = w.price_tiers
       }
     }
+    // Mesures de vente (203) : jugées sur l'état FINAL (unité, suivi par numéro de série)
+    if ('sale_measures' in safeUpdates || 'unit' in safeUpdates || safeUpdates.track_serials === true) {
+      const { data: cur } = await (await createAdminClient() as any).from('products').select('unit, track_serials, sale_measures').eq('id', id).eq('shop_id', shop_id).maybeSingle()
+      if (cur) {
+        const touches = 'sale_measures' in safeUpdates
+        const w: Record<string, unknown> = { sale_measures: touches ? safeUpdates.sale_measures : cur.sale_measures }
+        const finalUnit = String('unit' in safeUpdates ? safeUpdates.unit : cur.unit || 'piece')
+        const finalSerials = 'track_serials' in safeUpdates ? Boolean(safeUpdates.track_serials) : Boolean(cur.track_serials)
+        const mIssue = (touches || w.sale_measures) ? checkSaleMeasures(w, finalUnit, finalSerials) : null
+        if (mIssue) return NextResponse.json({ error: t(mIssue.key as any), field: mIssue.field }, { status: 400 })
+        if (touches) safeUpdates.sale_measures = w.sale_measures
+      }
+    }
     if ('location' in safeUpdates) {
       const loc = normalizeLocation(safeUpdates.location)
       if (loc === undefined) return NextResponse.json({ error: t('location_too_long'), field: 'location' }, { status: 400 })
@@ -309,7 +322,7 @@ export async function PATCH(request: Request) {
       return NextResponse.json({ error: t('supplier_wrong_shop'), field: 'supplier_id' }, { status: 400 })
 
     // Snapshot avant modification, pour le journal d'audit
-    const TRACKED_FIELDS = ['name', 'selling_price', 'buying_price', 'low_stock_threshold', 'sku', 'category_id', 'supplier_id', 'promo_price', 'promo_until', 'promo_start', 'location', 'track_serials', 'price_tiers'] as const
+    const TRACKED_FIELDS = ['name', 'selling_price', 'buying_price', 'low_stock_threshold', 'sku', 'category_id', 'supplier_id', 'promo_price', 'promo_until', 'promo_start', 'location', 'track_serials', 'price_tiers', 'sale_measures'] as const
     const trackedChange = TRACKED_FIELDS.some(f => f in safeUpdates)
     let before: Record<string, unknown> | null = null
     if (trackedChange) {
@@ -335,7 +348,7 @@ export async function PATCH(request: Request) {
         const from = before[f]
         const to = (data as any)[f]
         // Nombres comparés en tenant compte du vide (seuil vide ≠ 0 depuis le 1er nov. 2026)
-        const same = f === 'price_tiers'
+        const same = f === 'price_tiers' || f === 'sale_measures'
           ? JSON.stringify(from ?? null) === JSON.stringify(to ?? null)
           : (f === 'selling_price' || f === 'buying_price' || f === 'low_stock_threshold')
           ? (from ?? null) === null || (to ?? null) === null ? (from ?? null) === (to ?? null) : Number(from) === Number(to)

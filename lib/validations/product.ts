@@ -1,6 +1,7 @@
 import { z } from 'zod'
 import { SKU_MAX_LENGTH } from '@/lib/import/products-import'
 import { normalizeTiers } from '@/lib/products/price-tiers'
+import { normalizeMeasures, type MeasureProblem } from '@/lib/products/sale-measures'
 
 interface ValidationMessages {
   product_name_required: string
@@ -15,6 +16,8 @@ interface ValidationMessages {
   wholesale_order?: string
   wholesale_price_invalid?: string
   pack_units_invalid?: string
+  /** Mesures de vente (203) : message par problème (lib/products/sale-measures) */
+  measures?: Partial<Record<MeasureProblem, string>>
 }
 
 const defaultMessages: ValidationMessages = {
@@ -46,6 +49,8 @@ export function createProductSchema(msg: ValidationMessages = defaultMessages) {
     location: z.string().max(60).optional().or(z.literal('')),
     /** Paliers de prix de gros (202) : jusqu'à 3 { min_qty, price } ; lignes vides ignorées */
     price_tiers: z.array(z.object({ min_qty: z.any(), price: z.any() })).nullable().optional(),
+    /** Mesures de vente (203) : jusqu'à 5 { key, label, units, price } ; lignes vides ignorées */
+    sale_measures: z.array(z.object({ key: z.any(), label: z.any(), units: z.any(), price: z.any() })).nullable().optional(),
     /** Conditionnement d'achat créé avec le produit (création seulement) : type, pièces par colis, code-barres */
     pack_unit: z.string().max(30).optional().or(z.literal('')),
     pack_units: z.preprocess(emptyToNull, z.number().nullable()).optional(),
@@ -56,6 +61,8 @@ export function createProductSchema(msg: ValidationMessages = defaultMessages) {
     // Mêmes règles que le serveur (lib/products/price-tiers, une seule vérité)
     const tiers = normalizeTiers(d.price_tiers ?? null, Number(d.selling_price))
     if (!tiers.ok) ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['price_tiers'], message: (tiers.problem === 'not_below' ? msg.wholesale_not_below_retail : tiers.problem === 'min' ? msg.wholesale_min_invalid : tiers.problem === 'order' ? msg.wholesale_order : tiers.problem === 'price' ? msg.wholesale_price_invalid : msg.wholesale_incomplete) ?? 'Invalid wholesale tiers' })
+    const measures = normalizeMeasures(d.sale_measures ?? null, d.unit)
+    if (!measures.ok) ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['sale_measures'], message: msg.measures?.[measures.problem] ?? 'Invalid selling measures' })
     if (d.pack_unit && (d.pack_units === null || d.pack_units === undefined || !Number.isInteger(d.pack_units) || d.pack_units < 2 || d.pack_units > 100000))
       ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['pack_units'], message: msg.pack_units_invalid ?? 'At least 2' })
   })

@@ -240,6 +240,8 @@ export interface Product {
   is_kit?: boolean
   /** Paliers de prix de gros, jusqu'à 3, quantités croissantes et prix décroissants (migration 202) */
   price_tiers?: { min_qty: number; price: number }[] | null
+  /** Mesures de vente (verre, boîte, seau, sac, pack…), chacune avec son prix et son contenu (migration 203) */
+  sale_measures?: { key: string; label?: string | null; units: number; price: number }[] | null
   category_id: string | null
   supplier_id: string | null
   /** Prix d'achat : ABSENT quand la personne n'a pas le droit de le voir (lib/permissions → canViewCost).
@@ -362,6 +364,8 @@ export interface CartItem {
   serials?: string[]
   /** Prix fixé à la main par le caissier (au-dessus du plancher) : gardé quand la quantité change */
   custom_price?: boolean
+  /** Ligne vendue à la mesure (203) : nombre de mesures et mesure ; quantity = qty × units (unités de stock) */
+  measure?: { key: string; label: string | null; units: number; price: number; qty: number }
 }
 
 // Dashboard metrics

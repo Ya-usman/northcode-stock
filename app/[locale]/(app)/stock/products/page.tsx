@@ -77,6 +77,7 @@ import { useRolePermissions, useShopPermissions } from '@/lib/hooks/use-role-per
 import { EmptyGuide } from '@/components/onboarding/empty-guide'
 import { useTableExport } from '@/lib/export/use-table-export'
 import { PRODUCT_UNITS } from '@/lib/import/products-import'
+import { normalizeMeasures, displayUnitPrice, isFineUnit, stockAmount } from '@/lib/products/sale-measures'
 import { useStockRealtime } from '@/lib/hooks/use-realtime'
 import { withTimeout, friendlyNetworkError } from '@/lib/utils/with-timeout'
 import { getExpiryAlertDays } from '@/lib/utils/expiry'
@@ -673,7 +674,7 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
     })
 
 
-  const FORM_FIELDS: ProductFieldError['field'][] = ['name', 'sku', 'selling_price', 'buying_price', 'quantity', 'unit', 'location', 'low_stock_threshold', 'expiry_date', 'price_tiers']
+  const FORM_FIELDS: ProductFieldError['field'][] = ['name', 'sku', 'selling_price', 'buying_price', 'quantity', 'unit', 'location', 'low_stock_threshold', 'expiry_date', 'price_tiers', 'sale_measures']
   const saveProduct = async (data: ProductFormData): Promise<true | false | ProductFieldError> => {
     const target = createShop
     if (!target) { toast({ title: t('toast.no_active_shop'), variant: 'destructive' }); return false }
@@ -698,6 +699,8 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
           quantity,
           // Paliers de gros (202) : le serveur nettoie (lignes vides retirées) et contrôle
           price_tiers: data.price_tiers ?? null,
+          // Mesures de vente (203) : le serveur nettoie (lignes vides retirées) et contrôle
+          sale_measures: data.sale_measures ?? null,
           unit: data.unit || 'piece',
           low_stock_threshold: data.low_stock_threshold ?? null,
           sku: data.sku || null,
@@ -759,6 +762,13 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
     return rows.length ? rows : null
   }
 
+  // Mesures comparables : même nettoyage que le serveur (lignes vides retirées, rangées par contenu) ; saisie invalide
+  // gardée telle quelle (le serveur la refuse avec son message)
+  const cleanMeasures = (raw: unknown, unit: string) => {
+    const r = normalizeMeasures(raw ?? null, unit)
+    return r.ok ? r.measures : raw
+  }
+
   const onEditProduct = async (data: ProductFormData): Promise<void | ProductFieldError> => {
     if (!editingProduct) return
     // Seulement ce qui a changé : ajouter une photo ne touche que la photo (une ancienne
@@ -771,6 +781,7 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
       low_stock_threshold: data.low_stock_threshold ?? null, sku: data.sku?.trim() || null, image_url: data.image_url || null,
       location: data.location?.replace(/\s+/g, ' ').trim() || null,
       price_tiers: cleanTiers(data.price_tiers),
+      sale_measures: cleanMeasures(data.sale_measures, data.unit || 'piece'),
     }
     const prev: Record<string, unknown> = {
       name: p.name, category_id: p.category_id || null, supplier_id: p.supplier_id || null,
@@ -778,10 +789,11 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
       low_stock_threshold: p.low_stock_threshold ?? null, sku: p.sku?.trim() || null, image_url: p.image_url || null,
       location: p.location || null,
       price_tiers: cleanTiers(p.price_tiers),
+      sale_measures: cleanMeasures(p.sale_measures, p.unit || 'piece'),
     }
     const NUMERIC = ['buying_price', 'selling_price', 'low_stock_threshold']
     const changes = Object.fromEntries(Object.entries(next).filter(([k, v]) =>
-      k === 'price_tiers' ? JSON.stringify(v) !== JSON.stringify(prev[k]) : NUMERIC.includes(k) ? (v === null ? null : Number(v)) !== (prev[k] === null ? null : Number(prev[k])) : v !== prev[k]))
+      k === 'price_tiers' || k === 'sale_measures' ? JSON.stringify(v) !== JSON.stringify(prev[k]) : NUMERIC.includes(k) ? (v === null ? null : Number(v)) !== (prev[k] === null ? null : Number(prev[k])) : v !== prev[k]))
     if (Object.keys(changes).length === 0) { setEditingProduct(null); return }
     setSaving(true)
     try {
@@ -1351,17 +1363,17 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
         <div className="flex items-baseline justify-between gap-3 text-sm">
           {promoActive ? (
             <span className="flex min-w-0 items-baseline gap-1.5">
-              <span className="font-bold text-stockshop-blue dark:text-blue-400">{formatNaira(product.promo_price!)}</span>
-              <span className="text-xs text-muted-foreground line-through">{formatNaira(product.selling_price)}</span>
+              <span className="font-bold text-stockshop-blue dark:text-blue-400">{formatNaira(displayUnitPrice(product.promo_price!, product.unit))}{isFineUnit(product.unit) ? ` / ${unitLabelFor(product.unit === 'ml' ? 'litre' : 'kg', 1)}` : ''}</span>
+              <span className="text-xs text-muted-foreground line-through">{formatNaira(displayUnitPrice(product.selling_price, product.unit))}</span>
             </span>
           ) : (
-            <span className="font-bold text-stockshop-blue dark:text-blue-400">{formatNaira(product.selling_price)}</span>
+            <span className="font-bold text-stockshop-blue dark:text-blue-400">{formatNaira(displayUnitPrice(product.selling_price, product.unit))}{isFineUnit(product.unit) ? ` / ${unitLabelFor(product.unit === 'ml' ? 'litre' : 'kg', 1)}` : ''}</span>
           )}
           <span className="whitespace-nowrap" data-card-qty>
             <span className={`font-bold ${cardAvailable === 0 ? 'text-red-500' : cardAvailable <= threshold ? 'text-amber-500' : 'text-green-600 dark:text-green-400'}`}>
-              {cardAvailable}
+              {stockAmount(cardAvailable, product.unit, locale).value}
             </span>{' '}
-            <span className="text-muted-foreground text-xs">{unitLabelFor(product.unit, cardAvailable)}</span>
+            <span className="text-muted-foreground text-xs">{unitLabelFor(stockAmount(cardAvailable, product.unit, locale).unit, stockAmount(cardAvailable, product.unit, locale).count)}</span>
           </span>
         </div>
         {/* Précisions de stock : seulement quand il y en a (périmés, réservés, à venir) */}
@@ -2096,7 +2108,8 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
             suppliers={suppliers.filter((s: any) => s.shop_id === editingProduct.shop_id)}
             shopId={editingProduct.shop_id}
             fullRights={canViewCostIn(editingProduct.shop_id)}
-            defaultValues={{ name: editingProduct.name, category_id: editingProduct.category_id || '', supplier_id: editingProduct.supplier_id || '', buying_price: editingProduct.buying_price, selling_price: editingProduct.selling_price, quantity: editingProduct.quantity, unit: editingProduct.unit, low_stock_threshold: editingProduct.low_stock_threshold ?? null, sku: editingProduct.sku || '', image_url: editingProduct.image_url || '', location: editingProduct.location || '', price_tiers: editingProduct.price_tiers ?? null, ...(editRestore?.values ?? {}) }}
+            defaultValues={{ name: editingProduct.name, category_id: editingProduct.category_id || '', supplier_id: editingProduct.supplier_id || '', buying_price: editingProduct.buying_price, selling_price: editingProduct.selling_price, quantity: editingProduct.quantity, unit: editingProduct.unit, low_stock_threshold: editingProduct.low_stock_threshold ?? null, sku: editingProduct.sku || '', image_url: editingProduct.image_url || '', location: editingProduct.location || '', price_tiers: editingProduct.price_tiers ?? null, sale_measures: editingProduct.sale_measures ?? null, ...(editRestore?.values ?? {}) }}
+            trackSerials={!!editingProduct.track_serials}
             initialPhoto={editRestore?.file ?? null}
             startDirty={!!editRestore}
             onSubmit={onEditProduct}

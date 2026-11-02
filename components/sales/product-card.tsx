@@ -34,6 +34,13 @@ interface ProductCardProps {
   compact?: boolean
   /** « Gros dès 24 » : le produit a un prix de gros (migration 201) ; absent sinon */
   wholesaleLabel?: string
+  /** Mesures de vente (203) : « Verre · Boîte · Seau » ; absent sinon */
+  measuresLabel?: string
+  /** Prix affiché autrement que le prix unitaire : « 500 F / kg » (produit en grammes), « 200 F / verre » (vendu
+   *  uniquement par mesures) */
+  priceText?: string
+  /** Stock affiché autrement : « 37,5 kg » (produit en grammes) */
+  stockText?: string
 }
 
 // Carte produit de « Nouvelle vente » — mémoïsée : tant que ses props ne
@@ -43,7 +50,7 @@ interface ProductCardProps {
 // figeait l'écran ~360 ms (mesuré, CPU ralenti ×6).
 function ProductCardImpl({
   product, price, stockVariant, isExpired, sellableQty, currencyCode, favoriteLabel, expiredLabel, reservedLabel,
-  elsewhereLabel, onElsewhere, onAdd, onToggleFavorite, compact = false, wholesaleLabel,
+  elsewhereLabel, onElsewhere, onAdd, onToggleFavorite, compact = false, wholesaleLabel, measuresLabel, priceText, stockText,
 }: ProductCardProps) {
   const unitLabel = useUnitLabel()
   const onKeyDown = (e: KeyboardEvent<HTMLDivElement>) => {
@@ -76,7 +83,7 @@ function ProductCardImpl({
         <ProductThumbnail src={product.image_url} alt={product.name} className="w-full aspect-square rounded-none border-0" iconClassName="h-1/3 w-1/3" />
         <div className="p-1.5">
           <p className="text-[11px] font-medium truncate text-foreground">{product.name}</p>
-          <p className="text-xs font-bold text-stockshop-blue dark:text-blue-400">{formatCurrency(price, currencyCode)}</p>
+          <p className="truncate text-xs font-bold text-stockshop-blue dark:text-blue-400">{priceText ?? formatCurrency(price, currencyCode)}</p>
         </div>
       </div>
     )
@@ -100,7 +107,7 @@ function ProductCardImpl({
         <ProductThumbnail src={product.image_url} alt={product.name} className="w-full aspect-square rounded-none border-0" iconClassName="h-1/3 w-1/3" />
         {/* Stock en pastille sur l'image (téléphone) — libère une ligne de texte */}
         <Badge variant={stockVariant} className="md:hidden absolute bottom-1 left-1 text-[10px] px-1.5 py-0 leading-4">
-          {sellableQty ?? product.quantity}
+          {stockText ?? sellableQty ?? product.quantity}
         </Badge>
       </div>
       <div className="flex flex-col p-1.5 md:p-2.5">
@@ -130,7 +137,9 @@ function ProductCardImpl({
           </button>
         )}
         <div className="flex items-center justify-between w-full mt-1">
-          {price !== product.selling_price ? (
+          {priceText ? (
+            <span className="truncate text-[13px] md:text-sm font-bold text-stockshop-blue dark:text-blue-400" data-testid="card-price-text">{priceText}</span>
+          ) : price !== product.selling_price ? (
             <span className="flex items-center gap-x-1 flex-wrap">
               <span className="text-[13px] md:text-sm font-bold text-stockshop-blue dark:text-blue-400">{formatCurrency(price, currencyCode)}</span>
               <span className="text-[9px] md:text-[10px] text-muted-foreground line-through">{formatCurrency(product.selling_price, currencyCode)}</span>
@@ -139,10 +148,11 @@ function ProductCardImpl({
             <span className="text-[13px] md:text-sm font-bold text-stockshop-blue dark:text-blue-400">{formatCurrency(product.selling_price, currencyCode)}</span>
           )}
           <Badge variant={stockVariant} className="hidden md:inline-flex text-[10px] px-1.5">
-            {sellableQty ?? product.quantity} {unitLabel(product.unit, sellableQty ?? product.quantity)}
+            {stockText ?? `${sellableQty ?? product.quantity} ${unitLabel(product.unit, sellableQty ?? product.quantity)}`}
           </Badge>
         </div>
         {wholesaleLabel && <p className="mt-0.5 truncate text-[10px] font-medium text-emerald-700 dark:text-emerald-300" data-testid="card-wholesale">{wholesaleLabel}</p>}
+        {measuresLabel && <p className="mt-0.5 truncate text-[10px] font-medium text-muted-foreground" data-testid="card-measures">{measuresLabel}</p>}
       </div>
     </div>
   )

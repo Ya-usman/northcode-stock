@@ -5,6 +5,8 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { useLocale, useTranslations } from 'next-intl'
 import { PACK_UNITS, packToBase, packPriceToUnit } from '@/lib/products/packaging'
 import { MAX_TIERS, tierPresets } from '@/lib/products/price-tiers'
+import { FINE_FACTOR, isFineUnit } from '@/lib/products/sale-measures'
+import { SaleMeasuresField, type MeasureRow } from '@/components/stock/sale-measures-field'
 import { useUnitLabel } from '@/lib/products/use-unit-label'
 import { useState, useRef, useEffect } from 'react'
 import { Input } from '@/components/ui/input'
@@ -62,13 +64,35 @@ interface ProductFormProps {
   onStateChange?: (state: ProductFormState) => void
   /** Seuil d'alerte de la boutique : rappelé en grisé dans la case « Seuil » laissée vide */
   shopLowStockThreshold?: number | null
+  /** Produit suivi par numéro de série (modification) : vendu à l'unité, pas de mesure de vente */
+  trackSerials?: boolean
 }
 
 /** Champs de « Plus d'options » : une erreur sur l'un d'eux ouvre la section */
-const MORE_FIELDS: string[] = ['category_id', 'sku', 'low_stock_threshold', 'supplier_id', 'location', 'price_tiers', 'pack_unit', 'pack_units', 'pack_barcode']
+const MORE_FIELDS: string[] = ['category_id', 'sku', 'low_stock_threshold', 'supplier_id', 'location', 'price_tiers', 'pack_unit', 'pack_units', 'pack_barcode', 'sale_measures']
 
 /** Erreur renvoyée par le serveur pour un champ précis du formulaire */
-export type ProductFieldError = { field: 'sku' | 'name' | 'selling_price' | 'buying_price' | 'quantity' | 'unit' | 'location' | 'low_stock_threshold' | 'expiry_date' | 'price_tiers'; message: string }
+export type ProductFieldError = { field: 'sku' | 'name' | 'selling_price' | 'buying_price' | 'quantity' | 'unit' | 'location' | 'low_stock_threshold' | 'expiry_date' | 'price_tiers' | 'sale_measures'; message: string }
+
+/** Nombre à virgule (stock de départ en kg ou en litres) : « 37,5 » ou « 37.5 » ; vide = 0 */
+function DecimalInput({ value, onChange, onBlur, className, ...props }: { value: number; onChange: (v: number) => void; onBlur?: () => void; className?: string } & Omit<React.InputHTMLAttributes<HTMLInputElement>, 'value' | 'onChange' | 'onBlur'>) {
+  const [text, setText] = useState(value ? String(value).replace('.', ',') : '')
+  useEffect(() => {
+    const cur = Number(text.replace(',', '.')) || 0
+    if (Math.abs(cur - value) > 1e-9) setText(value ? String(value).replace('.', ',') : '')
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [value])
+  return (
+    <Input type="text" inputMode="decimal" value={text} placeholder="0" className={className} onBlur={onBlur} {...props}
+      onChange={e => {
+        const raw = e.target.value.replace(/[^\d.,]/g, '').replace('.', ',')
+        const [a, ...b] = raw.split(',')
+        const clean = b.length ? `${a},${b.join('').slice(0, 3)}` : a
+        setText(clean)
+        onChange(Number(clean.replace(',', '.')) || 0)
+      }} />
+  )
+}
 
 const FieldError = ({ message }: { message?: string }) =>
   message ? <p className="text-xs text-destructive">{message}</p> : null
@@ -78,7 +102,7 @@ const UNITS = PRODUCT_UNITS
 
 export function ProductForm({
   categories, suppliers, currency, fullRights, shopId, isEdit,
-  defaultValues, sessionCount, initialPhoto, productId, startDirty = false, onSubmit, onStateChange, shopLowStockThreshold,
+  defaultValues, sessionCount, initialPhoto, productId, startDirty = false, onSubmit, onStateChange, shopLowStockThreshold, trackSerials,
 }: ProductFormProps) {
   const t = useTranslations()
   const unitLabel = useUnitLabel()
@@ -92,7 +116,8 @@ export function ProductForm({
   // « Plus d'options » ouvertes d'emblée si l'un de leurs champs porte déjà une valeur
   const [moreOpen, setMoreOpen] = useState(() => !!(defaultValues?.category_id || defaultValues?.sku || defaultValues?.supplier_id || defaultValues?.location
     || (defaultValues?.low_stock_threshold !== undefined && defaultValues?.low_stock_threshold !== null)
-    || (Array.isArray(defaultValues?.price_tiers) && defaultValues!.price_tiers!.length > 0)))
+    || (Array.isArray(defaultValues?.price_tiers) && defaultValues!.price_tiers!.length > 0)
+    || (!isFineUnit(defaultValues?.unit) && Array.isArray(defaultValues?.sale_measures) && defaultValues!.sale_measures!.length > 0)))
   // Chargé à la demande : le panneau hôte a déjà posé son focus avant que ce
   // formulaire existe. Sur ordinateur, le nom prend le focus au montage ; sur
   // téléphone, non (le clavier ne doit pas surgir à l'ouverture).
@@ -110,6 +135,12 @@ export function ProductForm({
     wholesale_order: t('wholesale.error_order'),
     wholesale_price_invalid: t('wholesale.error_price'),
     pack_units_invalid: t('wholesale.error_pack_units'),
+    measures: {
+      invalid: t('measures.error_invalid'), too_many: t('measures.error_too_many'), incomplete: t('measures.error_incomplete'),
+      key: t('measures.error_key'), label: t('measures.error_label'), price: t('measures.error_price'),
+      units: t('measures.error_units', { unit: unitLabel(defaultValues?.unit || 'piece', 2) }), duplicate: t('measures.error_duplicate'),
+      fixed: t('measures.error_fixed'),
+    },
   })
 
   const form = useForm<ProductFormData>({
@@ -166,6 +197,35 @@ export function ProductForm({
       ? t('wholesale.example', { min: m, unit: unitLabel(unit, m), total: money(w * m), normal: money(retailNow * m), price: money(w), percent: Math.round((1 - w / retailNow) * 100) })
       : null
   }
+  const optional = <span className="text-muted-foreground text-xs font-normal">({t('form.optional')})</span>
+  // Mesures de vente (203). Produit en grammes ou en millilitres : stock et prix saisis au kilo ou au litre (convertis ici,
+  // la base garde des grammes entiers), mesures en tête du formulaire, ni paliers de gros ni colis (les mesures les remplacent)
+  const fine = isFineUnit(unit)
+  const coarse = unit === 'ml' ? 'litre' : 'kg'
+  const measureRows = (form.watch('sale_measures') as MeasureRow[] | null | undefined) || []
+  const writeMeasures = (rows: MeasureRow[]) => form.setValue('sale_measures', rows as any, { shouldDirty: true, shouldValidate: form.formState.isSubmitted })
+  const toCoarsePrice = (v: unknown) => Math.round((Number(v) || 0) * FINE_FACTOR * 100) / 100
+  const changeUnit = (next: string) => {
+    const was = isFineUnit(unit), now = isFineUnit(next)
+    if (was !== now) {
+      // Les nombres affichés restent ceux que la personne a tapés : seule leur unité de stockage change
+      const k = now ? 1 / FINE_FACTOR : FINE_FACTOR
+      const v = form.getValues()
+      form.setValue('selling_price', Number(v.selling_price) ? Number(v.selling_price) * k : v.selling_price, { shouldDirty: true })
+      form.setValue('buying_price', Number(v.buying_price) ? Number(v.buying_price) * k : v.buying_price, { shouldDirty: true })
+      if (!isEdit) form.setValue('quantity', Math.round((Number(v.quantity) || 0) / k), { shouldDirty: true })
+      if (now) { form.setValue('price_tiers', null, { shouldDirty: true }); form.setValue('pack_unit', '', { shouldDirty: true }) }
+    }
+    form.setValue('unit', next, { shouldDirty: true })
+  }
+  const measuresBlock = (
+    <div className="space-y-2 rounded-lg border border-border p-3" data-testid="product-measures-block">
+      <p className="text-sm font-medium">{t('measures.title')} {fine ? null : optional}</p>
+      <SaleMeasuresField rows={measureRows} onChange={writeMeasures} unit={unit} currency={currency}
+        error={(errors as any).sale_measures?.message} disabled={!!trackSerials} />
+      {fine && measureRows.some(r => r.key) && <p className="text-xs text-muted-foreground" data-testid="product-measures-only">{t('measures.only_measures')}</p>}
+    </div>
+  )
   const inPacks = !isEdit && !!form.watch('initial_in_packs') && packUnits >= 2
   const qtyNow = Number(form.watch('quantity')) || 0
   const buyNow = Number(form.watch('buying_price')) || 0
@@ -303,8 +363,6 @@ export function ProductForm({
     }
   }
 
-  const optional = <span className="text-muted-foreground text-xs font-normal">({t('form.optional')})</span>
-
   return (
     <>
     <form id={PRODUCT_FORM_ID} onSubmit={form.handleSubmit(submit, errs => { if (MORE_FIELDS.some(f => f in errs)) setMoreOpen(true) })} className="space-y-4" noValidate>
@@ -329,20 +387,28 @@ export function ProductForm({
 
         <div className="grid grid-cols-2 gap-3" data-tour="product-prices">
           <div className="space-y-1.5">
-            <Label>{t('products.selling_price')}<RequiredMark /></Label>
+            <Label>{fine ? t(`measures.price_per_${coarse}` as any) : t('products.selling_price')}<RequiredMark /></Label>
             <Controller control={form.control} name="selling_price" render={({ field }) => (
               <InputGroup suffix={currency}>
-                <NumericInput value={field.value} onChange={field.onChange} onBlur={field.onBlur} placeholder="0" currency={currency} className="h-10" aria-invalid={!!errors.selling_price} />
+                {fine ? (
+                  <NumericInput value={toCoarsePrice(field.value)} onChange={v => field.onChange(v / FINE_FACTOR)} onBlur={field.onBlur} placeholder="0" currency={currency} className="h-10" aria-invalid={!!errors.selling_price} data-testid="product-price-coarse" />
+                ) : (
+                  <NumericInput value={field.value} onChange={field.onChange} onBlur={field.onBlur} placeholder="0" currency={currency} className="h-10" aria-invalid={!!errors.selling_price} />
+                )}
               </InputGroup>
             )} />
             <FieldError message={errors.selling_price?.message} />
           </div>
           {fullRights && (
             <div className="space-y-1.5">
-              <Label>{inPacks ? t('packaging.price_per_pack', { pack: unitLabel(packUnit, 1) }) : t('products.buying_price')}</Label>
+              <Label>{inPacks ? t('packaging.price_per_pack', { pack: unitLabel(packUnit, 1) }) : fine ? t(`measures.buy_per_${coarse}` as any) : t('products.buying_price')}</Label>
               <Controller control={form.control} name="buying_price" render={({ field }) => (
                 <InputGroup suffix={currency}>
-                  <NumericInput value={field.value} onChange={field.onChange} onBlur={field.onBlur} placeholder="0" currency={currency} className="h-10" />
+                  {fine ? (
+                    <NumericInput value={toCoarsePrice(field.value)} onChange={v => field.onChange(v / FINE_FACTOR)} onBlur={field.onBlur} placeholder="0" currency={currency} className="h-10" data-testid="product-buy-coarse" />
+                  ) : (
+                    <NumericInput value={field.value} onChange={field.onChange} onBlur={field.onBlur} placeholder="0" currency={currency} className="h-10" />
+                  )}
                 </InputGroup>
               )} />
               <FieldError message={errors.buying_price?.message} />
@@ -354,7 +420,7 @@ export function ProductForm({
         <div className="grid grid-cols-2 gap-3" data-tour="product-stock">
           <div className="space-y-1.5">
             <Label>{t('products.unit')}</Label>
-            <Select value={unit} onValueChange={v => form.setValue('unit', v, { shouldDirty: true })}>
+            <Select value={unit} onValueChange={changeUnit}>
               <SelectTrigger className="h-10"><SelectValue /></SelectTrigger>
               <SelectContent>
                 {UNITS.map(u => <SelectItem key={u} value={u}>{unitLabel(u, 1)}</SelectItem>)}
@@ -364,7 +430,12 @@ export function ProductForm({
           {!isEdit && (
             <div className="space-y-1.5">
               <Label>{t('product_form.initial_stock')}<RequiredMark /></Label>
-              <Controller control={form.control} name="quantity" render={({ field }) => (
+              <Controller control={form.control} name="quantity" render={({ field }) => fine ? (
+                // Grammes / millilitres : saisis au kilo / au litre, décimales permises (37,5 kg = 37 500 g)
+                <InputGroup suffix={unitLabel(coarse, 2)}>
+                  <DecimalInput value={(Number(field.value) || 0) / FINE_FACTOR} onChange={v => field.onChange(Math.round(v * FINE_FACTOR))} onBlur={field.onBlur} className="h-10" aria-invalid={!!errors.quantity} data-testid="product-qty-coarse" />
+                </InputGroup>
+              ) : (
                 <InputGroup suffix={inPacks ? unitLabel(packUnit, Number(field.value) || 2) : unitLabel(unit, Number(field.value) || 2)}>
                   <NumericInput value={field.value} onChange={field.onChange} onBlur={field.onBlur} placeholder="0" currency={currency} className="h-10" aria-invalid={!!errors.quantity} />
                 </InputGroup>
@@ -373,6 +444,8 @@ export function ProductForm({
             </div>
           )}
         </div>
+        {/* Grammes / millilitres : le produit se vend par mesures (verre, boîte, seau…), réglées ici d'emblée */}
+        {fine && measuresBlock}
         {/* Date de péremption du lot initial : seulement s'il y a du stock à dater */}
         {!isEdit && Number(form.watch('quantity')) > 0 && (
           <Controller control={form.control} name="expiry_date" render={({ field }) => (
@@ -544,6 +617,9 @@ export function ProductForm({
 
         {/* Vente en gros par paliers (202) : « dès 12 : 470 F · dès 24 : 450 F » ; en caisse, toute la ligne prend le
             meilleur palier atteint. Un palier d'abord, « + Ajouter un palier » jusqu'à 3 ; quantités proposées en un geste. */}
+        {/* Vente à la mesure (203) pour les autres unités : pack de 6, carton, sac de 50 kg… */}
+        {!fine && measuresBlock}
+        {!fine && (
         <div className="space-y-2 rounded-lg border border-border p-3" data-testid="product-wholesale">
           <div>
             <p className="text-sm font-medium">{t('wholesale.title')} {optional}</p>
@@ -585,9 +661,10 @@ export function ProductForm({
           </div>
           <FieldError message={(errors as any).price_tiers?.message} />
         </div>
+        )}
 
         {/* Acheté en carton / paquet (création ; ensuite : fiche › Conditionnements) */}
-        {!isEdit && (
+        {!isEdit && !fine && (
           <div className="space-y-2 rounded-lg border border-border p-3" data-testid="product-pack">
             <div>
               <p className="text-sm font-medium">{t('wholesale.pack_title')} {optional}</p>

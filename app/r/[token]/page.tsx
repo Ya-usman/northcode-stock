@@ -5,6 +5,8 @@ import { createAdminClient } from '@/lib/supabase/server'
 import { RECEIPT_TOKEN_RE } from '@/lib/receipt/receipt-link'
 import { hideStockShopBranding } from '@/lib/receipt/branding'
 import { textLines, lineSaving } from '@/lib/receipt/ticket'
+import { receiptView } from '@/lib/products/sale-measures'
+import { createTranslator } from 'next-intl'
 import { getCountry, getPaymentMethodLabel } from '@/lib/saas/countries'
 import { formatCurrency } from '@/lib/utils/currency'
 import { BrandLogo } from '@/components/brand/brand-logo'
@@ -92,7 +94,10 @@ export default async function PublicReceiptPage({ params }: { params: { token: s
   const dateText = new Date(sale.created_at).toLocaleString(DATE_LOCALE[locale], {
     day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit',
   })
-  const items: any[] = sale.sale_items || []
+  // Vendu à la mesure (203) : « Riz · boîte », 3 au prix de la boîte (page, nombre d'articles et PDF)
+  const allMessages = (await import(`../../../messages/${locale}.json`)).default
+  const tM = createTranslator({ locale, messages: allMessages, namespace: 'measures' }) as unknown as (key: string, values?: Record<string, string | number>) => string
+  const items: any[] = (sale.sale_items || []).map((it: any) => receiptView(it, tM))
   const units = items.reduce((s, it) => s + (Number.isInteger(Number(it.quantity)) ? Number(it.quantity) : 1), 0)
   const itemCount = units === 1 ? R.item_count_one : R.item_count_other.replace('{count}', String(units))
   const legal = textLines(shop.receipt_legal_ids)

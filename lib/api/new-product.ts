@@ -2,6 +2,7 @@
 // (checkProductFields, une seule vérité) ; seuls les champs ci-dessous peuvent être fixés à la création. Le reste
 // (suivi par numéro de série, kit, promotion, archivage, identifiants, dates) ne se règle jamais par cette route.
 import { normalizeTiers, type TierProblem } from '@/lib/products/price-tiers'
+import { normalizeMeasures, type MeasureProblem } from '@/lib/products/sale-measures'
 import { checkProductFields, normalizeText, PRODUCT_UNITS, SKU_MAX_LENGTH, type RowIssue } from '@/lib/import/products-import'
 
 /** Refus d'un champ → message traduit (api_errors) et champ du formulaire à signaler */
@@ -57,6 +58,13 @@ export function newProductRow(body: Record<string, any>, seesCost: boolean): New
     if (issue) return { ok: false, key: issue.key, field: issue.field }
     row.price_tiers = w.price_tiers
   }
+  // Mesures de vente facultatives (203) : mêmes règles qu'en modification
+  if (body.sale_measures !== undefined) {
+    const w: Record<string, unknown> = { sale_measures: body.sale_measures }
+    const issue = checkSaleMeasures(w, c.product.unit, false)
+    if (issue) return { ok: false, key: issue.key, field: issue.field }
+    row.sale_measures = w.sale_measures
+  }
   return { ok: true, row, expiry_date: c.expiry_date }
 }
 
@@ -104,6 +112,24 @@ export function checkPriceTiers(u: Record<string, unknown>, finalRetail: number)
 const TIER_KEYS: Record<Exclude<TierProblem, 'invalid'>, string> = {
   too_many: 'product_wholesale_too_many', incomplete: 'product_wholesale_incomplete', price: 'product_wholesale_price_invalid',
   min: 'product_wholesale_min_invalid', order: 'product_wholesale_order', not_below: 'product_wholesale_not_below_retail',
+}
+
+/** Mesures de vente (migration 203) : jusqu'à 5, chacune avec son prix et son contenu entier (2 à 100 000 unités de
+ *  stock) ; contenu fixe pour le kilo, le demi-kilo et le litre d'un produit en grammes ou en millilitres ; jamais deux
+ *  fois la même ; jamais sur un produit suivi par numéro de série (vendu à l'unité). Jugées sur l'état FINAL du produit
+ *  (unité). Valeur nettoyée sur place : liste triée, ou null (aucune mesure). */
+export function checkSaleMeasures(u: Record<string, unknown>, finalUnit: string, finalTrackSerials: boolean): { key: string; field: string } | null {
+  if (!('sale_measures' in u)) return null
+  const r = normalizeMeasures(u.sale_measures, finalUnit)
+  if (!r.ok) return { key: MEASURE_KEYS_ERR[r.problem], field: 'sale_measures' }
+  if (r.measures && finalTrackSerials) return { key: 'product_measures_serials', field: 'sale_measures' }
+  u.sale_measures = r.measures
+  return null
+}
+const MEASURE_KEYS_ERR: Record<MeasureProblem, string> = {
+  invalid: 'invalid_data', too_many: 'product_measures_too_many', incomplete: 'product_measures_incomplete', key: 'product_measures_key',
+  label: 'product_measures_label', units: 'product_measures_units', price: 'product_measures_price', duplicate: 'product_measures_duplicate',
+  fixed: 'product_measures_fixed',
 }
 
 export interface ShopProductKey { id: string; name: string; sku: string | null; is_active: boolean | null }

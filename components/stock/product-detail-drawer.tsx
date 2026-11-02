@@ -1,5 +1,7 @@
 'use client'
 
+import { measuresOf, measureName, measureContent } from '@/lib/products/sale-measures'
+import { capitalize } from '@/components/stock/sale-measures-field'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useLocale, useTranslations } from 'next-intl'
 import { Archive, ArrowDown, ChevronRight, Edit2, MapPin, Unlock, Package, ShoppingCart, Store, Tag, WifiOff } from 'lucide-react'
@@ -263,6 +265,15 @@ export function ProductDetailDrawer({
                   {t('wholesale.tiers_line', { tiers: tiersOf(product).map(x => t('wholesale.tier_item', { min: x.min_qty, price: formatPrice(x.price) })).join(' · ') })}
                 </p>
               )}
+              {/* Mesures de vente (203) : « Verre · 200 F · environ 250 g » */}
+              {measuresOf(product).map(m => {
+                const tm = (k: string, v?: Record<string, string | number>) => t(`measures.${k}` as any, v as any)
+                return (
+                  <p key={`${m.key}|${m.label ?? ''}`} className="mt-0.5 text-xs text-muted-foreground" data-testid="product-detail-measure">
+                    {t('measures.summary', { measure: capitalize(measureName(m, 1, tm)), price: formatPrice(m.price), content: measureContent(m, product.unit, unitLabel, tm, locale) })}
+                  </p>
+                )
+              })}
             </div>
           </div>
         )}

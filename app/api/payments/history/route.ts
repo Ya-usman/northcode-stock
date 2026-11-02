@@ -27,7 +27,7 @@ export async function GET(request: Request) {
       shopsWithView(supabase, user.id, [shop_id], ['payments']),
       admin
         .from('sales')
-        .select('id, sale_number, created_at, total, amount_paid, balance, payment_status, payment_method, cashier_id, sale_status, notes, sale_items(product_name, quantity, unit_price, subtotal)')
+        .select('id, sale_number, created_at, total, amount_paid, balance, payment_status, payment_method, cashier_id, sale_status, notes, sale_items(product_name, quantity, unit_price, subtotal, measure_key, measure_label, measure_qty, measure_units)')
         .eq('customer_id', customer_id)
         .eq('shop_id', shop_id)
         // Ventes à crédit ET reprises de dette (migration 168)

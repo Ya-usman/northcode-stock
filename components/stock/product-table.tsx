@@ -1,5 +1,6 @@
 'use client'
 
+import { displayUnitPrice, isFineUnit, stockAmount } from '@/lib/products/sale-measures'
 import { useEffect, useMemo, useRef } from 'react'
 import { useLocale, useTranslations } from 'next-intl'
 import { dateLocaleTag } from '@/lib/i18n/date-format'
@@ -134,6 +135,8 @@ export function ProductTable({
   const t = useTranslations()
   const locale = useLocale()
   const unitLabel = useUnitLabel()
+  // Produit en grammes ou en millilitres : prix affichés au kilo ou au litre (« 750 F / kg »)
+  const perCoarse = (unit: string | null | undefined) => (isFineUnit(unit) ? ` / ${unitLabel(unit === 'ml' ? 'litre' : 'kg', 1)}` : '')
   const show = (key: ProductColumnKey) => columns.includes(key)
 
   const rows = useMemo(() => {
@@ -347,19 +350,20 @@ export function ProductTable({
                 <td className={CELL_NUM}>
                   {promoActive && product.promo_price ? (
                     <div className="flex flex-col items-end leading-tight">
-                      <span className="font-semibold text-stockshop-blue dark:text-blue-400">{formatPrice(product.promo_price)}</span>
-                      <span className="text-xs text-muted-foreground line-through">{formatPrice(product.selling_price)}</span>
+                      <span className="font-semibold text-stockshop-blue dark:text-blue-400">{formatPrice(displayUnitPrice(product.promo_price, product.unit))}{perCoarse(product.unit)}</span>
+                      <span className="text-xs text-muted-foreground line-through">{formatPrice(displayUnitPrice(product.selling_price, product.unit))}</span>
                     </div>
                   ) : (
-                    <span className="font-semibold">{formatPrice(product.selling_price)}</span>
+                    <span className="font-semibold">{formatPrice(displayUnitPrice(product.selling_price, product.unit))}{perCoarse(product.unit)}</span>
                   )}
                 </td>
                 {show('cost') && (
-                  <td className={cn(CELL_NUM, 'text-muted-foreground')}>{product.buying_price == null ? dash : formatPrice(product.buying_price)}</td>
+                  <td className={cn(CELL_NUM, 'text-muted-foreground')}>{product.buying_price == null ? dash : `${formatPrice(displayUnitPrice(product.buying_price, product.unit))}${perCoarse(product.unit)}`}</td>
                 )}
                 <td className={CELL_NUM}>
-                  <span className={cn('font-semibold', qtyTone)}>{available}</span>
-                  <span className="ml-1 text-xs text-muted-foreground">{unitLabel(product.unit, available)}</span>
+                  {/* Grammes / millilitres : affichés en kg / litres dès 1 000 */}
+                  <span className={cn('font-semibold', qtyTone)}>{stockAmount(available, product.unit, locale).value}</span>
+                  <span className="ml-1 text-xs text-muted-foreground">{unitLabel(stockAmount(available, product.unit, locale).unit, stockAmount(available, product.unit, locale).count)}</span>
                   {expired > 0 && (
                     <button type="button" onClick={() => onBatches(product)} title={t('products.expired_qty_hint')} className="block w-0 min-w-full text-right text-[11px] font-medium leading-tight text-red-600 hover:underline dark:text-red-400">{/* w-0 + min-w-full : la mention suit la largeur de la colonne sans jamais l'élargir */}
                       {t('products.expired_qty', { count: expired })}

@@ -7,6 +7,7 @@
 // correction silencieuse.
 
 import type { CartItem, Product } from '@/lib/types/database'
+import { findMeasure, measureLineFields } from '@/lib/products/sale-measures'
 
 export type HeldCartChange =
   | { kind: 'removed'; name: string }
@@ -34,6 +35,8 @@ export function revalidateHeldCart(
   const manual = manualIds ? new Set(manualIds) : null
   const changes: HeldCartChange[] = []
   const out: CartItem[] = []
+  // Stock déjà repris par les lignes précédentes du même produit (« Riz · boîte » et « Riz · seau » partagent le stock)
+  const used = new Map<string, number>()
 
   for (const item of cart) {
     const current = byId.get(item.product.id)
@@ -41,10 +44,34 @@ export function revalidateHeldCart(
       changes.push({ kind: 'removed', name: item.product.name })
       continue
     }
+    const room = Number(current.quantity) - (used.get(current.id) || 0)
+    if (item.measure) {
+      // Ligne à la mesure (203) : la mesure doit exister encore avec le même contenu ; son prix est le prix ACTUEL
+      const m = findMeasure(current, item.measure.key, item.measure.label)
+      const maxN = m ? Math.floor(room / m.units) : 0
+      if (!m || m.units !== item.measure.units || maxN < 1) {
+        changes.push({ kind: 'removed', name: current.name })
+        continue
+      }
+      let n = item.measure.qty
+      if (n > maxN) {
+        changes.push({ kind: 'capped', name: current.name, from: n, to: maxN })
+        n = maxN
+      }
+      if (m.price !== item.measure.price) changes.push({ kind: 'price', name: current.name, from: item.measure.price, to: m.price })
+      const f = measureLineFields(m, n)
+      out.push({ product: current, quantity: f.quantity, unit_price: f.unit_price, subtotal: f.subtotal, measure: { key: m.key, label: m.label ?? null, units: m.units, price: m.price, qty: n } })
+      used.set(current.id, (used.get(current.id) || 0) + f.quantity)
+      continue
+    }
+    if (room < 1) {
+      changes.push({ kind: 'removed', name: current.name })
+      continue
+    }
     let quantity = item.quantity
-    if (quantity > Number(current.quantity)) {
-      changes.push({ kind: 'capped', name: current.name, from: quantity, to: Number(current.quantity) })
-      quantity = Number(current.quantity)
+    if (quantity > room) {
+      changes.push({ kind: 'capped', name: current.name, from: quantity, to: room })
+      quantity = room
     }
     const wasManual = manual
       ? manual.has(item.product.id)
@@ -58,6 +85,7 @@ export function revalidateHeldCart(
       }
     }
     out.push({ product: current, quantity, unit_price: unitPrice, subtotal: quantity * unitPrice })
+    used.set(current.id, (used.get(current.id) || 0) + quantity)
   }
   return { cart: out, changes }
 }

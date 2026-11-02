@@ -8,12 +8,17 @@
 // Tolérance d'une demi-unité : absorbe les arrondis, pas une manipulation.
 
 import { linePrice, computeTotals, type PromoWindow } from '@/lib/sales/pricing'
+import { findMeasure, validMeasureLine } from '@/lib/products/sale-measures'
 
-export interface SaleLineInput { product_id: string; product_name?: string; quantity: number; unit_price: number }
+export interface SaleLineInput {
+  product_id: string; product_name?: string; quantity: number; unit_price: number
+  /** Ligne vendue à la mesure (203) : « 3 boîtes » = measure_qty 3, measure_units = contenu d'une boîte */
+  measure_key?: string | null; measure_label?: string | null; measure_qty?: number | null; measure_units?: number | null
+}
 export interface SaleAmountsInput { subtotal: number; discount: number; tax: number; total: number }
 export type SaleValidation =
   | { ok: true }
-  | { ok: false; error: 'price_below_floor' | 'discount_not_allowed' | 'sale_total_mismatch' | 'invalid_data'; params?: Record<string, string | number> }
+  | { ok: false; error: 'price_below_floor' | 'discount_not_allowed' | 'sale_total_mismatch' | 'invalid_data' | 'measure_invalid'; params?: Record<string, string | number> }
 
 const TOLERANCE = 0.5
 
@@ -33,12 +38,12 @@ async function loadFrontBatchPromos(admin: any, shopId: string, productIds: stri
   return out
 }
 
-/** Produits et leurs prix (paliers de gros compris). Base sans la colonne de la 202 (code en ligne avant la migration) :
- *  relecture sans elles, le contrôle du prix reste fait. Échec de lecture : null (la vente est refusée, jamais acceptée
- *  sans contrôle). */
+/** Produits et leurs prix (paliers de gros et mesures de vente compris). Base sans les colonnes des 202 et 203 (code en
+ *  ligne avant la migration) : relecture sans elles, le contrôle du prix reste fait. Échec de lecture : null (la vente
+ *  est refusée, jamais acceptée sans contrôle). */
 async function loadPricedProducts(admin: any, shopId: string, ids: string[]): Promise<{ data: any[] | null }> {
   const base = 'id, name, selling_price, promo_price, promo_until, promo_start'
-  const first = await admin.from('products').select(base + ', price_tiers').eq('shop_id', shopId).in('id', ids)
+  const first = await admin.from('products').select(base + ', price_tiers, sale_measures').eq('shop_id', shopId).in('id', ids)
   if (!first.error) return { data: first.data || [] }
   const again = await admin.from('products').select(base).eq('shop_id', shopId).in('id', ids)
   return { data: again.error ? null : again.data || [] }
@@ -58,11 +63,29 @@ export async function validateLinePrices(admin: any, shopId: string, items: Sale
   const now = new Date().toISOString()
   for (const it of priced) {
     const p = byId.get(it.product_id); if (!p) continue
-    // Plancher de la ligne : prix en vigueur, ou meilleur palier de gros atteint par sa quantité (202)
-    const floor = linePrice(p, Number(it.quantity), batchPromos[it.product_id] ?? null, now).price
-    if (Number(it.unit_price) < floor - 0.005) return { ok: false, error: 'price_below_floor', params: { name: p.name, floor } }
+    const issue = lineFloorIssue(p, it, batchPromos[it.product_id] ?? null, now)
+    if (issue) return issue
   }
   return { ok: true }
+}
+
+const hasMeasure = (it: SaleLineInput) => [it.measure_key, it.measure_label, it.measure_qty, it.measure_units].some(v => v !== null && v !== undefined && v !== '')
+
+/** Plancher d'une ligne. Ligne à la mesure (203) : la mesure doit exister sur le produit avec ce contenu, et la ligne
+ *  rapporte au moins son prix × le nombre de mesures (promotions et paliers ne s'y appliquent pas). Sinon : prix en
+ *  vigueur, ou meilleur palier de gros atteint par sa quantité (202). */
+function lineFloorIssue(p: any, it: SaleLineInput, batchPromo: PromoWindow | null, now: string): Extract<SaleValidation, { ok: false }> | null {
+  if (hasMeasure(it)) {
+    if (!validMeasureLine(it)) return { ok: false, error: 'invalid_data' }
+    const m = findMeasure(p, it.measure_key, it.measure_label)
+    if (!m || m.units !== Number(it.measure_units)) return { ok: false, error: 'measure_invalid', params: { name: p.name } }
+    const floor = m.price * Number(it.measure_qty)
+    if (Number(it.unit_price) * Number(it.quantity) < floor - 0.01) return { ok: false, error: 'price_below_floor', params: { name: p.name, floor: m.price } }
+    return null
+  }
+  const floor = linePrice(p, Number(it.quantity), batchPromo, now).price
+  if (Number(it.unit_price) < floor - 0.005) return { ok: false, error: 'price_below_floor', params: { name: p.name, floor } }
+  return null
 }
 
 export async function validateSale(
@@ -90,11 +113,8 @@ export async function validateSale(
   for (const it of items) {
     const p = byId.get(it.product_id)
     if (!p) continue // produit d'une autre boutique : refusé par complete_sale (P0008)
-    // Plancher de la ligne : prix en vigueur, ou meilleur palier de gros atteint par sa quantité (202)
-    const floor = linePrice(p, Number(it.quantity), batchPromos[it.product_id] ?? null, now).price
-    if (Number(it.unit_price) < floor - 0.005) {
-      return { ok: false, error: 'price_below_floor', params: { name: p.name, floor } }
-    }
+    const issue = lineFloorIssue(p, it, batchPromos[it.product_id] ?? null, now)
+    if (issue) return issue
   }
   const discount = Number(amounts.discount) || 0
   if (discount > 0.005 && !opts.discountAllowed) return { ok: false, error: 'discount_not_allowed' }

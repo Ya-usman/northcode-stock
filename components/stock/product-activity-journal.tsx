@@ -78,6 +78,7 @@ const FIELD_KEYS: Record<string, string> = {
   location: 'products.journal_field_location',
   track_serials: 'products.journal_field_track_serials',
   price_tiers: 'wholesale.title',
+  sale_measures: 'measures.title',
   unit: 'products.unit',
   quantity: 'products.quantity',
 }
@@ -176,6 +177,7 @@ export function ProductActivityJournal({ open, onOpenChange, shopId, shopLabel, 
 
   const fieldLabel = (key: string) => (FIELD_KEYS[key] ? t(FIELD_KEYS[key] as any) : key)
   const fmtValue = (key: string, v: unknown) => {
+    if (key === 'sale_measures') return Array.isArray(v) && v.length ? (v as { key: string; label?: string | null; price: number }[]).map(m => `${m.key === 'custom' ? m.label : t(`measures.labels.${m.key}` as any, { count: 1 })} ${formatMoney(Number(m.price))}`).join(' · ') : t('wholesale.review_none')
     if (key === 'price_tiers') return Array.isArray(v) && v.length ? (v as { min_qty: number; price: number }[]).map(x => t('wholesale.tier_item', { min: x.min_qty, price: formatMoney(Number(x.price)) })).join(' · ') : t('wholesale.review_none')
     if (v === null || v === undefined || v === '') return '—'
     if (PRICE_FIELDS.has(key)) return formatMoney(Number(v))

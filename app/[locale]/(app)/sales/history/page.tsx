@@ -1,5 +1,6 @@
 ﻿'use client'
 
+import { receiptView } from '@/lib/products/sale-measures'
 import { PageHeader } from '@/components/layout/page-header'
 import { useState, useEffect, useMemo, Fragment, useRef } from 'react'
 import { usePersistedFilters } from '@/lib/hooks/use-persisted-filters'
@@ -70,6 +71,7 @@ type DialogType = 'cancel' | 'validate'
 
 export default function SalesHistoryPage() {
   const t = useTranslations()
+  const tM = useTranslations('measures')
   const { profile, effectiveShopIds, userShops, roleByShop } = useAuth()
   // Contexte boutique : l'en-tête décide de ce que l'on voit ; une vente existante agit dans SA boutique (droits,
   // devise, pays, produits et clients proposés en modification) — jamais la boutique active cachée.
@@ -145,7 +147,8 @@ export default function SalesHistoryPage() {
           receiptUrl: receiptUrl(sale.receipt_token),
           saleNumber: sale.sale_number,
           createdAt: sale.created_at,
-          items: (s.sale_items || []).map((i: any) => ({ name: i.product_name, qty: Number(i.quantity), unitPrice: Number(i.unit_price), subtotal: Number(i.subtotal), serials: serialsByItem[i.id], originalPrice: i.original_price != null ? Number(i.original_price) : null })),
+          // Vendu à la mesure (203) : « Riz · boîte », 3 au prix de la boîte
+          items: (s.sale_items || []).map((raw: any) => { const i = receiptView(raw, tM as any); return { name: i.product_name, qty: Number(i.quantity), unitPrice: Number(i.unit_price), subtotal: Number(i.subtotal), serials: serialsByItem[i.id], originalPrice: i.original_price != null ? Number(i.original_price) : null } }),
           subtotal: Number(sale.subtotal), discount: Number(sale.discount), tax: Number(sale.tax), total: Number(sale.total),
           amountPaid: Number(sale.amount_paid), balance: Number(sale.balance),
           paymentLabel: (sale.payment_method as string) === 'mixed' ? t('receipt.method_mixed') : payMethodLabel(sale.payment_method, s.shop_id),
@@ -353,7 +356,7 @@ export default function SalesHistoryPage() {
   const buildSalesQuery = (start: Date, end: Date, offset: number, searchMode = false) => {
     let query = supabase
       .from('sales')
-      .select('*, customers(name, phone), sale_items(id, product_id, product_name, quantity, unit_price, original_price, subtotal, stock_shortfall, products(image_url, track_serials))')
+      .select('*, customers(name, phone), sale_items(id, product_id, product_name, quantity, unit_price, original_price, subtotal, stock_shortfall, measure_key, measure_label, measure_qty, measure_units, products(image_url, track_serials))')
       .in('shop_id', effectiveShopIds)
       .gte('created_at', start.toISOString())
       .lte('created_at', end.toISOString())
@@ -575,6 +578,11 @@ export default function SalesHistoryPage() {
 
   const openEditDialog = (sale: Sale) => {
     const s = sale as any
+    // Vente avec des articles vendus à la mesure (203) : elle s'annule et se refait (même règle que le serveur)
+    if ((s.sale_items || []).some((i: any) => i.measure_key)) {
+      toast({ title: t('api_errors.sale_has_measures_not_editable'), variant: 'destructive' })
+      return
+    }
     const items = (s.sale_items || []).map((item: any) => ({
       product_id: item.product_id || null,
       product_name: item.product_name,
@@ -992,7 +1000,7 @@ export default function SalesHistoryPage() {
             <TableCell colSpan={9} className="bg-muted/20 p-0">
               <div className="p-3 space-y-2">
                 <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">{t('sales.items')}</p>
-                {(sale as any).sale_items?.map((item: any) => (
+                {(sale as any).sale_items?.map((raw: any) => receiptView(raw, tM as any)).map((item: any) => (
                   <div key={item.id} className="flex items-center justify-between gap-2 text-xs">
                     <div className="flex items-center gap-2 min-w-0">
                       {item.products?.image_url && (

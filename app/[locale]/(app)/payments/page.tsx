@@ -1,5 +1,6 @@
 'use client'
 
+import { useReceiptView } from '@/lib/products/use-receipt-view'
 import { ShopDot } from '@/components/shops/shop-mark'
 import { shopShortLabel } from '@/lib/shops/short-name'
 import { PageHeader } from '@/components/layout/page-header'
@@ -240,6 +241,7 @@ function calcFifoPOs(amount: number, pos: UnpaidPO[]): POFifoLine[] {
 }
 
 function DebtorCard({ customer, unpaidSales, totalDebt, isExpanded, setExpandedId, canWrite, openRepayDialog, openHistory, onPostpone, onWriteOff, onCancelOpening, fmt, t, saving }: any) {
+  const receiptLine = useReceiptView()
   const paidTotal = unpaidSales.reduce((s: number, sale: UnpaidSale) => s + sale.amount_paid, 0)
   const grandTotal = unpaidSales.reduce((s: number, sale: UnpaidSale) => s + sale.total, 0)
   const progress = grandTotal > 0 ? Math.min(100, (paidTotal / grandTotal) * 100) : 0
@@ -367,7 +369,7 @@ function DebtorCard({ customer, unpaidSales, totalDebt, isExpanded, setExpandedI
                 {sale.cashier_name && sale.sale_status !== 'opening' && <p className="text-[11px] text-muted-foreground">{t('payments.sold_by')} : <strong>{sale.cashier_name}</strong></p>}
                 {sale.sale_items && sale.sale_items.length > 0 && (
                   <div className="pt-1 border-t space-y-0.5">
-                    {sale.sale_items.map((item: any, idx: number) => (
+                    {sale.sale_items.map(receiptLine).map((item: any, idx: number) => (
                       <div key={idx} className="flex justify-between text-[11px] text-muted-foreground">
                         <span>{item.product_name} × {item.quantity}</span>
                         <span>{fmt(item.subtotal)}</span>
@@ -490,6 +492,8 @@ function SupplierDebtorCard({ supplier, unpaidPOs, totalOwed, isExpanded, setExp
 
 export default function CreditsPage() {
   const t = useTranslations()
+  // Lignes vendues à la mesure (203) : « Riz · boîte » × 3, jamais en grammes
+  const receiptLine = useReceiptView()
   const locale = useLocale()
   const { profile, effectiveShopIds, userShops, roleByShop } = useAuth()
   // Contexte boutique : l'en-tête décide de ce que l'on voit ; une dette existante agit dans SA boutique (celle de son
@@ -2428,7 +2432,7 @@ export default function CreditsPage() {
                   {sale.sale_items.length > 0 && (
                     <div className="px-3 py-2 bg-card space-y-0.5">
                       <p className="text-[10px] font-semibold text-muted-foreground uppercase mb-1">{t('sales.items')}</p>
-                      {sale.sale_items.map((item, i) => (
+                      {sale.sale_items.map(receiptLine).map((item, i) => (
                         <div key={i} className="flex justify-between text-[11px] text-muted-foreground">
                           <span>{item.product_name} × {item.quantity}</span>
                           <span>{fmtH(item.subtotal)}</span>
