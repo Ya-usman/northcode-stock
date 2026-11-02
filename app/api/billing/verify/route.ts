@@ -1,14 +1,11 @@
 import { NextResponse, type NextRequest } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/server'
-import { PLANS } from '@/lib/saas/plans'
-import { getPeriodDays, type BillingPeriod } from '@/lib/saas/countries'
-import { writeAuditLog, getClientIp } from '@/lib/api/audit'
 import { fetchWithTimeout } from '@/lib/api/fetch'
-import { enforceShopPlanLimits } from '@/lib/saas/enforce-limits'
-import { processReferralReward } from '@/lib/referrals/process-reward'
-import { applyWalletCredit } from '@/lib/referrals/apply-credit'
-import { getAccountForShop, setAccountPlan } from '@/lib/saas/entity'
-import { currencyCodeForCountry } from '@/lib/saas/currencies'
+import { findPaymentIntent, settlePayment, recordUnmatchedPayment } from '@/lib/billing/payment-intents'
+
+// Retour Paystack (Nigeria). La transaction est relue auprès de Paystack ; seule la préparation faite par le serveur
+// (migration 204, retrouvée par notre référence) dit quoi activer, et seulement si le montant et la devise confirmés
+// correspondent (lib/billing/payment-intents). Les metadata jointes au paiement sont ignorées.
 
 // inline=1 → appelé depuis le callback PaystackPop (client-side fetch) → retourne JSON
 // inline absent → appelé depuis le redirect navigateur Paystack → retourne redirect
@@ -35,157 +32,33 @@ export async function GET(request: NextRequest) {
     || `https://${process.env.VERCEL_URL}`
     || `${request.nextUrl.protocol}//${request.nextUrl.host}`
 
-  if (!reference) {
-    return reply(inline, locale, baseUrl, false, 'no_reference')
-  }
+  if (!reference) return reply(inline, locale, baseUrl, false, 'no_reference')
 
   try {
     const secret = process.env.PAYSTACK_SECRET_KEY!
-
-    const res = await fetchWithTimeout(`https://api.paystack.co/transaction/verify/${reference}`, {
+    const res = await fetchWithTimeout(`https://api.paystack.co/transaction/verify/${encodeURIComponent(reference)}`, {
       headers: { Authorization: `Bearer ${secret}` },
     })
     const data = await res.json()
 
     // Accept only confirmed payments. Bank transfers fired with 'pending' status
     // may never complete (cancelled/rejected transfer) — no rollback exists if
-    // we activate the plan immediately. The charge.success webhook confirms
-    // bank transfers when funds actually arrive, so we can wait safely.
-    const txStatus = data.data?.status
-    if (!data.status || txStatus !== 'success') {
-      return reply(inline, locale, baseUrl, false, 'payment_failed')
+    // we activate the plan immediately.
+    if (!data.status || data.data?.status !== 'success') return reply(inline, locale, baseUrl, false, 'payment_failed')
+
+    const tx = data.data
+    const admin = await createAdminClient() as any
+    const intent = await findPaymentIntent(admin, 'paystack', { reference: tx.reference })
+    if (!intent) {
+      await recordUnmatchedPayment('paystack', { reference: tx.reference, amount: Number(tx.amount) / 100, currency: tx.currency }, request)
+      return reply(inline, locale, baseUrl, false, 'payment_review')
     }
-
-    const { shop_id, plan_id, billing_period = 'monthly', auto_renew = false, credit_amount = 0 } = data.data.metadata
-    const plan = PLANS[plan_id as keyof typeof PLANS]
-
-    if (!plan || plan.id === 'trial') {
-      return reply(inline, locale, baseUrl, false, 'invalid_plan')
-    }
-
-    const supabase = await createAdminClient() as any
-
-    // Idempotency: skip if this reference was already processed
-    const { data: existing } = await supabase
-      .from('subscriptions').select('id').eq('paystack_reference', reference).maybeSingle()
-    if (existing) {
-      return reply(inline, locale, baseUrl, true)
-    }
-
-    const days = getPeriodDays(billing_period as BillingPeriod)
-    const plan_expires_at = new Date(Date.now() + days * 24 * 60 * 60 * 1000).toISOString()
-
-    // Propriétaire et agent de la boutique payée (commission, parrainage) ; l'abonnement est écrit sur l'entreprise
-    const { data: shopRow } = await supabase.from('shops').select('owner_id, agent_id, currency, country').eq('id', shop_id).single()
-    const owner_id = (shopRow as any)?.owner_id
-    const agent_id = (shopRow as any)?.agent_id
-
-    // Abonnement de l'ENTREPRISE de la boutique payée (source de vérité depuis
-    // la migration 153 ; le profil du propriétaire reste aligné par le trigger
-    // miroir). Sans migration : profil du propriétaire, comme avant.
-    const account = await getAccountForShop(supabase, shop_id)
-    if (account) {
-      const { error: planError } = await setAccountPlan(supabase, account, { plan: plan_id, plan_expires_at, trial_ends_at: null })
-      if (planError) console.error('[billing/verify] no resolvable owner for shop', 'plan non enregistré', shop_id, planError)
-    } else {
-      console.error('[billing/verify] no resolvable owner for shop', shop_id)
-    }
-
-    const auth = data.data.authorization
-    const gatewayEmail = data.data.customer?.email ?? null
-    const canAutoCharge = auto_renew && auth?.reusable === true
-
-    const paidAmount = data.data.amount / 100
-
-    const { data: newSub } = await supabase.from('subscriptions').insert({
-      shop_id,
-      plan: plan_id,
-      amount: paidAmount,
-      paystack_reference: reference,
-      billing_period,
-      starts_at: new Date().toISOString(),
-      expires_at: plan_expires_at,
-      status: 'active',
-      auto_renew: !!auto_renew,
-      gateway: 'paystack',
-      gateway_authorization: canAutoCharge ? auth.authorization_code : null,
-      gateway_email: gatewayEmail,
-      gateway_last4: auth?.last4 ?? null,
-    } as any).select('id').single()
-
-    // Programme de parrainage utilisateur — récompense si ce owner a été
-    // parrainé et que c'est son tout premier paiement (idempotent, jamais
-    // bloquant, voir lib/referrals/process-reward.ts).
-    if (owner_id && newSub?.id) {
-      // Awaité (pas fire-and-forget) : une promesse non attendue peut être
-      // coupée par le runtime serverless dès la réponse envoyée. La
-      // fonction garantit déjà de ne jamais lever d'exception.
-      await processReferralReward(supabase, {
-        ownerId: owner_id,
-        subscriptionId: newSub.id,
-        shopCurrency: currencyCodeForCountry((shopRow as any)?.country),
-        planId: plan_id,
-        amount: paidAmount,
-        country: (shopRow as any)?.country ?? null,
-      })
-    }
-
-    // Débite le crédit réservé à l'initiation du paiement (app/api/billing/subscribe)
-    // — seulement maintenant que le paiement est confirmé.
-    if (owner_id && newSub?.id && Number(credit_amount) > 0) {
-      await applyWalletCredit(supabase, {
-        userId: owner_id,
-        intendedAmount: Number(credit_amount),
-        // Cette route est le callback Paystack, qui ne traite QUE des
-        // paiements NGN (seul billing_country='NG' route ici, cf.
-        // app/api/billing/subscribe:country.gateway==='paystack') — ne
-        // jamais dériver de shopRow.country, qui peut avoir changé depuis
-        // (ex. boutique inscrite au Nigeria puis passée au Cameroun).
-        currency: 'NGN',
-        subscriptionId: newSub.id,
-      })
-    }
-
-    // Créer une commission pour l'agent qui a parrainé cette boutique
-    if (agent_id) {
-      const { data: agentRow } = await supabase
-        .from('agents')
-        .select('commission_rate')
-        .eq('id', agent_id)
-        .maybeSingle()
-      if (agentRow) {
-        const paymentAmount = data.data.amount / 100
-        const commissionAmount = (paymentAmount * (agentRow as any).commission_rate) / 100
-        await supabase.from('agent_commissions').insert({
-          agent_id,
-          shop_id,
-          subscription_amount: paymentAmount,
-          commission_amount: commissionAmount,
-          currency: 'NGN', // callback Paystack — toujours NGN, voir note plus haut
-          plan_id,
-          billing_period,
-          paystack_reference: reference,
-          status: 'pending',
-        } as any)
-      }
-    }
-
-    await writeAuditLog({
-      action: 'billing.verify',
-      shop_id,
-      actor_id: owner_id ?? null,
-      target_id: reference,
-      target_type: 'paystack_payment',
-      metadata: { plan_id, billing_period, amount: data.data.amount / 100 },
-      ip: getClientIp(request),
-    })
-
-    // Enforce plan limits after every plan change (handles both downgrades
-    // that suspend excess shops/members and upgrades that reactivate them).
-    // Runs after the audit log so it never blocks the payment confirmation.
-    enforceShopPlanLimits(supabase, shop_id).catch(() => {})
-
-    return reply(inline, locale, baseUrl, true)
+    const auth = tx.authorization
+    const result = await settlePayment(admin, intent, {
+      amount: Number(tx.amount) / 100, currency: tx.currency, gatewayTxId: String(tx.id ?? tx.reference),
+      authorization: auth?.reusable === true ? auth.authorization_code : null, email: tx.customer?.email ?? null, last4: auth?.last4 ?? null,
+    }, request)
+    return result.status === 'review' ? reply(inline, locale, baseUrl, false, 'payment_review') : reply(inline, locale, baseUrl, true)
   } catch (err: any) {
     console.error('[billing/verify]', err)
     return reply(inline, locale, baseUrl, false, 'server')

@@ -3099,6 +3099,8 @@
     "payment_stripe": "Stripe · Visa · Mastercard · PayPal"
   },
   "billing_page": {
+    "payment_review_title": "Ana duba biyan kuɗi",
+    "err_review": "An karɓi biyan kuɗinka amma dole ƙungiyarmu ta duba shi kafin kunnawa. Za mu tuntuɓe ka nan ba da jimawa ba; ba abin da za ka sake yi.",
     "title": "Biyan Kuɗi",
     "current_plan_label": "Shirin da ke aiki:",
     "trial_active": "Gwaji kyauta",

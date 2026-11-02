@@ -1,13 +1,11 @@
 import { NextResponse, type NextRequest } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/server'
-import { getPeriodDays, type BillingPeriod } from '@/lib/saas/countries'
-import { writeAuditLog, getClientIp } from '@/lib/api/audit'
 import { fetchWithTimeout } from '@/lib/api/fetch'
-import { processReferralReward } from '@/lib/referrals/process-reward'
-import { applyWalletCredit } from '@/lib/referrals/apply-credit'
-import { getAccountForShop, setAccountPlan } from '@/lib/saas/entity'
-import { currencyCodeForCountry } from '@/lib/saas/currencies'
+import { findPaymentIntent, settlePayment, recordUnmatchedPayment } from '@/lib/billing/payment-intents'
 
+// Retour Wave (pays FCFA, Wave choisi). La session est relue auprès de Wave ; seule la préparation faite par le serveur
+// (migration 204, retrouvée par la session gardée à la création ou par notre référence client_reference) dit quoi
+// activer, et seulement si le montant et la devise confirmés correspondent (lib/billing/payment-intents).
 export async function GET(request: NextRequest) {
   const { searchParams } = request.nextUrl
   // Wave sends: checkout_id on success_url
@@ -17,114 +15,30 @@ export async function GET(request: NextRequest) {
   const baseUrl = process.env.NEXT_PUBLIC_APP_URL
     || `https://${process.env.VERCEL_URL}`
     || `${request.nextUrl.protocol}//${request.nextUrl.host}`
+  const go = (q: string) => NextResponse.redirect(new URL(`/${locale}/billing?${q}`, baseUrl))
 
-  if (!checkout_id) {
-    return NextResponse.redirect(new URL(`/${locale}/billing?error=no_reference`, baseUrl))
-  }
+  if (!checkout_id) return go('error=no_reference')
 
   try {
     const waveKey = process.env.WAVE_API_KEY!
-
-    const res = await fetchWithTimeout(`https://api.wave.com/v1/checkout/sessions/${checkout_id}`, {
+    const res = await fetchWithTimeout(`https://api.wave.com/v1/checkout/sessions/${encodeURIComponent(checkout_id)}`, {
       headers: { Authorization: `Bearer ${waveKey}` },
     })
     const data = await res.json()
+    if (data.payment_status !== 'succeeded') return go('error=payment_failed')
 
-    if (data.payment_status !== 'succeeded') {
-      return NextResponse.redirect(new URL(`/${locale}/billing?error=payment_failed`, baseUrl))
+    const admin = await createAdminClient() as any
+    const intent = await findPaymentIntent(admin, 'wave', { gatewayReference: data.id || checkout_id, reference: data.client_reference })
+    if (!intent) {
+      await recordUnmatchedPayment('wave', { reference: data.client_reference || checkout_id, amount: data.amount, currency: data.currency }, request)
+      return go('error=payment_review')
     }
-
-    // client_reference: "{shop_id}|{plan_id}|{billing_period}|{tx_ref}|{auto_renew}|{credit_amount}"
-    const parts = (data.client_reference || '').split('|')
-    const shop_id = parts[0]
-    const plan_id = parts[1]
-    const billing_period = (parts[2] || 'monthly') as BillingPeriod
-    const auto_renew = parts[4] === '1'
-    const credit_amount = Number(parts[5]) || 0
-
-    if (!shop_id || !plan_id) {
-      return NextResponse.redirect(new URL(`/${locale}/billing?error=invalid_meta`, baseUrl))
-    }
-
-    const supabase = await createAdminClient() as any
-
-    // Idempotency: skip if already processed
-    const { data: existing } = await supabase
-      .from('subscriptions').select('id').eq('paystack_reference', checkout_id).maybeSingle()
-    if (existing) {
-      return NextResponse.redirect(new URL(`/${locale}/billing?success=1`, baseUrl))
-    }
-
-    const days = getPeriodDays(billing_period)
-    const plan_expires_at = new Date(Date.now() + days * 24 * 60 * 60 * 1000).toISOString()
-
-    // owner_id via shop_members d'abord (fiable) — shops.owner_id peut être
-    // null (voir lib/api/shop-auth.ts:getOwnerShopIds).
-    const { data: ownerMember } = await supabase
-      .from('shop_members').select('user_id').eq('shop_id', shop_id).eq('role', 'owner').eq('is_active', true).maybeSingle()
-    const { data: shopRow } = await supabase.from('shops').select('owner_id, currency, country').eq('id', shop_id).single()
-    const owner_id = ownerMember?.user_id ?? (shopRow as any)?.owner_id
-
-    // Abonnement de l'ENTREPRISE de la boutique payée (source de vérité depuis
-    // la migration 153 ; le profil du propriétaire reste aligné par le trigger
-    // miroir). Sans migration : profil du propriétaire, comme avant.
-    const account = await getAccountForShop(supabase, shop_id)
-    if (account) {
-      const { error: planError } = await setAccountPlan(supabase, account, { plan: plan_id, plan_expires_at, trial_ends_at: null })
-      if (planError) console.error('[billing/wave/verify] no resolvable owner for shop', 'plan non enregistré', shop_id, planError)
-    } else {
-      console.error('[billing/wave/verify] no resolvable owner for shop', shop_id)
-    }
-
-    const paidAmount = Number(data.amount) || 0
-
-    const { data: newSub } = await supabase.from('subscriptions').insert({
-      shop_id,
-      plan: plan_id,
-      amount: paidAmount,
-      paystack_reference: checkout_id,
-      billing_period,
-      starts_at: new Date().toISOString(),
-      expires_at: plan_expires_at,
-      status: 'active',
-      auto_renew,
-      gateway: 'wave',
-      gateway_email: data.client_phone ?? null,
-    } as any).select('id').single()
-
-    if (owner_id && newSub?.id) {
-      await processReferralReward(supabase, {
-        ownerId: owner_id,
-        subscriptionId: newSub.id,
-        shopCurrency: currencyCodeForCountry((shopRow as any)?.country),
-        planId: plan_id,
-        amount: paidAmount,
-        country: (shopRow as any)?.country ?? null,
-      })
-    }
-
-    if (owner_id && newSub?.id && credit_amount > 0) {
-      await applyWalletCredit(supabase, {
-        userId: owner_id,
-        intendedAmount: credit_amount,
-        currency: currencyCodeForCountry((shopRow as any)?.country),
-        subscriptionId: newSub.id,
-      })
-    }
-
-    await writeAuditLog({
-      action: 'billing.verify',
-      shop_id,
-      actor_id: owner_id ?? null,
-      target_id: checkout_id,
-      target_type: 'wave_payment',
-      metadata: { plan_id, billing_period, amount: Number(data.amount) || 0 },
-      ip: getClientIp(request),
-    })
-
-    return NextResponse.redirect(new URL(`/${locale}/billing?success=1`, baseUrl))
+    const result = await settlePayment(admin, intent, {
+      amount: Number(data.amount), currency: data.currency, gatewayTxId: String(data.transaction_id || data.id || checkout_id),
+    }, request)
+    return result.status === 'review' ? go('error=payment_review') : go('success=1')
   } catch (err: any) {
     console.error('[billing/wave/verify]', err)
-    return NextResponse.redirect(new URL(`/${locale}/billing?error=server`, baseUrl))
+    return go('error=server')
   }
 }

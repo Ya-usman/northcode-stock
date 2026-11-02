@@ -1,136 +1,49 @@
 import { NextResponse, type NextRequest } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/server'
-import { getPeriodDays, type BillingPeriod } from '@/lib/saas/countries'
-import { writeAuditLog, getClientIp } from '@/lib/api/audit'
 import { fetchWithTimeout } from '@/lib/api/fetch'
-import { processReferralReward } from '@/lib/referrals/process-reward'
-import { applyWalletCredit } from '@/lib/referrals/apply-credit'
-import { getAccountForShop, setAccountPlan } from '@/lib/saas/entity'
-import { currencyCodeForCountry } from '@/lib/saas/currencies'
+import { findPaymentIntent, settlePayment, recordUnmatchedPayment } from '@/lib/billing/payment-intents'
 
+// Retour Flutterwave (pays FCFA hors Cameroun). La transaction est relue auprès de Flutterwave ; seule la préparation
+// faite par le serveur (migration 204, retrouvée par notre référence tx_ref) dit quoi activer, et seulement si le montant
+// et la devise confirmés correspondent (lib/billing/payment-intents). Les informations jointes au paiement sont ignorées.
 export async function GET(request: NextRequest) {
   const { searchParams } = request.nextUrl
   // Flutterwave sends: status, tx_ref, transaction_id
   const status = searchParams.get('status')
-  const tx_ref = searchParams.get('tx_ref')
   const transaction_id = searchParams.get('transaction_id')
   const locale = searchParams.get('locale') || 'en'
 
   const baseUrl = process.env.NEXT_PUBLIC_APP_URL
     || `https://${process.env.VERCEL_URL}`
     || `${request.nextUrl.protocol}//${request.nextUrl.host}`
+  const go = (q: string) => NextResponse.redirect(new URL(`/${locale}/billing?${q}`, baseUrl))
 
-  if (status !== 'successful') {
-    return NextResponse.redirect(new URL(`/${locale}/billing?error=payment_failed`, baseUrl))
-  }
-
-  if (!transaction_id) {
-    return NextResponse.redirect(new URL(`/${locale}/billing?error=no_reference`, baseUrl))
-  }
+  if (status !== 'successful') return go('error=payment_failed')
+  if (!transaction_id) return go('error=no_reference')
 
   try {
     const secretKey = process.env.FLUTTERWAVE_SECRET_KEY!
-
-    // Verify transaction with Flutterwave
-    const res = await fetchWithTimeout(`https://api.flutterwave.com/v3/transactions/${transaction_id}/verify`, {
+    // La transaction relue auprès de Flutterwave fait foi (jamais les paramètres de l'adresse de retour)
+    const res = await fetchWithTimeout(`https://api.flutterwave.com/v3/transactions/${encodeURIComponent(transaction_id)}/verify`, {
       headers: { Authorization: `Bearer ${secretKey}` },
     })
     const data = await res.json()
+    if (data.status !== 'success' || data.data?.status !== 'successful') return go('error=payment_failed')
 
-    if (data.status !== 'success' || data.data?.status !== 'successful') {
-      return NextResponse.redirect(new URL(`/${locale}/billing?error=payment_failed`, baseUrl))
+    const tx = data.data
+    const admin = await createAdminClient() as any
+    const intent = await findPaymentIntent(admin, 'flutterwave', { reference: tx.tx_ref })
+    if (!intent) {
+      await recordUnmatchedPayment('flutterwave', { reference: tx.tx_ref, amount: tx.amount, currency: tx.currency }, request)
+      return go('error=payment_review')
     }
-
-    const { shop_id, plan_id, billing_period = 'monthly', auto_renew = false, credit_amount = 0 } = data.data?.meta || {}
-
-    if (!shop_id || !plan_id) {
-      return NextResponse.redirect(new URL(`/${locale}/billing?error=invalid_meta`, baseUrl))
-    }
-
-    const supabase = await createAdminClient() as any
-
-    // Idempotency: skip if this transaction was already processed
-    const { data: existing } = await supabase
-      .from('subscriptions').select('id').eq('paystack_reference', tx_ref ?? '').maybeSingle()
-    if (existing) {
-      return NextResponse.redirect(new URL(`/${locale}/billing?success=1`, baseUrl))
-    }
-
-    const days = getPeriodDays(billing_period as BillingPeriod)
-    const plan_expires_at = new Date(Date.now() + days * 24 * 60 * 60 * 1000).toISOString()
-
-    // Propriétaire de la boutique payée (parrainage, journal) — via shop_members ; l'abonnement est écrit sur l'entreprise
-    // d'abord (fiable), shops.owner_id en repli seulement (peut être null,
-    // voir lib/api/shop-auth.ts:getOwnerShopIds).
-    const { data: ownerMember } = await supabase
-      .from('shop_members').select('user_id').eq('shop_id', shop_id).eq('role', 'owner').eq('is_active', true).maybeSingle()
-    const { data: shopRow } = await supabase.from('shops').select('owner_id, currency, country').eq('id', shop_id).single()
-    const owner_id = ownerMember?.user_id ?? (shopRow as any)?.owner_id
-
-    // Abonnement de l'ENTREPRISE de la boutique payée (source de vérité depuis
-    // la migration 153 ; le profil du propriétaire reste aligné par le trigger
-    // miroir). Sans migration : profil du propriétaire, comme avant.
-    const account = await getAccountForShop(supabase, shop_id)
-    if (account) {
-      const { error: planError } = await setAccountPlan(supabase, account, { plan: plan_id, plan_expires_at, trial_ends_at: null })
-      if (planError) console.error('[billing/flutterwave/verify] no resolvable owner for shop', 'plan non enregistré', shop_id, planError)
-    } else {
-      console.error('[billing/flutterwave/verify] no resolvable owner for shop', shop_id)
-    }
-
-    const cardToken = data.data?.card?.token ?? null
-    const last4 = data.data?.card?.last_4digits ?? null
-    const paidAmount = data.data?.amount || 0
-
-    const { data: newSub } = await supabase.from('subscriptions').insert({
-      shop_id,
-      plan: plan_id,
-      amount: paidAmount,
-      billing_period,
-      paystack_reference: tx_ref,
-      starts_at: new Date().toISOString(),
-      expires_at: plan_expires_at,
-      status: 'active',
-      auto_renew: !!auto_renew,
-      gateway: 'flutterwave',
-      gateway_authorization: auto_renew && cardToken ? cardToken : null,
-      gateway_email: data.data?.customer?.email ?? null,
-      gateway_last4: last4,
-    } as any).select('id').single()
-
-    if (owner_id && newSub?.id) {
-      await processReferralReward(supabase, {
-        ownerId: owner_id,
-        subscriptionId: newSub.id,
-        shopCurrency: currencyCodeForCountry((shopRow as any)?.country),
-        planId: plan_id,
-        amount: paidAmount,
-        country: (shopRow as any)?.country ?? null,
-      })
-    }
-
-    if (owner_id && newSub?.id && Number(credit_amount) > 0) {
-      await applyWalletCredit(supabase, {
-        userId: owner_id,
-        intendedAmount: Number(credit_amount),
-        currency: currencyCodeForCountry((shopRow as any)?.country),
-        subscriptionId: newSub.id,
-      })
-    }
-
-    await writeAuditLog({
-      action: 'billing.verify',
-      shop_id,
-      actor_id: owner_id ?? null,
-      target_id: transaction_id,
-      target_type: 'flutterwave_payment',
-      metadata: { plan_id, billing_period, amount: data.data?.amount || 0 },
-      ip: getClientIp(request),
-    })
-
-    return NextResponse.redirect(new URL(`/${locale}/billing?success=1`, baseUrl))
+    const result = await settlePayment(admin, intent, {
+      amount: Number(tx.amount), currency: tx.currency, gatewayTxId: String(tx.id ?? transaction_id),
+      authorization: tx.card?.token ?? null, email: tx.customer?.email ?? null, last4: tx.card?.last_4digits ?? null,
+    }, request)
+    return result.status === 'review' ? go('error=payment_review') : go('success=1')
   } catch (err: any) {
     console.error('[billing/flutterwave/verify]', err)
-    return NextResponse.redirect(new URL(`/${locale}/billing?error=server`, baseUrl))
+    return go('error=server')
   }
 }

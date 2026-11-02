@@ -3099,6 +3099,8 @@
     "payment_stripe": "Stripe · Visa · Mastercard · PayPal"
   },
   "billing_page": {
+    "payment_review_title": "Paiement en cours de vérification",
+    "err_review": "Votre paiement a été reçu mais doit être vérifié par notre équipe avant l’activation. Nous vous contactons rapidement ; vous n’avez rien à refaire.",
     "title": "Abonnement",
     "current_plan_label": "Plan actuel :",
     "trial_active": "Essai gratuit",

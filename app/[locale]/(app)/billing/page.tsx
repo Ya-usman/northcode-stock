@@ -116,6 +116,11 @@ export default function BillingPage({ params: { locale } }: { params: { locale: 
             })
           }
         })
+    } else if (error === 'payment_review') {
+      // Paiement reçu mais différent de ce qui était préparé (montant, devise) ou sans préparation : rien n'est activé,
+      // l'équipe vérifie (migration 204). Message neutre, jamais « échec ».
+      toast({ title: t('payment_review_title'), description: t('err_review') })
+      setTimeout(() => { window.location.replace(`/${locale}/billing`) }, 4000)
     } else if (error) {
       const messages: Record<string, string> = {
         payment_failed: t('err_failed'),

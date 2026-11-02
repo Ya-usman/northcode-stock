@@ -7,6 +7,7 @@ import { fetchWithTimeout } from '@/lib/api/fetch'
 import { getApiTranslator } from '@/lib/api/i18n'
 import { writeAuditLog, getClientIp } from '@/lib/api/audit'
 import { enforceShopPlanLimits } from '@/lib/saas/enforce-limits'
+import { createPaymentIntent, newPaymentReference, setGatewayReference, failPaymentIntent, type Gateway } from '@/lib/billing/payment-intents'
 import { previewWalletCredit, applyWalletCredit } from '@/lib/referrals/apply-credit'
 import { getAccountForShop, setAccountPlan } from '@/lib/saas/entity'
 import { z } from 'zod'
@@ -151,6 +152,24 @@ export async function POST(request: Request) {
       }
     }
 
+    // ── Paiement PRÉPARÉ par le serveur (migration 204) ─────────────────────
+    // Formule, durée, devise et montant attendu enregistrés ici ; la confirmation (routes */verify) ne croit plus les
+    // informations jointes au paiement et n'active que ce qui a été préparé, au montant prévu.
+    const gateway: Gateway = country.gateway === 'flutterwave' && payment_method === 'wave' ? 'wave' : country.gateway
+    const reference = newPaymentReference(shop_id)
+    if (gateway !== 'stripe') {
+      const prepared = await createPaymentIntent(supabase, {
+        reference, gateway, entity_id: account?.entityId ?? null, shop_id, owner_id: (shopData as any)?.owner_id ?? account?.ownerId ?? null,
+        plan: plan_id as any, billing_period: period, currency: billingCurrency, amount, credit_applied: creditApplied, amount_due: amountDue,
+        auto_renew: !!auto_renew,
+      })
+      if (!prepared.ok) {
+        console.error('[billing/subscribe] préparation du paiement impossible', prepared.error)
+        return NextResponse.json({ error: t('payment_gateway_error') }, { status: 500 })
+      }
+    }
+    const gatewayFailed = async (why: string) => { await failPaymentIntent(supabase, reference, why) }
+
     // ── Nigeria → Paystack ──────────────────────────────────────────────────
     if (country.gateway === 'paystack') {
       const secret = process.env.PAYSTACK_SECRET_KEY
@@ -163,20 +182,22 @@ export async function POST(request: Request) {
         headers: { Authorization: `Bearer ${secret}`, 'Content-Type': 'application/json' },
         body: JSON.stringify({
           email,
-          amount: amountDue * 100,
+          reference,
+          currency: billingCurrency,
+          amount: Math.round(amountDue * 100),
           callback_url: `${baseUrl}/api/billing/verify?locale=${locale}`,
           metadata: { shop_id, plan_id, locale, billing_period: period, gateway: 'paystack', auto_renew, credit_amount: creditApplied },
           channels,
         }),
       })
       const data = await res.json()
-      if (!data.status) return NextResponse.json({ error: data.message || t('payment_gateway_error') }, { status: 500 })
+      if (!data.status) { await gatewayFailed(String(data.message || 'paystack_init')); return NextResponse.json({ error: data.message || t('payment_gateway_error') }, { status: 500 }) }
 
       return NextResponse.json({
         authorization_url: data.data.authorization_url,
         reference: data.data.reference,
         public_key: process.env.NEXT_PUBLIC_PAYSTACK_PUBLIC_KEY || '',
-        amount_kobo: amountDue * 100,
+        amount_kobo: Math.round(amountDue * 100),
         channels,
       })
     }
@@ -196,7 +217,8 @@ export async function POST(request: Request) {
         body: JSON.stringify({
           email,
           amount: amountDue,
-          currency: country.currency,
+          currency: billingCurrency,
+          reference,
           callback: `${baseUrl}/api/billing/notchpay/verify?locale=${locale}`,
           description: `Abonnement StockShop Plan ${plan_id}`,
           meta: { shop_id, plan_id, locale, billing_period: period, auto_renew, credit_amount: creditApplied },
@@ -204,7 +226,8 @@ export async function POST(request: Request) {
       })
       const data = await res.json()
       const url = data.authorization_url
-      if (!url) return NextResponse.json({ error: data.message || t('payment_gateway_error') }, { status: 500 })
+      if (!url) { await gatewayFailed(String(data.message || 'notchpay_init')); return NextResponse.json({ error: data.message || t('payment_gateway_error') }, { status: 500 }) }
+      await setGatewayReference(supabase, reference, data.transaction?.reference)
       return NextResponse.json({ authorization_url: url, reference: data.transaction?.reference || '' })
     }
 
@@ -213,26 +236,23 @@ export async function POST(request: Request) {
       const waveKey = process.env.WAVE_API_KEY
       if (!waveKey) return NextResponse.json({ error: t('wave_not_configured') }, { status: 500 })
 
-      const tx_ref = `SS-${shop_id.slice(0, 8)}-${Date.now()}`
-
       const res = await fetchWithTimeout('https://api.wave.com/v1/checkout/sessions', {
         method: 'POST',
         headers: { Authorization: `Bearer ${waveKey}`, 'Content-Type': 'application/json' },
         body: JSON.stringify({
           amount: String(amountDue),
-          currency: country.currency,
+          currency: billingCurrency,
           success_url: `${baseUrl}/api/billing/wave/verify?locale=${locale}`,
           error_url: `${baseUrl}/${locale}/billing?error=payment_failed`,
-          // Champs ajoutés en fin de chaîne uniquement — les index existants
-          // (parts[0..4]) ne doivent jamais bouger, wave/verify les lit par position.
-          client_reference: `${shop_id}|${plan_id}|${period}|${tx_ref}|${auto_renew ? '1' : '0'}|${creditApplied}`,
+          // Notre référence seule : la formule, la durée et le montant sont dans la préparation (migration 204)
+          client_reference: reference,
         }),
       })
       const data = await res.json()
       const url = data.wave_launch_url
-      if (!url) return NextResponse.json({ error: data.message || t('payment_gateway_error') }, { status: 500 })
-
-      return NextResponse.json({ authorization_url: url, reference: tx_ref })
+      if (!url) { await gatewayFailed(String(data.message || 'wave_init')); return NextResponse.json({ error: data.message || t('payment_gateway_error') }, { status: 500 }) }
+      await setGatewayReference(supabase, reference, data.id)
+      return NextResponse.json({ authorization_url: url, reference })
     }
 
     // ── Flutterwave (tous les autres pays FCFA) ────────────────────────────
@@ -240,7 +260,7 @@ export async function POST(request: Request) {
       const secretKey = process.env.FLUTTERWAVE_SECRET_KEY
       if (!secretKey) return NextResponse.json({ error: t('flutterwave_not_configured') }, { status: 500 })
 
-      const tx_ref = `SS-${shop_id.slice(0, 8)}-${Date.now()}`
+      const tx_ref = reference
       const payment_options = toFlutterwaveOption(payment_method ?? '', country.code)
 
       const res = await fetchWithTimeout('https://api.flutterwave.com/v3/payments', {
@@ -249,7 +269,7 @@ export async function POST(request: Request) {
         body: JSON.stringify({
           tx_ref,
           amount: amountDue,
-          currency: country.currency,
+          currency: billingCurrency,
           redirect_url: `${baseUrl}/api/billing/flutterwave/verify?locale=${locale}`,
           customer: { email },
           meta: { shop_id, plan_id, locale, billing_period: period, auto_renew, credit_amount: creditApplied },
@@ -263,7 +283,7 @@ export async function POST(request: Request) {
       })
       const data = await res.json()
       const url = data.data?.link
-      if (!url) return NextResponse.json({ error: data.message || t('payment_gateway_error') }, { status: 500 })
+      if (!url) { await gatewayFailed(String(data.message || 'flutterwave_init')); return NextResponse.json({ error: data.message || t('payment_gateway_error') }, { status: 500 }) }
 
       return NextResponse.json({ authorization_url: url, reference: tx_ref })
     }

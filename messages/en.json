@@ -3099,6 +3099,8 @@
     "payment_stripe": "Stripe · Visa · Mastercard · PayPal"
   },
   "billing_page": {
+    "payment_review_title": "Payment being checked",
+    "err_review": "Your payment was received but must be checked by our team before activation. We will contact you shortly; there is nothing to redo.",
     "title": "Subscription",
     "current_plan_label": "Current plan:",
     "trial_active": "Free trial",
