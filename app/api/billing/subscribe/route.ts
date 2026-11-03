@@ -12,6 +12,7 @@ import { createPaymentIntent, newPaymentReference, setGatewayReference, failPaym
 import { previewWalletCredit, applyWalletCredit } from '@/lib/referrals/apply-credit'
 import { getAccountForShop, setAccountPlan } from '@/lib/saas/entity'
 import { getLegacyTerms, monthlyPriceFor } from '@/lib/saas/legacy-terms'
+import { getPricingCountry, resolvePricingCountry, requestCountry } from '@/lib/saas/pricing-country'
 import { z } from 'zod'
 
 const subscribeSchema = z.object({
@@ -99,7 +100,12 @@ export async function POST(request: Request) {
     // silencieusement du montant réellement facturé ici.
     // Pays de facturation de l'ENTREPRISE (migration 153), sinon celui de la boutique
     const account = await getAccountForShop(supabase, shop_id)
-    const country = getCountry(account?.billing_country || (shopData as any)?.billing_country || (shopData as any)?.country)
+    // Pays de TARIFICATION (migration 208) : fixé par l'administration, sinon l'activité réelle de la boutique s'il s'agit
+    // d'une zone plus chère, sinon le pays déclaré à l'inscription (lib/saas/pricing-country). Jamais choisi par l'appareil.
+    const pricing = account
+      ? await getPricingCountry(supabase, account)
+      : resolvePricingCountry({ declared: (shopData as any)?.billing_country || (shopData as any)?.country, activity: [] })
+    const country = getCountry(pricing.country)
     // Devise de FACTURATION (jamais country.currency directement) : pour les
     // 27 pays UE, StockShop facture toujours en EUR, quelle que soit la
     // devise boutique du pays (PLN, SEK, CZK…) — voir getBillingCurrency.
@@ -180,6 +186,7 @@ export async function POST(request: Request) {
         reference, gateway, entity_id: account?.entityId ?? null, shop_id, owner_id: (shopData as any)?.owner_id ?? account?.ownerId ?? null,
         plan: plan_id as any, billing_period: period, currency: billingCurrency, amount, credit_applied: creditApplied, amount_due: amountDue,
         auto_renew: !!auto_renew,
+        request_country: requestCountry(request), pricing_reason: pricing.reason, pricing_country: pricing.country,
       })
       if (!prepared.ok) {
         console.error('[billing/subscribe] préparation du paiement impossible', prepared.error)

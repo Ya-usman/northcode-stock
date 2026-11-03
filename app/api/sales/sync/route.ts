@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/server'
+import { recordActivity } from '@/lib/saas/pricing-country'
 import { getAuthedUser, checkShopRole } from '@/lib/api/shop-auth'
 import { canWriteFeature } from '@/lib/api/role-permissions'
 import { validateSale } from '@/lib/api/sale-validation'
@@ -144,6 +145,8 @@ export async function POST(request: Request) {
         ip: getClientIp(request),
       })
     }
+    // Pays d'activité (tarification, migration 208) : une vente synchronisée compte une opération
+    if (!data?.already_existed) await recordActivity(admin, request, { shopId }, 'op')
     return NextResponse.json({ success: true, already_existed: !!data?.already_existed, sale: withoutCost(sale) })
   } catch (err: any) {
     return NextResponse.json({ error: err.message }, { status: 500 })

@@ -57,6 +57,7 @@ export async function GET(request: NextRequest) {
     const result = await settlePayment(admin, intent, {
       amount: Number(tx.amount) / 100, currency: tx.currency, gatewayTxId: String(tx.id ?? tx.reference),
       authorization: auth?.reusable === true ? auth.authorization_code : null, email: tx.customer?.email ?? null, last4: auth?.last4 ?? null,
+      payerCountry: auth?.country_code ?? null,
     }, request)
     return result.status === 'review' ? reply(inline, locale, baseUrl, false, 'payment_review') : reply(inline, locale, baseUrl, true)
   } catch (err: any) {

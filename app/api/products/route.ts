@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/server'
+import { recordActivity } from '@/lib/saas/pricing-country'
 import { getAuthedUser, checkShopRole } from '@/lib/api/shop-auth'
 import { writeAuditLog, getClientIp } from '@/lib/api/audit'
 import { canViewCost, canWriteFeature } from '@/lib/api/role-permissions'
@@ -727,6 +728,8 @@ export async function PUT(request: Request) {
       })
     }
 
+    // Pays d'activité (tarification, migration 208) : une entrée de stock compte une opération
+    await recordActivity(await createAdminClient(), request, { shopId: shop_id }, 'op')
     return NextResponse.json({ ok: true })
   } catch (e: any) {
     return NextResponse.json({ error: e.message }, { status: 500 })

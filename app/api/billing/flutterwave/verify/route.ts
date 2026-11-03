@@ -40,6 +40,7 @@ export async function GET(request: NextRequest) {
     const result = await settlePayment(admin, intent, {
       amount: Number(tx.amount), currency: tx.currency, gatewayTxId: String(tx.id ?? transaction_id),
       authorization: tx.card?.token ?? null, email: tx.customer?.email ?? null, last4: tx.card?.last_4digits ?? null,
+      payerCountry: typeof tx.card?.country === 'string' ? tx.card.country.trim().slice(-2) : null,
     }, request)
     return result.status === 'review' ? go('error=payment_review') : go('success=1')
   } catch (err: any) {

@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/server'
+import { recordActivity } from '@/lib/saas/pricing-country'
 import { getAuthedUser, checkShopRole } from '@/lib/api/shop-auth'
 import { canWriteFeature } from '@/lib/api/role-permissions'
 import { validateSale } from '@/lib/api/sale-validation'
@@ -90,6 +91,8 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: error.message }, { status: 400 })
     }
 
+    // Pays d'activité de l'entreprise (tarification, migration 208) : code pays de l'hébergeur seulement, jamais bloquant
+    await recordActivity(admin, request, { shopId: shop_id }, 'op')
     // La vente est renvoyée pour le reçu, sans le coût d'achat de ses lignes
     // Numéros vendus joints aux lignes (ticket)
     return NextResponse.json({ success: true, ...data, ...(data?.sale ? { sale: withoutCost(await withSaleSerials(admin, data.sale)) } : {}) })

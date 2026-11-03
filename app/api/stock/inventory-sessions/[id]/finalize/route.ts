@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { getApiTranslator } from '@/lib/api/i18n'
 import { inventoryAccess, inventoryDbError, isUuid } from '@/lib/api/inventory'
+import { recordActivity } from '@/lib/saas/pricing-country'
 
 // POST /api/stock/inventory-sessions/:id/finalize — appliquer les écarts au stock DU MOMENT (une seule transaction,
 // idempotente ; journal écrit dans la même transaction). Réponses : status 'completed' (already_completed si déjà
@@ -15,6 +16,8 @@ export async function POST(request: Request, { params }: { params: { id: string 
     if (!isUuid(params.id)) return NextResponse.json({ error: t('inventory_session_not_found') }, { status: 404 })
     const { data, error } = await access.admin.rpc('finalize_inventory_session', { p_session_id: params.id, p_shop_id: shop_id, p_user: access.userId })
     if (error) return inventoryDbError(t, error)
+    // Pays d'activité (tarification, migration 208)
+    await recordActivity(access.admin, request, { shopId: shop_id }, 'op')
     return NextResponse.json({ data })
   } catch (e: any) {
     return NextResponse.json({ error: e.message }, { status: 500 })

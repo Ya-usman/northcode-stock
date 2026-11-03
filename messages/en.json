@@ -3099,6 +3099,8 @@
     "payment_stripe": "Stripe · Visa · Mastercard · PayPal"
   },
   "billing_page": {
+    "pricing_activity": "Your shop is mostly used from: {country} ({share}% of activity over the last 30 days). That country’s pricing applies. A mistake? Contact us.",
+    "pricing_override": "{country} pricing, set by our team. A question? Contact us.",
     "locked_price": "Price guaranteed as long as you renew",
     "legacy_limits": "Until {date}, you keep your current plan’s limits: {shops} shops and {members} staff.",
     "period_monthly": "Monthly",

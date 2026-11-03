@@ -19,6 +19,7 @@ import { enforceShopPlanLimits } from '@/lib/saas/enforce-limits'
 import { processReferralReward } from '@/lib/referrals/process-reward'
 import { applyWalletCredit } from '@/lib/referrals/apply-credit'
 import { writeAuditLog, getClientIp } from '@/lib/api/audit'
+import { priceZone } from '@/lib/saas/pricing-country'
 
 export type Gateway = 'paystack' | 'notchpay' | 'flutterwave' | 'wave' | 'stripe'
 export type PaidPlan = 'starter' | 'pro' | 'business'
@@ -39,6 +40,10 @@ export interface PaymentIntent {
   amount_due: number
   auto_renew: boolean
   status: 'pending' | 'paid' | 'review' | 'failed'
+  /** Pays de la demande (hébergeur) et raison du pays de tarification (migration 208) */
+  request_country?: string | null
+  pricing_reason?: 'declared' | 'activity' | 'override' | null
+  pricing_country?: string | null
 }
 
 /** Notre référence de paiement : unique, sans information exploitable */
@@ -81,6 +86,8 @@ export interface ConfirmedPayment {
   authorization?: string | null
   email?: string | null
   last4?: string | null
+  /** Pays du moyen de paiement (pays de la carte), si la passerelle le donne */
+  payerCountry?: string | null
 }
 
 export type SettleResult = { status: 'activated' | 'already' } | { status: 'review'; reason: string }
@@ -119,6 +126,7 @@ export async function settlePayment(admin: any, intent: PaymentIntent, paid: Con
   // Règlement UNIQUE : deux retours simultanés de la passerelle n'activent qu'une fois
   const { data: claimed } = await admin.from('payment_intents').update({
     status: 'paid', paid_amount: paidAmount, paid_currency: paidCurrency, gateway_tx_id: paid.gatewayTxId ?? null, settled_at: new Date().toISOString(),
+    ...(payerCountryOf(paid) ? { payer_country: payerCountryOf(paid) } : {}),
   }).eq('id', intent.id).eq('status', 'pending').select('id')
   if (!claimed?.length) return { status: 'already' }
 
@@ -176,7 +184,25 @@ export async function settlePayment(admin: any, intent: PaymentIntent, paid: Con
     ip: getClientIp(request),
   } as any)
 
+  // Écart de pays (migration 208) : moyen de paiement ET demande depuis une zone plus chère que le pays tarifé. Jamais un
+  // refus ni un changement de prix (diaspora, voyage) : une trace pour l'administration (page « Écarts de pays »).
+  const payer = payerCountryOf(paid)
+  if (intent.pricing_country && payer && intent.request_country
+    && priceZone(payer) > priceZone(intent.pricing_country) && priceZone(intent.request_country) > priceZone(intent.pricing_country)) {
+    await writeAuditLog({
+      action: 'billing.country_review', shop_id: intent.shop_id, actor_id: ownerId, target_id: intent.reference, target_type: `${intent.gateway}_payment`,
+      metadata: { pricing_country: intent.pricing_country, payer_country: payer, request_country: intent.request_country, plan: intent.plan, amount: paidAmount, currency: intent.currency },
+      ip: getClientIp(request),
+    } as any)
+  }
+
   // Limites de la formule remises en ordre après chaque paiement (avant : Paystack seulement) ; jamais bloquant
   enforceShopPlanLimits(admin, intent.shop_id).catch(() => {})
   return { status: 'activated' }
+}
+
+/** Pays du moyen de paiement, s'il est lisible (code ISO à 2 lettres) */
+function payerCountryOf(paid: ConfirmedPayment): string | null {
+  const c = String(paid.payerCountry || '').trim().toUpperCase()
+  return /^[A-Z]{2}$/.test(c) ? c : null
 }

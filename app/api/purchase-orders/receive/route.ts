@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/server'
+import { recordActivity } from '@/lib/saas/pricing-country'
 import { getAuthedUser, checkShopRole } from '@/lib/api/shop-auth'
 import { writeAuditLog, getClientIp } from '@/lib/api/audit'
 import { canViewCost, canWriteFeature } from '@/lib/api/role-permissions'
@@ -143,6 +144,8 @@ export async function POST(request: Request) {
     }
 
     // data.items[].price_from / price_to = ancien et nouveau prix d'achat : seulement avec le droit au coût
+    // Pays d'activité (tarification, migration 208)
+    await recordActivity(admin, request, { shopId: shop_id }, 'op')
     return NextResponse.json({ data: costVisible(data, seesCost) })
   } catch (e: any) {
     return NextResponse.json({ error: e.message }, { status: 500 })

@@ -37,6 +37,7 @@ export default function BillingPage({ params: { locale } }: { params: { locale: 
   const t = useTranslations('billing_page')
   const tRoot = useTranslations()
   const { shop, user, refreshShop } = useAuth()
+  const tCountries = useTranslations('countries')
   const { isOnline } = useOffline()
   const { toast } = useToast()
   const [loading, setLoading] = useState(false)
@@ -58,7 +59,12 @@ export default function BillingPage({ params: { locale } }: { params: { locale: 
   const [useCredit, setUseCredit] = useState(false)
   // Clients actuels (tarification du 3 nov. 2026) : prix garanti par formule et anciennes limites, calculés par le
   // serveur avec la même règle que le paiement (lib/saas/legacy-terms)
-  const [terms, setTerms] = useState<{ locked: Partial<Record<PlanId, number>>; limits: { plan: string; shops: number; team_members: number; until: string } | null } | null>(null)
+  const [terms, setTerms] = useState<{
+    locked: Partial<Record<PlanId, number>>
+    limits: { plan: string; shops: number; team_members: number; until: string } | null
+    /** Pays de tarification (migration 208) : celui dont les prix s'appliquent, et pourquoi */
+    pricing?: { country: string; reason: 'declared' | 'activity' | 'override'; declared: string; activity_share: number } | null
+  } | null>(null)
   useEffect(() => {
     if (!shop?.id) return
     let alive = true
@@ -187,7 +193,8 @@ export default function BillingPage({ params: { locale } }: { params: { locale: 
   const isSubscribed = hasActiveSubscription(shop?.plan ?? null, shop?.plan_expires_at ?? null)
   const isTrialActive = !isSubscribed && trialDaysLeft >= 0
 
-  const country = getCountry(shop?.billing_country || shop?.country)
+  // Prix du pays de TARIFICATION calculé par le serveur (même règle que le paiement), le pays de la boutique en attendant
+  const country = getCountry(terms?.pricing?.country || shop?.billing_country || shop?.country)
   // Devise de FACTURATION de l'abonnement — jamais country.currency
   // directement : pour les pays UE hors zone euro (CZ/DK/HU/PL/RO/SE),
   // StockShop facture en EUR alors que la boutique opère dans sa propre
@@ -394,6 +401,13 @@ export default function BillingPage({ params: { locale } }: { params: { locale: 
             }))} />
           </div>
 
+          {terms?.pricing && terms.pricing.reason !== 'declared' && (
+            <p className="mb-4 rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-800 dark:bg-amber-950/40 dark:text-amber-300" data-testid="billing-pricing-country">
+              {terms.pricing.reason === 'activity'
+                ? t('pricing_activity', { country: tCountries(terms.pricing.country as any), share: terms.pricing.activity_share })
+                : t('pricing_override', { country: tCountries(terms.pricing.country as any) })}
+            </p>
+          )}
           {terms?.limits && (
             <p className="mb-4 rounded-lg bg-stockshop-blue-muted px-3 py-2 text-sm text-stockshop-blue dark:bg-blue-950/40 dark:text-blue-300" data-testid="billing-legacy-limits">
               {t('legacy_limits', { date: new Date(terms.limits.until).toLocaleDateString(dateLocaleTag(locale), { day: 'numeric', month: 'long', year: 'numeric' }), shops: terms.limits.shops, members: terms.limits.team_members })}

@@ -16,6 +16,7 @@ import { Users, RefreshCw, AlertTriangle, ChevronRight } from 'lucide-react'
 import { Suspense } from 'react'
 import { PaymentsRevenuePanel, GatewayRevenueAmount } from '@/components/admin/payments-revenue-panel'
 import { ReportingCurrencyProvider } from '@/components/admin/reporting-currency-context'
+import { PricingCountriesPanel } from '@/components/admin/pricing-countries-panel'
 
 const PLAN_COLORS: Record<string, string> = {
   starter: 'text-blue-400 bg-blue-400/10',
@@ -166,6 +167,9 @@ export default async function AdminPaymentsPage({
             tone={atRisk.length > 0 ? 'danger' : 'success'}
           />
         </div>
+
+        {/* Écarts de pays (migration 208) : pays déclaré, activité réelle et paiements */}
+        <PricingCountriesPanel />
 
         {/* Répartition par fournisseur */}
         {gatewayRows.length > 0 && (

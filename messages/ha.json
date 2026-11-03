@@ -3099,6 +3099,8 @@
     "payment_stripe": "Stripe · Visa · Mastercard · PayPal"
   },
   "billing_page": {
+    "pricing_activity": "Ana amfani da kantinka galibi daga: {country} ({share}% na ayyuka a kwanaki 30 da suka wuce). Farashin wannan ƙasa ne ke aiki. Kuskure ne? Tuntuɓe mu.",
+    "pricing_override": "Farashin {country}, ƙungiyarmu ce ta sanya shi. Kana da tambaya? Tuntuɓe mu.",
     "locked_price": "An tabbatar da farashi muddin kana sabuntawa",
     "legacy_limits": "Har zuwa {date}, kana riƙe da iyakokin tsarinka na yanzu: kantuna {shops} da ma'aikata {members}.",
     "period_monthly": "Kowane wata",
