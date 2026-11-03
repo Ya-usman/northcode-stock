@@ -4,11 +4,12 @@ import { checkShopRole } from '@/lib/api/shop-auth'
 import { getCountry, getPeriodPrice, getPeriodDays, getBillingCurrency, OFFERED_PERIODS, type BillingPeriod } from '@/lib/saas/countries'
 import { checkRateLimit } from '@/lib/rate-limit'
 import { validateBody, uuid, email as emailSchema, billingPeriodEnum, planEnum } from '@/lib/api/validate'
-import { fetchWithTimeout } from '@/lib/api/fetch'
 import { getApiTranslator } from '@/lib/api/i18n'
 import { writeAuditLog, getClientIp } from '@/lib/api/audit'
 import { enforceShopPlanLimits } from '@/lib/saas/enforce-limits'
-import { createPaymentIntent, newPaymentReference, setGatewayReference, failPaymentIntent, type Gateway } from '@/lib/billing/payment-intents'
+import { createPaymentIntent, newPaymentReference, type Gateway } from '@/lib/billing/payment-intents'
+import { startGatewayPayment } from '@/lib/billing/start-payment'
+import { applyRenewalAddons, getEntityAddons, periodPriceWithAddons, renewalAddons } from '@/lib/saas/addons'
 import { previewWalletCredit, applyWalletCredit } from '@/lib/referrals/apply-credit'
 import { getAccountForShop, setAccountPlan } from '@/lib/saas/entity'
 import { getLegacyTerms, monthlyPriceFor } from '@/lib/saas/legacy-terms'
@@ -25,45 +26,6 @@ const subscribeSchema = z.object({
   auto_renew: z.boolean().default(false),
   use_credit: z.boolean().default(false),
 })
-
-// Map our internal payment method IDs to Paystack channels.
-// 'mobile_money' n'est PAS un canal Paystack valide pour le Nigeria (NGN) — ce
-// canal n'existe que pour le Ghana/Kenya/Afrique du Sud sur Paystack. OPay et
-// PalmPay sont des néobanques nigérianes qui reçoivent par virement vers un
-// compte virtuel dédié, exactement comme Moniepoint — donc bank_transfer ici,
-// pas mobile_money (qui faisait échouer tout l'appel transaction/initialize).
-function toPaystackChannels(methodId: string): string[] {
-  const map: Record<string, string[]> = {
-    transfer:   ['bank_transfer'],
-    pos:        ['card'],
-    opay:       ['bank_transfer'],
-    palmpay:    ['bank_transfer'],
-    moniepoint: ['bank_transfer'],
-    ussd:       ['ussd'],
-  }
-  return map[methodId] ?? ['card', 'bank_transfer', 'ussd']
-}
-
-// Map our internal method IDs to Flutterwave payment_options per country
-function toFlutterwaveOption(methodId: string, countryCode: string): string {
-  const mobileMoneyByCountry: Record<string, string> = {
-    CM: 'mobilemoneycameroon',
-    CI: 'mobilemoneycotedivoire',
-    ML: 'mobilemoneymali',
-    NE: 'mobilemoneyniger',
-    SN: 'mobilemoneysenegal',
-    BJ: 'mobilemoneybenin',
-    GH: 'mobilemoneyghana',
-    TG: 'account', // Togo: Flooz/T-Money via account
-  }
-  if (['wave', 'orange_money', 'mtn_momo', 'moov_money', 'free_money',
-       'amana', 'nita', 'airtel_money', 'flooz', 'tmoney'].includes(methodId)) {
-    return mobileMoneyByCountry[countryCode] ?? 'mobilemoney'
-  }
-  if (methodId === 'transfer') return 'banktransfer'
-  if (methodId === 'pos') return 'card'
-  return 'mobilemoney,card,banktransfer'
-}
 
 export async function POST(request: Request) {
   const limited = await checkRateLimit(request, 'billing')
@@ -119,7 +81,11 @@ export async function POST(request: Request) {
     // cher que le tarif (lib/saas/legacy-terms, migration 205)
     const monthlyPrice = monthlyPriceFor(tariffPrice, plan_id, billingCurrency, await getLegacyTerms(supabase, account?.entityId), account).price
 
-    const amount = getPeriodPrice(monthlyPrice, period)
+    // Options reconduites (lib/saas/addons, migration 210) : retrait programmé appliqué, plafonds de la formule choisie,
+    // même remise de durée que la formule
+    const addons = await getEntityAddons(supabase, account?.entityId)
+    const renew = renewalAddons(addons, plan_id)
+    const amount = periodPriceWithAddons(monthlyPrice, country.addons, renew.seats, renew.shops, period)
 
     // ── Crédit de parrainage ────────────────────────────────────────────────
     // Réduit ce qui est envoyé à la passerelle (jamais le prix affiché
@@ -145,7 +111,10 @@ export async function POST(request: Request) {
           const plan_expires_at = new Date(Date.now() + days * 24 * 60 * 60 * 1000).toISOString()
 
           // Abonnement de l'entreprise (source de vérité, migration 153)
-          if (account) await setAccountPlan(supabase, account, { plan: plan_id, plan_expires_at, trial_ends_at: null })
+          if (account) {
+            await setAccountPlan(supabase, account, { plan: plan_id, plan_expires_at, trial_ends_at: null })
+            await applyRenewalAddons(supabase, account.entityId, renew.seats, renew.shops)
+          }
 
           const { data: newSub } = await supabase.from('subscriptions').insert({
             shop_id, plan: plan_id, amount: 0, billing_period: period,
@@ -187,141 +156,19 @@ export async function POST(request: Request) {
         plan: plan_id as any, billing_period: period, currency: billingCurrency, amount, credit_applied: creditApplied, amount_due: amountDue,
         auto_renew: !!auto_renew,
         request_country: requestCountry(request), pricing_reason: pricing.reason, pricing_country: pricing.country,
+        kind: 'plan', addon_seats: renew.seats, addon_shops: renew.shops,
       })
       if (!prepared.ok) {
         console.error('[billing/subscribe] préparation du paiement impossible', prepared.error)
         return NextResponse.json({ error: t('payment_gateway_error') }, { status: 500 })
       }
     }
-    const gatewayFailed = async (why: string) => { await failPaymentIntent(supabase, reference, why) }
-
-    // ── Nigeria → Paystack ──────────────────────────────────────────────────
-    if (country.gateway === 'paystack') {
-      const secret = process.env.PAYSTACK_SECRET_KEY
-      if (!secret) { await gatewayFailed('paystack_not_configured'); return NextResponse.json({ error: t('paystack_not_configured') }, { status: 500 }) }
-
-      const channels = toPaystackChannels(payment_method ?? '')
-
-      const res = await fetchWithTimeout('https://api.paystack.co/transaction/initialize', {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${secret}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          email,
-          reference,
-          currency: billingCurrency,
-          amount: Math.round(amountDue * 100),
-          callback_url: `${baseUrl}/api/billing/verify?locale=${locale}`,
-          metadata: { shop_id, plan_id, locale, billing_period: period, gateway: 'paystack', auto_renew, credit_amount: creditApplied },
-          channels,
-        }),
-      })
-      const data = await res.json()
-      if (!data.status) { await gatewayFailed(String(data.message || 'paystack_init')); return NextResponse.json({ error: data.message || t('payment_gateway_error') }, { status: 500 }) }
-
-      return NextResponse.json({
-        authorization_url: data.data.authorization_url,
-        reference: data.data.reference,
-        public_key: process.env.NEXT_PUBLIC_PAYSTACK_PUBLIC_KEY || '',
-        amount_kobo: Math.round(amountDue * 100),
-        channels,
-      })
-    }
-
-    // ── NotchPay (Cameroun — Orange Money & MTN MoMo XAF natif) ───────────
-    if (country.gateway === 'notchpay') {
-      const publicKey = process.env.NOTCHPAY_PUBLIC_KEY
-      if (!publicKey) { await gatewayFailed('notchpay_not_configured'); return NextResponse.json({ error: t('notchpay_not_configured') }, { status: 500 }) }
-
-      const res = await fetchWithTimeout('https://api.notchpay.co/payments/initialize', {
-        method: 'POST',
-        headers: {
-          Authorization: publicKey,
-          'Content-Type': 'application/json',
-          Accept: 'application/json',
-        },
-        body: JSON.stringify({
-          email,
-          amount: amountDue,
-          currency: billingCurrency,
-          reference,
-          callback: `${baseUrl}/api/billing/notchpay/verify?locale=${locale}`,
-          description: `Abonnement StockShop Plan ${plan_id}`,
-          meta: { shop_id, plan_id, locale, billing_period: period, auto_renew, credit_amount: creditApplied },
-        }),
-      })
-      const data = await res.json()
-      const url = data.authorization_url
-      if (!url) { await gatewayFailed(String(data.message || 'notchpay_init')); return NextResponse.json({ error: data.message || t('payment_gateway_error') }, { status: 500 }) }
-      await setGatewayReference(supabase, reference, data.transaction?.reference)
-      return NextResponse.json({ authorization_url: url, reference: data.transaction?.reference || '' })
-    }
-
-    // ── Wave (pays FCFA avec Wave sélectionné) ────────────────────────────
-    if (country.gateway === 'flutterwave' && payment_method === 'wave') {
-      const waveKey = process.env.WAVE_API_KEY
-      if (!waveKey) { await gatewayFailed('wave_not_configured'); return NextResponse.json({ error: t('wave_not_configured') }, { status: 500 }) }
-
-      const res = await fetchWithTimeout('https://api.wave.com/v1/checkout/sessions', {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${waveKey}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          amount: String(amountDue),
-          currency: billingCurrency,
-          success_url: `${baseUrl}/api/billing/wave/verify?locale=${locale}`,
-          error_url: `${baseUrl}/${locale}/billing?error=payment_failed`,
-          // Notre référence seule : la formule, la durée et le montant sont dans la préparation (migration 204)
-          client_reference: reference,
-        }),
-      })
-      const data = await res.json()
-      const url = data.wave_launch_url
-      if (!url) { await gatewayFailed(String(data.message || 'wave_init')); return NextResponse.json({ error: data.message || t('payment_gateway_error') }, { status: 500 }) }
-      await setGatewayReference(supabase, reference, data.id)
-      return NextResponse.json({ authorization_url: url, reference })
-    }
-
-    // ── Flutterwave (tous les autres pays FCFA) ────────────────────────────
-    if (country.gateway === 'flutterwave') {
-      const secretKey = process.env.FLUTTERWAVE_SECRET_KEY
-      if (!secretKey) { await gatewayFailed('flutterwave_not_configured'); return NextResponse.json({ error: t('flutterwave_not_configured') }, { status: 500 }) }
-
-      const tx_ref = reference
-      const payment_options = toFlutterwaveOption(payment_method ?? '', country.code)
-
-      const res = await fetchWithTimeout('https://api.flutterwave.com/v3/payments', {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${secretKey}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          tx_ref,
-          amount: amountDue,
-          currency: billingCurrency,
-          redirect_url: `${baseUrl}/api/billing/flutterwave/verify?locale=${locale}`,
-          customer: { email },
-          meta: { shop_id, plan_id, locale, billing_period: period, auto_renew, credit_amount: creditApplied },
-          customizations: {
-            title: 'StockShop',
-            description: `Abonnement Plan ${plan_id}`,
-            logo: `${baseUrl}/icons/icon-192x192.png`,
-          },
-          payment_options,
-        }),
-      })
-      const data = await res.json()
-      const url = data.data?.link
-      if (!url) { await gatewayFailed(String(data.message || 'flutterwave_init')); return NextResponse.json({ error: data.message || t('payment_gateway_error') }, { status: 500 }) }
-
-      return NextResponse.json({ authorization_url: url, reference: tx_ref })
-    }
-
-    if (country.gateway === 'stripe') {
-      // Pas encore implémenté. Quand ce sera fait : envoyer `billingCurrency`
-      // (EUR pour les 27 pays UE) à Stripe — JAMAIS country.currency, qui
-      // pour 6 pays UE (CZ/DK/HU/PL/RO/SE) est la devise boutique locale,
-      // pas la devise de facturation StockShop.
-      return NextResponse.json({ error: 'stripe_coming_soon' }, { status: 400 })
-    }
-
-    return NextResponse.json({ error: t('unknown_gateway') }, { status: 500 })
+    return startGatewayPayment({
+      supabase, t, gatewayOf: country.gateway, countryCode: country.code, paymentMethod: payment_method ?? '', reference, amountDue,
+      currency: billingCurrency, email, locale, baseUrl,
+      meta: { shop_id, plan_id, locale, billing_period: period, auto_renew, credit_amount: creditApplied },
+      descriptions: { notchpay: `Abonnement StockShop Plan ${plan_id}`, flutterwave: `Abonnement Plan ${plan_id}` },
+    })
   } catch (err: any) {
     return NextResponse.json({ error: err.message }, { status: 500 })
   }

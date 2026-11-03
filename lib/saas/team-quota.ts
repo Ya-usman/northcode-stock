@@ -5,7 +5,7 @@
 //   Le propriétaire de l'entreprise n'est PAS compté.
 //
 // Limite = formule (anciennes limites des clients actuels comprises, lib/saas/legacy-terms) + gestes commerciaux
-// actifs (lib/saas/grants.ts).
+// actifs (lib/saas/grants.ts) + options payées (lib/saas/addons.ts, migration 210).
 //
 // Utilisée par : invitation, affectation d'un membre existant, réactivation
 // de compte, bandeau et page Abonnement (GET /api/team/quota), contrôle après
@@ -17,6 +17,7 @@ import { getPlan } from './plans'
 import { getAccountForShop, getEntityShopIds, type EntityAccount } from './entity'
 import { getGrantBonus, effectiveLimit } from './grants'
 import { getLegacyTerms, planLimitWithLegacy } from './legacy-terms'
+import { activeAddons, getEntityAddons } from './addons'
 
 export type { EntityAccount }
 
@@ -31,6 +32,8 @@ export interface TeamSeats {
   planLimit: number
   /** Membres offerts (gestes actifs) */
   offered: number
+  /** Employés en plus payés (options) */
+  purchased: number
   used: number
   /** Personnes comptées (user_id distincts) */
   personIds: string[]
@@ -49,8 +52,9 @@ export function getAccountShopIds(admin: any, account: Pick<EntityAccount, 'enti
 /** Sièges utilisés par l'entreprise : personnes distinctes actives hors propriétaire */
 export async function countTeamSeats(admin: any, account: EntityAccount): Promise<TeamSeats> {
   const plan = getPlan(account.plan)
-  const [shopIds, bonus, legacy] = await Promise.all([getEntityShopIds(admin, account), getGrantBonus(admin, account.entityId), getLegacyTerms(admin, account.entityId)])
+  const [shopIds, bonus, legacy, addons] = await Promise.all([getEntityShopIds(admin, account), getGrantBonus(admin, account.entityId), getLegacyTerms(admin, account.entityId), getEntityAddons(admin, account.entityId)])
   const planLimit = planLimitWithLegacy(plan.limits.team_members, plan.id, legacy, 'team_members')
+  const purchased = planLimit === -1 ? 0 : activeAddons(plan.id, addons).seats
   let personIds: string[] = []
   if (shopIds.length) {
     const { data: rows } = await admin
@@ -65,21 +69,23 @@ export async function countTeamSeats(admin: any, account: EntityAccount): Promis
     ownerId: account.ownerId,
     plan: plan.id,
     planName: plan.name,
-    limit: effectiveLimit(planLimit, bonus.team_seats),
+    limit: effectiveLimit(planLimit, bonus.team_seats + purchased),
     planLimit,
     offered: planLimit === -1 ? 0 : bonus.team_seats,
+    purchased,
     used: personIds.length,
     personIds,
     shopIds,
   }
 }
 
-/** Limite de boutiques de l'entreprise : formule + boutiques offertes ; -1 = illimité */
-export async function getShopLimit(admin: any, account: Pick<EntityAccount, 'entityId' | 'plan'>): Promise<{ limit: number; planLimit: number; offered: number }> {
+/** Limite de boutiques de l'entreprise : formule + boutiques offertes + boutiques payées (options) ; -1 = illimité */
+export async function getShopLimit(admin: any, account: Pick<EntityAccount, 'entityId' | 'plan'>): Promise<{ limit: number; planLimit: number; offered: number; purchased: number }> {
   const plan = getPlan(account.plan)
-  const [bonus, legacy] = await Promise.all([getGrantBonus(admin, account.entityId), getLegacyTerms(admin, account.entityId)])
+  const [bonus, legacy, addons] = await Promise.all([getGrantBonus(admin, account.entityId), getLegacyTerms(admin, account.entityId), getEntityAddons(admin, account.entityId)])
   const planLimit = planLimitWithLegacy(plan.limits.shops, plan.id, legacy, 'shops')
-  return { limit: effectiveLimit(planLimit, bonus.shops), planLimit, offered: planLimit === -1 ? 0 : bonus.shops }
+  const purchased = planLimit === -1 ? 0 : activeAddons(plan.id, addons).shops
+  return { limit: effectiveLimit(planLimit, bonus.shops + purchased), planLimit, offered: planLimit === -1 ? 0 : bonus.shops, purchased }
 }
 
 /**

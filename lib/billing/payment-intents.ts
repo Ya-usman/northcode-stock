@@ -20,6 +20,7 @@ import { processReferralReward } from '@/lib/referrals/process-reward'
 import { applyWalletCredit } from '@/lib/referrals/apply-credit'
 import { writeAuditLog, getClientIp } from '@/lib/api/audit'
 import { priceZone } from '@/lib/saas/pricing-country'
+import { addPurchasedAddons, applyRenewalAddons } from '@/lib/saas/addons'
 
 export type Gateway = 'paystack' | 'notchpay' | 'flutterwave' | 'wave' | 'stripe'
 export type PaidPlan = 'starter' | 'pro' | 'business'
@@ -44,6 +45,12 @@ export interface PaymentIntent {
   request_country?: string | null
   pricing_reason?: 'declared' | 'activity' | 'override' | null
   pricing_country?: string | null
+  /** Options (migration 210) : 'plan' = formule (addon_* = options du renouvellement) ; 'addon' = achat d'options en
+   *  cours de période (addon_* = quantités ajoutées, period_end = fin de la période payée au prorata) */
+  kind?: 'plan' | 'addon'
+  addon_seats?: number
+  addon_shops?: number
+  period_end?: string | null
 }
 
 /** Notre référence de paiement : unique, sans information exploitable */
@@ -72,7 +79,7 @@ export async function findPaymentIntent(admin: any, gateway: Gateway, refs: { re
   for (const [col, val] of [['reference', refs.reference], ['gateway_reference', refs.gatewayReference]] as const) {
     if (!val) continue
     const { data } = await admin.from('payment_intents').select('*').eq('gateway', gateway).eq(col, String(val)).maybeSingle()
-    if (data) return { ...data, amount: Number(data.amount), credit_applied: Number(data.credit_applied), amount_due: Number(data.amount_due) }
+    if (data) return { ...data, amount: Number(data.amount), credit_applied: Number(data.credit_applied), amount_due: Number(data.amount_due), addon_seats: Number(data.addon_seats ?? 0), addon_shops: Number(data.addon_shops ?? 0) }
   }
   return null
 }
@@ -130,6 +137,9 @@ export async function settlePayment(admin: any, intent: PaymentIntent, paid: Con
   }).eq('id', intent.id).eq('status', 'pending').select('id')
   if (!claimed?.length) return { status: 'already' }
 
+  // Achat d'options en cours de période : ni formule ni nouvelle période, seulement les quantités ajoutées
+  if (intent.kind === 'addon') return settleAddonPurchase(admin, intent, paidAmount, paidCurrency, paid, request)
+
   const days = getPeriodDays(intent.billing_period)
   const now = new Date()
   const plan_expires_at = new Date(now.getTime() + days * 24 * 60 * 60 * 1000).toISOString()
@@ -139,6 +149,8 @@ export async function settlePayment(admin: any, intent: PaymentIntent, paid: Con
   if (account) {
     const { error: planError } = await setAccountPlan(admin, account, { plan: intent.plan, plan_expires_at, trial_ends_at: null })
     if (planError) console.error('[billing/settle] plan non enregistré', intent.shop_id, planError)
+    // Options de la nouvelle période : celles comprises dans le prix préparé (retrait programmé appliqué)
+    else await applyRenewalAddons(admin, account.entityId, Number(intent.addon_seats ?? 0), Number(intent.addon_shops ?? 0))
   } else console.error('[billing/settle] entreprise introuvable pour la boutique', intent.shop_id)
 
   const { data: shopRow } = await admin.from('shops').select('owner_id, agent_id, country').eq('id', intent.shop_id).maybeSingle()
@@ -180,7 +192,7 @@ export async function settlePayment(admin: any, intent: PaymentIntent, paid: Con
 
   await writeAuditLog({
     action: 'billing.verify', shop_id: intent.shop_id, actor_id: ownerId, target_id: intent.reference, target_type: `${intent.gateway}_payment`,
-    metadata: { plan_id: intent.plan, billing_period: intent.billing_period, amount: paidAmount, currency: intent.currency, credit_applied: intent.credit_applied, gateway_tx_id: paid.gatewayTxId ?? null },
+    metadata: { plan_id: intent.plan, billing_period: intent.billing_period, amount: paidAmount, currency: intent.currency, credit_applied: intent.credit_applied, gateway_tx_id: paid.gatewayTxId ?? null, addon_seats: Number(intent.addon_seats ?? 0), addon_shops: Number(intent.addon_shops ?? 0) },
     ip: getClientIp(request),
   } as any)
 
@@ -197,6 +209,37 @@ export async function settlePayment(admin: any, intent: PaymentIntent, paid: Con
   }
 
   // Limites de la formule remises en ordre après chaque paiement (avant : Paystack seulement) ; jamais bloquant
+  enforceShopPlanLimits(admin, intent.shop_id).catch(() => {})
+  return { status: 'activated' }
+}
+
+/** Options achetées en cours de période (paiement déjà réglé une fois) : quantités ajoutées à l'entreprise, commission de
+ *  l'agent, journal, limites remises en ordre (une personne ou une boutique en pause est réactivée). */
+async function settleAddonPurchase(admin: any, intent: PaymentIntent, paidAmount: number, paidCurrency: string, paid: ConfirmedPayment, request: Request): Promise<SettleResult> {
+  const account = await getAccountForShop(admin, intent.shop_id)
+  const added = account ? await addPurchasedAddons(admin, account.entityId, account.plan, Number(intent.addon_seats ?? 0), Number(intent.addon_shops ?? 0)) : null
+  const { data: shopRow } = await admin.from('shops').select('owner_id, agent_id').eq('id', intent.shop_id).maybeSingle()
+  const ownerId = intent.owner_id ?? (shopRow as any)?.owner_id ?? null
+  const agentId = (shopRow as any)?.agent_id
+  if (agentId) {
+    const { data: agentRow } = await admin.from('agents').select('commission_rate').eq('id', agentId).maybeSingle()
+    if (agentRow) {
+      await admin.from('agent_commissions').insert({
+        agent_id: agentId, shop_id: intent.shop_id, subscription_amount: paidAmount,
+        commission_amount: (paidAmount * Number((agentRow as any).commission_rate)) / 100,
+        currency: intent.currency, plan_id: intent.plan, billing_period: intent.billing_period,
+        paystack_reference: intent.reference, status: 'pending',
+      })
+    }
+  }
+  // Payé mais rien (ou pas tout) ajouté (plafond atteint entre-temps, entreprise introuvable) : à vérifier par l'équipe
+  const short = !added || added.seats < Number(intent.addon_seats ?? 0) || added.shops < Number(intent.addon_shops ?? 0)
+  await writeAuditLog({
+    action: short ? 'billing.addon_review' : 'billing.addon_purchase', shop_id: intent.shop_id, actor_id: ownerId, target_id: intent.reference,
+    target_type: `${intent.gateway}_payment`,
+    metadata: { seats: Number(intent.addon_seats ?? 0), shops: Number(intent.addon_shops ?? 0), added, amount: paidAmount, currency: paidCurrency, period_end: intent.period_end ?? null, gateway_tx_id: paid.gatewayTxId ?? null },
+    ip: getClientIp(request),
+  } as any)
   enforceShopPlanLimits(admin, intent.shop_id).catch(() => {})
   return { status: 'activated' }
 }

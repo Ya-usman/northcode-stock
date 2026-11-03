@@ -24,6 +24,8 @@ import { useOffline } from '@/lib/offline/use-offline'
 import { useRefetchOnReconnect } from '@/lib/hooks/use-refetch-on-reconnect'
 import { useRefetchOnVisible } from '@/lib/hooks/use-refetch-on-visible'
 import { SegmentedTabs } from '@/components/ui/segmented-tabs'
+import { AddonsCard, type AddonInfo } from '@/components/billing/addons-card'
+import { addonsMonthly, parseAddons, renewalAddons } from '@/lib/saas/addons'
 
 type PlanId = 'starter' | 'pro' | 'business'
 
@@ -35,6 +37,7 @@ const PLAN_ICONS: Record<PlanId, React.ReactNode> = {
 
 export default function BillingPage({ params: { locale } }: { params: { locale: string } }) {
   const t = useTranslations('billing_page')
+  const tAddons = useTranslations('addons')
   const tRoot = useTranslations()
   const { shop, user, refreshShop } = useAuth()
   const tCountries = useTranslations('countries')
@@ -73,6 +76,14 @@ export default function BillingPage({ params: { locale } }: { params: { locale: 
     }).catch(() => {})
     return () => { alive = false }
   }, [shop?.id])
+
+  // Options payantes (lib/saas/addons) : état, prix et renouvellement calculés par le serveur ; propriétaire seulement
+  const [addonInfo, setAddonInfo] = useState<AddonInfo | null>(null)
+  const loadAddons = useCallback(() => {
+    if (!shop?.id) return
+    withTimeout(fetch(`/api/billing/addons?shop_id=${shop.id}`)).then(async res => { setAddonInfo(res.ok ? await res.json() : null) }).catch(() => {})
+  }, [shop?.id])
+  useEffect(() => { loadAddons() }, [loadAddons])
 
   useEffect(() => {
     withTimeout(fetch('/api/referrals/summary')).then(async res => {
@@ -233,10 +244,19 @@ export default function BillingPage({ params: { locale } }: { params: { locale: 
   // passerelle, qui est en billingCurrency.
   // Prix mensuel d'une formule pour ce pays (règle unique avec le serveur : lib/saas/countries getPeriodPrice)
   const monthlyPriceOf = (planId: PlanId) => terms?.locked?.[planId] ?? country.prices[planId]
+  // Options reconduites avec cette formule (même règle que le serveur : retrait programmé, plafonds de la formule)
+  const renewOf = (planId: PlanId) => addonInfo
+    ? renewalAddons(parseAddons({ addon_seats: addonInfo.addons.seats, addon_shops: addonInfo.addons.shops, addon_seats_renew: addonInfo.addons.seats_renew, addon_shops_renew: addonInfo.addons.shops_renew }), planId)
+    : { seats: 0, shops: 0 }
+  // Prix d'une durée, options comprises : ce que le serveur facture (lib/saas/addons periodPriceWithAddons)
+  const totalOf = (planId: PlanId, forPeriod = period) => {
+    const r = renewOf(planId)
+    return getPeriodPrice(monthlyPriceOf(planId) + (addonInfo ? addonsMonthly(addonInfo.prices, r.seats, r.shops) : 0), forPeriod)
+  }
   const walletMatchesCountry = !!rewardWallet && rewardWallet.currency === billingCurrency && rewardWallet.available_balance > 0
   const creditPreview = (planId: PlanId) => {
     if (!walletMatchesCountry || !useCredit) return null
-    const price = getPeriodPrice(monthlyPriceOf(planId), period)
+    const price = totalOf(planId)
     const applied = Math.min(rewardWallet!.available_balance, price)
     const due = Math.round((price - applied) * 100) / 100
     return { price, applied, due, remaining: rewardWallet!.available_balance - applied }
@@ -386,6 +406,11 @@ export default function BillingPage({ params: { locale } }: { params: { locale: 
           />
         )}
 
+        {/* Options payantes : formule payée en cours, propriétaire */}
+        {shop && user?.email && addonInfo?.active && (
+          <AddonsCard info={addonInfo} shopId={shop.id} email={user.email} onChanged={() => { loadAddons(); fetchUsageStats() }} />
+        )}
+
         {/* Plans */}
         <div>
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-5">
@@ -478,6 +503,7 @@ export default function BillingPage({ params: { locale } }: { params: { locale: 
                   ) : (
                     <Button
                       onClick={() => openCheckout(id)}
+                      data-testid={`billing-choose-${id}`}
                       loading={loading && checkoutPlan === null}
                       className={cn(
                         'w-full font-semibold',
@@ -523,13 +549,21 @@ export default function BillingPage({ params: { locale } }: { params: { locale: 
               <div className="rounded-xl bg-stockshop-blue/8 dark:bg-blue-950/30 border border-stockshop-blue/20 px-4 py-3 space-y-1">
                 <div className="flex items-center justify-between">
                   <span className="text-sm font-medium text-muted-foreground">{periodLabel}</span>
-                  <span className="text-2xl font-extrabold text-stockshop-blue dark:text-blue-400">
-                    {formatPrice(checkoutPlan)}
+                  <span className="text-2xl font-extrabold text-stockshop-blue dark:text-blue-400" data-testid="checkout-total">
+                    {formatAmount(totalOf(checkoutPlan))}
                   </span>
                 </div>
+                {(() => {
+                  // Options reconduites, comprises dans le total (même remise de durée)
+                  const r = renewOf(checkoutPlan)
+                  if (!r.seats && !r.shops) return null
+                  const tA = (k: string, n: number) => tAddons(k as any, { count: n })
+                  const detail = [r.seats ? tA('seats_count', r.seats) : '', r.shops ? tA('shops_count', r.shops) : ''].filter(Boolean).join(', ')
+                  return <p className="text-xs text-muted-foreground" data-testid="checkout-addons">{tAddons('checkout_included', { detail })}</p>
+                })()}
                 {period !== 'monthly' && (() => {
-                  const monthly = getPeriodPrice(monthlyPriceOf(checkoutPlan), 'monthly')
-                  const total   = getPeriodPrice(monthlyPriceOf(checkoutPlan), period)
+                  const monthly = totalOf(checkoutPlan, 'monthly')
+                  const total   = totalOf(checkoutPlan)
                   const months  = BILLING_PERIODS[period].months
                   const saved   = monthly * months - total
                   return saved > 0 ? (
