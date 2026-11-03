@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
-import { createAdminClient } from '@/lib/supabase/server'
+import { createAdminClient, createClient } from '@/lib/supabase/server'
+import { checkShopRole } from '@/lib/api/shop-auth'
 import { getCountry, getPeriodPrice, getPeriodDays, getBillingCurrency, type BillingPeriod } from '@/lib/saas/countries'
 import { checkRateLimit } from '@/lib/rate-limit'
 import { validateBody, uuid, email as emailSchema, billingPeriodEnum, planEnum } from '@/lib/api/validate'
@@ -74,7 +75,18 @@ export async function POST(request: Request) {
     const { plan_id, shop_id, email, locale, billing_period, payment_method, auto_renew, use_credit } = validated.data
 
     const period = billing_period as BillingPeriod
+
+    // Seul le propriétaire connecté de la boutique paie pour elle (3 nov. 2026). Avant : aucun contrôle de l'appelant,
+    // n'importe qui pouvait créer un paiement, ou dépenser le crédit de parrainage d'un autre propriétaire.
+    const userClient = await createClient() as any
+    const { data: { user } } = await userClient.auth.getUser()
+    if (!user) return NextResponse.json({ error: t('not_authenticated') }, { status: 401 })
     const supabase = await createAdminClient() as any
+    const callerAccount = await getAccountForShop(supabase, shop_id)
+    const callerRole = await checkShopRole(userClient, user.id, shop_id)
+    if (!(callerAccount?.ownerId === user.id || callerRole === 'owner')) {
+      return NextResponse.json({ error: t('permission_denied') }, { status: 403 })
+    }
     const { data: shopData } = await supabase
       .from('shops').select('country, billing_country, currency, owner_id').eq('id', shop_id).single()
 
@@ -173,7 +185,7 @@ export async function POST(request: Request) {
     // ── Nigeria → Paystack ──────────────────────────────────────────────────
     if (country.gateway === 'paystack') {
       const secret = process.env.PAYSTACK_SECRET_KEY
-      if (!secret) return NextResponse.json({ error: t('paystack_not_configured') }, { status: 500 })
+      if (!secret) { await gatewayFailed('paystack_not_configured'); return NextResponse.json({ error: t('paystack_not_configured') }, { status: 500 }) }
 
       const channels = toPaystackChannels(payment_method ?? '')
 
@@ -205,7 +217,7 @@ export async function POST(request: Request) {
     // ── NotchPay (Cameroun — Orange Money & MTN MoMo XAF natif) ───────────
     if (country.gateway === 'notchpay') {
       const publicKey = process.env.NOTCHPAY_PUBLIC_KEY
-      if (!publicKey) return NextResponse.json({ error: t('notchpay_not_configured') }, { status: 500 })
+      if (!publicKey) { await gatewayFailed('notchpay_not_configured'); return NextResponse.json({ error: t('notchpay_not_configured') }, { status: 500 }) }
 
       const res = await fetchWithTimeout('https://api.notchpay.co/payments/initialize', {
         method: 'POST',
@@ -234,7 +246,7 @@ export async function POST(request: Request) {
     // ── Wave (pays FCFA avec Wave sélectionné) ────────────────────────────
     if (country.gateway === 'flutterwave' && payment_method === 'wave') {
       const waveKey = process.env.WAVE_API_KEY
-      if (!waveKey) return NextResponse.json({ error: t('wave_not_configured') }, { status: 500 })
+      if (!waveKey) { await gatewayFailed('wave_not_configured'); return NextResponse.json({ error: t('wave_not_configured') }, { status: 500 }) }
 
       const res = await fetchWithTimeout('https://api.wave.com/v1/checkout/sessions', {
         method: 'POST',
@@ -258,7 +270,7 @@ export async function POST(request: Request) {
     // ── Flutterwave (tous les autres pays FCFA) ────────────────────────────
     if (country.gateway === 'flutterwave') {
       const secretKey = process.env.FLUTTERWAVE_SECRET_KEY
-      if (!secretKey) return NextResponse.json({ error: t('flutterwave_not_configured') }, { status: 500 })
+      if (!secretKey) { await gatewayFailed('flutterwave_not_configured'); return NextResponse.json({ error: t('flutterwave_not_configured') }, { status: 500 }) }
 
       const tx_ref = reference
       const payment_options = toFlutterwaveOption(payment_method ?? '', country.code)
