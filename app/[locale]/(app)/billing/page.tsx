@@ -652,7 +652,7 @@ export default function BillingPage({ params: { locale } }: { params: { locale: 
                     <div className="rounded-xl bg-card border p-3 text-left space-y-1">
                       <p className="text-xs font-semibold text-foreground">{t('meanwhile_contact')}</p>
                       <p className="text-xs text-muted-foreground">
-                        {t('email_us_plan', { plan: checkoutPlan, price: formatPrice(checkoutPlan) })}
+                        {t('email_us_plan', { plan: checkoutPlan, price: formatAmount(totalOf(checkoutPlan)) })}
                       </p>
                     </div>
                   </div>
@@ -751,7 +751,7 @@ export default function BillingPage({ params: { locale } }: { params: { locale: 
             <PremiumDialogFooter onCancel={closeCheckout} cancelLabel="Annuler">
               {isStripe ? (
                 <a
-                  href={`mailto:support@stockshop.tech?subject=Abonnement ${checkoutPlan} - ${country.name}&body=Bonjour, je souhaite souscrire au plan ${checkoutPlan} (${formatPrice(checkoutPlan)}/mois) pour ma boutique.`}
+                  href={`mailto:support@stockshop.tech?subject=Abonnement ${checkoutPlan} - ${country.name}&body=Bonjour, je souhaite souscrire au plan ${checkoutPlan} (${formatAmount(totalOf(checkoutPlan))}) pour ma boutique.`}
                   className="flex-1 h-11 rounded-lg font-semibold bg-stockshop-blue hover:bg-stockshop-blue-light dark:bg-blue-600 dark:hover:bg-blue-500 text-white flex items-center justify-center gap-2 transition-colors"
                 >
                   <Mail className="h-4 w-4" />
@@ -769,7 +769,7 @@ export default function BillingPage({ params: { locale } }: { params: { locale: 
                     const preview = creditPreview(checkoutPlan)
                     if (preview && preview.due === 0) return t('checkout_confirm_free')
                     if (preview) return `${t('checkout_pay')} ${formatAmount(preview.due)}`
-                    return `${t('checkout_pay')} ${formatPrice(checkoutPlan)}`
+                    return `${t('checkout_pay')} ${formatAmount(totalOf(checkoutPlan))}`
                   })()}
                 </Button>
               )}
