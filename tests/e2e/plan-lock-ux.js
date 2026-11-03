@@ -14,9 +14,9 @@ const wait = ms => new Promise(r => setTimeout(r, ms))
 const norm = s => String(s || '').replace(/\s+/g, ' ').replace(/ /g, ' ').trim()
 process.on('unhandledRejection', e => { if (/has been closed/.test(String(e && e.message))) return; console.error('ERREUR', e); process.exit(1) })
 
-const STARTER = { plan: 'starter', features: { transfers: false, po_email: false, exports: false, long_reports: false, priority_support: false } }
-const TRIAL = { plan: 'trial', features: { transfers: true, po_email: true, exports: true, long_reports: true, priority_support: false } }
-const REQUIRED = { transfers: 'pro', po_email: 'pro', exports: 'pro', long_reports: 'pro', priority_support: 'business' }
+const STARTER = { plan: 'starter', history_days: 92, features: { transfers: false, po_email: false, exports: false, long_reports: false, unlimited_history: false, priority_support: false } }
+const TRIAL = { plan: 'trial', history_days: 366, features: { transfers: true, po_email: true, exports: true, long_reports: true, unlimited_history: false, priority_support: false } }
+const REQUIRED = { transfers: 'pro', po_email: 'pro', exports: 'pro', long_reports: 'pro', unlimited_history: 'business', priority_support: 'business' }
 
 async function open({ email, mock, width = 1366, height = 900 }) {
   const s = await session({ width, height, scale: 1, locale: 'fr', email })
@@ -92,12 +92,12 @@ const closeDialog = async page => { await page.keyboard.press('Escape'); await w
   await page.getByTestId('reports-period').click(); await wait(500)
   await page.getByTestId('reports-preset-custom').click(); await wait(1500)
   const hint = norm(await page.getByTestId('reports-window-hint').innerText().catch(() => ''))
-  ok(hint === `${m.plan_lock.reports_window} ${m.plan_lock.reports_more}`, `période personnalisée : limite dite (« ${hint} »)`)
+  ok(hint === `${m.plan_lock.history_window_3m} ${m.plan_lock.history_more.replace('{plan}', 'Pro')}`, `période personnalisée : limite dite (« ${hint} »)`)
   const minDay = await page.locator('input[type="date"]').first().getAttribute('min')
   const expectMin = new Date(Date.now() - 92 * 86400000); const pad = n => String(n).padStart(2, '0')
   ok(minDay === `${expectMin.getFullYear()}-${pad(expectMin.getMonth() + 1)}-${pad(expectMin.getDate())}`, `date de début au plus tôt : ${minDay}`)
   await page.screenshot({ path: OUT + '/plan-lock-custom.png' })
-  await page.getByTestId('reports-window-more').click(); await wait(900)
+  await page.getByTestId('reports-window-hint-more').click(); await wait(900)
   ok(await lockDialog(page).isVisible() && norm(await lockDialog(page).innerText()).includes('3 derniers mois restent disponibles'), '« Plus loin avec Pro » : fenêtre')
   await closeDialog(page)
 
@@ -156,8 +156,8 @@ const closeDialog = async page => { await page.keyboard.press('Escape'); await w
   console.log('\n5. Formule réelle du compte (réponse du serveur)')
   s = await open({ email: OWNER, mock: null }); page = s.page
   await go(page, '/stock/transfers')
-  const r = s.real[0]
-  ok(r && typeof r.plan === 'string' && r.features && Object.keys(r.features).length === 5, `réponse : ${JSON.stringify(r)}`)
+  const r = s.real.filter(x => x && x.features).pop() // dernière réponse valide (une lecture avant la session prête peut échouer)
+  ok(r && typeof r.plan === 'string' && r.features && Object.keys(r.features).length === 6 && r.history_days === -1, `réponse : ${JSON.stringify(r)}`)
   const expectBadges = r && !r.features.transfers ? 1 : r && r.plan === 'trial' ? 1 : 0
   ok(await page.locator('[data-testid="plan-badge-transfers"]').count() === expectBadges, `étiquettes cohérentes avec la formule réelle (${expectBadges})`)
   ok(s.sent.length === 0 && s.errors.length === 0, 'aucune écriture ni erreur JS')

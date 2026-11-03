@@ -5,8 +5,10 @@ import { useTranslations, useLocale } from 'next-intl'
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell,
 } from 'recharts'
-import { Loader2 } from 'lucide-react'
+import { Loader2, Lock } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { openPlanLock, useHistoryWindow } from '@/components/saas/plan-lock'
+import { REPORT_FREE_DAYS } from '@/lib/saas/plan-features'
 import { cn } from '@/lib/utils/cn'
 import { useCurrency } from '@/lib/hooks/use-currency'
 import { chartTickFormatter } from '@/lib/utils/currency'
@@ -27,6 +29,9 @@ const COLORS = ['#60a5fa', '#34d399', STOCKSHOP_YELLOW, '#f87171', '#a78bfa']
 
 export function TopProductsChart({ data, shopIds, cashierId }: TopProductsChartProps) {
   const t = useTranslations('dashboard')
+  // « Année » (12 mois) : au-delà de l'historique Starter (3 mois) → cadenas pour le propriétaire, caché sinon
+  const hist = useHistoryWindow()
+  const yearLocked = hist.days >= 0 && hist.days <= REPORT_FREE_DAYS
   const locale = useLocale()
   const { fmt, symbol } = useCurrency()
   const isFCFA = symbol.includes('CFA')
@@ -92,11 +97,12 @@ export function TopProductsChart({ data, shopIds, cashierId }: TopProductsChartP
             )}
           </CardTitle>
           <div className="flex items-center gap-0.5 p-0.5 bg-muted rounded-lg flex-shrink-0">
-            {(['week', 'month', 'year'] as const).map(p => (
+            {(['week', 'month', 'year'] as const).filter(p => !(p === 'year' && yearLocked && hist.lock === 'hidden')).map(p => (
               <button
                 key={p}
                 type="button"
-                onClick={() => selectPeriod(p)}
+                onClick={() => (p === 'year' && yearLocked ? openPlanLock('long_reports') : selectPeriod(p))}
+                data-testid={`chart-period-${p}`}
                 className={cn(
                   'px-2 py-1 rounded-md text-[11px] font-medium transition-colors',
                   period === p
@@ -105,6 +111,7 @@ export function TopProductsChart({ data, shopIds, cashierId }: TopProductsChartP
                 )}
               >
                 {t(`period_${p}`)}
+                {p === 'year' && yearLocked && <Lock className="ml-0.5 inline h-2.5 w-2.5 align-[-1px]" aria-label="Pro" />}
               </button>
             ))}
           </div>

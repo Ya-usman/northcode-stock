@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+import { historyDaysFor, clampStart } from '@/lib/saas/plan-features'
 import { createAdminClient, createClient } from '@/lib/supabase/server'
 import { getApiTranslator } from '@/lib/api/i18n'
 import { isManagerial, shopsWithView } from '@/lib/api/role-permissions'
@@ -33,7 +34,9 @@ export async function GET(request: Request) {
     .order('created_at', { ascending: false })
     .limit(300)
 
-  if (from) query = query.gte('created_at', from)
+  // Historique par formule (lib/saas/plan-features) : jamais plus loin que la durée permise
+  const since = clampStart(from, await historyDaysFor(admin, effectiveShopIds))
+  if (since) query = query.gte('created_at', since)
   if (to) query = query.lte('created_at', to)
 
   const { data: logs, error } = await query

@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+import { historyDaysFor, clampStart } from '@/lib/saas/plan-features'
 import { createAdminClient, createClient } from '@/lib/supabase/server'
 import { getApiTranslator } from '@/lib/api/i18n'
 import { loadShopAccess, ownSalesScope, parseShopIds, type ShopAccess } from '@/lib/api/shop-access'
@@ -32,12 +33,15 @@ export async function GET(request: Request) {
     if (!shopIds || bounds.some(b => !b || Number.isNaN(Date.parse(b)))) {
       return NextResponse.json({ error: t('missing_params') }, { status: 400 })
     }
-    const [dayStart, dayEnd, weekStart] = bounds
+    const [rawDayStart, dayEnd, rawWeekStart] = bounds
 
     const access = await loadShopAccess(supabase, user.id, shopIds)
     if (access.length !== shopIds.length) return NextResponse.json({ error: t('shop_access_denied') }, { status: 403 })
 
     const admin = await createAdminClient() as any
+    // Historique par formule (lib/saas/plan-features) : jamais plus loin que la durée permise
+    const hd = await historyDaysFor(admin, shopIds)
+    const dayStart = clampStart(rawDayStart, hd)!, weekStart = clampStart(rawWeekStart, hd)!
     const allowed = (features: PermFeature[]) => access.filter(a => features.some(f => a.view(f)))
 
     // Ventes actives d'une période : une lecture pour les boutiques « toute la boutique », une autre (filtrée sur le

@@ -1,4 +1,5 @@
 ﻿import { NextResponse } from 'next/server'
+import { historyDaysFor, clampStart } from '@/lib/saas/plan-features'
 import { createAdminClient, createClient } from '@/lib/supabase/server'
 import { getApiTranslator } from '@/lib/api/i18n'
 import { dashboardGuard } from '@/lib/api/shop-access'
@@ -36,7 +37,8 @@ export async function GET(request: Request) {
 
     const admin = await createAdminClient() as any
     // Paiements de la fenêtre (semaine ou jour) des SEULES boutiques autorisées, hors ventes annulées
-    const queryStart = weekStart || start
+    // Historique par formule (lib/saas/plan-features) : jamais plus loin que la durée permise
+    const queryStart = clampStart(weekStart || start, await historyDaysFor(admin, shopIds))!
     const payments = await fetchShopPayments(admin, shopIds, queryStart, end, seller)
 
     // Today total

@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+import { historyDaysFor, clampStart } from '@/lib/saas/plan-features'
 import { createAdminClient, createClient } from '@/lib/supabase/server'
 import { getApiTranslator } from '@/lib/api/i18n'
 import { loadShopAccess, ownSalesScope, parseShopIds } from '@/lib/api/shop-access'
@@ -27,12 +28,15 @@ export async function GET(request: Request) {
     if (!shopIds || bounds.some(b => !b || Number.isNaN(Date.parse(b)))) {
       return NextResponse.json({ error: t('missing_params') }, { status: 400 })
     }
-    const [dayStart, dayEnd, monthStart, monthEnd] = bounds
+    const [rawDayStart, dayEnd, rawMonthStart, monthEnd] = bounds
 
     const access = await loadShopAccess(supabase, user.id, shopIds)
     if (access.length !== shopIds.length) return NextResponse.json({ error: t('shop_access_denied') }, { status: 403 })
 
     const admin = await createAdminClient() as any
+    // Historique par formule (lib/saas/plan-features) : jamais plus loin que la durée permise
+    const hd = await historyDaysFor(admin, shopIds)
+    const dayStart = clampStart(rawDayStart, hd)!, monthStart = clampStart(rawMonthStart, hd)!
     const seller: Record<string, string | null> = {}
     for (const a of access) seller[a.shopId] = ownSalesScope(a, user.id)
     const globalShops = access.filter(a => a.view('revenue_chart')).map(a => a.shopId)

@@ -24,6 +24,7 @@ import { MovementList } from '@/components/stock/movement-list'
 import { MovementDetailDrawer, type MovementRow } from '@/components/stock/movement-detail-drawer'
 import { ProductSheetViewer } from '@/components/stock/product-sheet-viewer'
 import { MOVEMENT_SEARCH_MIN, sanitizeMovementSearch } from '@/lib/stock/movement-label'
+import { HistoryLimitHint, openPlanLock, useHistoryWindow } from '@/components/saas/plan-lock'
 
 // Onglet Mouvements : UNE liste, du plus récent au plus ancien, de tout ce qui
 // a fait bouger le stock (entrées, ventes, ajustements, transferts). Par
@@ -44,6 +45,7 @@ const MAX_ROWS = 500
 
 export default function StockMovementsPage({ params: { locale } }: { params: { locale: string } }) {
   const t = useTranslations('movements')
+  const hist = useHistoryWindow()
   const tNav = useTranslations('nav')
   const tPage = useTranslations('page_header')
   const unitLabel = useUnitLabel()
@@ -254,11 +256,17 @@ export default function StockMovementsPage({ params: { locale } }: { params: { l
         </div>
         <div className="flex items-center gap-1">
           <Calendar className="h-4 w-4 flex-shrink-0 text-muted-foreground" />
-          <Input type="date" value={dateFrom} onChange={e => setFilter({ dateFrom: e.target.value })} className="h-10 w-[130px] text-xs sm:h-9" aria-label={t('date_from')} />
+          <Input type="date" value={dateFrom} min={hist.earliestDay ?? undefined} onChange={e => {
+            // Plus ancien que l'historique de la formule : fenêtre « plus loin avec … », date ramenée à la limite
+            if (hist.earliestDay && e.target.value && e.target.value < hist.earliestDay) { openPlanLock(hist.feature); setFilter({ dateFrom: hist.earliestDay }); return }
+            setFilter({ dateFrom: e.target.value })
+          }} className="h-10 w-[130px] text-xs sm:h-9" aria-label={t('date_from')} />
           <span className="text-xs text-muted-foreground">→</span>
           <Input type="date" value={dateTo} onChange={e => setFilter({ dateTo: e.target.value })} className="h-10 w-[130px] text-xs sm:h-9" aria-label={t('date_to')} />
         </div>
       </div>
+      {/* Historique selon la formule : le serveur ne renvoie rien de plus ancien, la limite est dite */}
+      <HistoryLimitHint className="-mt-1" testId="movements-history-hint" />
 
       {productFilter && (
         // Filtre produit : toujours visible, retiré d'un toucher — le type, la période et la recherche restent

@@ -20,7 +20,7 @@ import {
   TrendingUp, ChevronDown, ChevronUp, Table2, Users, RotateCcw, FileDown, FileSpreadsheet,
 } from 'lucide-react'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
-import { PlanBadge } from '@/components/saas/plan-lock'
+import { HistoryLimitHint, PlanBadge, openPlanLock, useHistoryWindow } from '@/components/saas/plan-lock'
 import { useTableExport } from '@/lib/export/use-table-export'
 import { cn } from '@/lib/utils/cn'
 import { withTimeout } from '@/lib/utils/with-timeout'
@@ -77,6 +77,9 @@ export default function CaissePage() {
   const isAuthorized = canAccess('caisse')
 
   const [selectedDate, setSelectedDate] = useState<Date>(() => new Date())
+  // Jours passés : selon la formule (lib/saas/plan-features), 3 mois Starter, 12 mois Pro, sans limite Business
+  const hist = useHistoryWindow()
+  const atHistoryFloor = !!hist.earliest && startOfDay(addDays(selectedDate, -1)) < hist.earliest
   // Lazy initializers: read the page cache synchronously on mount (same
   // pattern as stock/dashboard) so a returning user sees the day's already-
   // known totals instantly instead of a skeleton, even before the auth
@@ -310,7 +313,9 @@ export default function CaissePage() {
       {/* Date picker */}
       <div className="flex items-center justify-between gap-3">
         <Button variant="outline" size="icon" className="h-9 w-9 flex-shrink-0"
-          onClick={() => setSelectedDate(d => addDays(d, -1))}>
+          onClick={() => (atHistoryFloor ? openPlanLock(hist.feature) : setSelectedDate(d => addDays(d, -1)))}
+          disabled={atHistoryFloor && hist.lock !== 'locked'}
+          data-testid="caisse-prev-day">
           <ChevronLeft className="h-4 w-4" />
         </Button>
         <p className="text-sm font-semibold capitalize text-center flex-1">{dateLabel}</p>
@@ -320,6 +325,8 @@ export default function CaissePage() {
           <ChevronRight className="h-4 w-4" />
         </Button>
       </div>
+      {/* Premier jour permis par la formule : la limite est dite */}
+      {atHistoryFloor && <HistoryLimitHint className="-mt-2 justify-center" testId="caisse-history-hint" />}
 
       {/* Summary cards */}
       <div className="grid grid-cols-3 gap-3">

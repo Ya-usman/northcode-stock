@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+import { historyDaysFor, clampStart } from '@/lib/saas/plan-features'
 import { createAdminClient, createClient } from '@/lib/supabase/server'
 import { subMonths, startOfMonth, endOfMonth } from 'date-fns'
 import { getApiTranslator } from '@/lib/api/i18n'
@@ -41,7 +42,8 @@ export async function GET(request: Request) {
     const admin = await createAdminClient() as any
 
     const today = new Date()
-    const start = period === 'month' ? startOfMonth(today) : startOfMonth(subMonths(today, 11))
+    // Historique par formule (lib/saas/plan-features) : jamais plus loin que la durée permise
+    const start = new Date(clampStart((period === 'month' ? startOfMonth(today) : startOfMonth(subMonths(today, 11))).toISOString(), await historyDaysFor(admin, shopIds))!)
     const end = endOfMonth(today)
 
     // Toutes les ventes de la période (page par page au-delà de 1000) — voir lib/dashboard/fetch-rows

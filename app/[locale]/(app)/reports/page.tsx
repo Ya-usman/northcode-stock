@@ -7,14 +7,14 @@ import { usePersistedFilters } from '@/lib/hooks/use-persisted-filters'
 import { useLocale, useTranslations } from 'next-intl'
 import { dateFnsLocale } from '@/lib/i18n/date-format'
 import { getPaymentMethodLabel } from '@/lib/saas/countries'
-import { Download, Receipt, TrendingDown, Banknote, Lock } from 'lucide-react'
+import { Download, Receipt, TrendingDown, Banknote } from 'lucide-react'
 import { PremiumDialog, PremiumDialogBody, PremiumDialogFooter } from '@/components/ui/premium-dialog'
 import {
   PieChart, Pie, Cell,
   Tooltip, ResponsiveContainer,
 } from 'recharts'
-import { PlanBadge, handlePlanRefusal, openPlanLock, useFeatureLock } from '@/components/saas/plan-lock'
-import { REPORT_FREE_DAYS, reportStartAllowed } from '@/lib/saas/plan-features'
+import { HistoryLimitHint, PlanBadge, handlePlanRefusal, openPlanLock, useHistoryWindow } from '@/components/saas/plan-lock'
+import { REPORT_FREE_DAYS } from '@/lib/saas/plan-features'
 import { useAuthContext as useAuth } from '@/lib/contexts/auth-context'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -96,10 +96,11 @@ export default function ReportsPage() {
   }
 
   // Plus de 3 mois en arrière : formule Pro et plus (lib/saas/plan-features, même règle que le serveur)
-  const reportsLock = useFeatureLock('long_reports')
-  const tLock = useTranslations('plan_lock')
-  const longLocked = reportsLock === 'locked' || reportsLock === 'hidden'
-  const earliestDay = format(subDays(new Date(), REPORT_FREE_DAYS), 'yyyy-MM-dd')
+  // Durée selon la formule : 3 mois Starter, 12 mois Pro, sans limite Business (useHistoryWindow)
+  const hist = useHistoryWindow()
+  const reportsLock = hist.lock
+  const longLocked = hist.days >= 0
+  const earliestDay = hist.earliestDay ?? ''
 
   const rangeOf = (filter: string) => {
     const now = new Date()
@@ -130,7 +131,7 @@ export default function ReportsPage() {
   const getDateRange = () => rangeOf(dateFilter)
   // Règle fixe, la même toute l'année : « Cette année » = Pro ; les autres périodes tiennent dans les 3 derniers mois
   // (« Mois dernier » et « Ce trimestre » compris) ; personnalisée = début limité aux 3 derniers mois
-  const presetAllowed = (filter: string) => !longLocked || filter !== 'year'
+  const presetAllowed = (filter: string) => !(filter === 'year' && longLocked && hist.days <= REPORT_FREE_DAYS)
   // Période gardée d'une visite précédente : retirée (« Semestre ») ou devenue trop ancienne → « Ce mois-ci »
   useEffect(() => {
     if (!PERIODS.includes(dateFilter as any)) { setFilter({ dateFilter: 'month' }); return }
@@ -381,7 +382,7 @@ export default function ReportsPage() {
                 max={customEnd}
                 min={longLocked ? earliestDay : undefined}
                 onChange={e => {
-                  if (longLocked && e.target.value && e.target.value < earliestDay) { openPlanLock('long_reports'); setFilter({ customStart: earliestDay }); return }
+                  if (longLocked && e.target.value && e.target.value < earliestDay) { openPlanLock(hist.feature); setFilter({ customStart: earliestDay }); return }
                   setFilter({ customStart: e.target.value })
                 }}
                 className="flex-1 h-9 rounded-md border border-input bg-background px-2 text-xs sm:text-sm focus:outline-none focus:ring-1 focus:ring-ring"
@@ -401,16 +402,7 @@ export default function ReportsPage() {
           </div>
         )}
         {/* Formule sans rapports longs : la limite est dite, jamais silencieuse */}
-        {dateFilter === 'custom' && longLocked && (
-          <p className="flex flex-wrap items-center gap-x-2 gap-y-1 px-1 text-xs text-muted-foreground" data-testid="reports-window-hint">
-            <span>{tLock('reports_window')}</span>
-            {reportsLock === 'locked' && (
-              <button type="button" onClick={() => openPlanLock('long_reports')} className="inline-flex min-h-[32px] items-center gap-1 font-medium text-stockshop-blue hover:underline dark:text-blue-400" data-testid="reports-window-more">
-                <Lock className="h-3 w-3" aria-hidden />{tLock('reports_more')}
-              </button>
-            )}
-          </p>
-        )}
+        {dateFilter === 'custom' && <HistoryLimitHint testId="reports-window-hint" />}
       </div>
 
       {/* KPI — ligne 1 : Encaissé · Dépenses · Transactions */}

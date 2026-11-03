@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+import { historyDaysFor, clampStart } from '@/lib/saas/plan-features'
 import { createAdminClient, createClient } from '@/lib/supabase/server'
 import { subMonths, startOfMonth, endOfMonth, format } from 'date-fns'
 import { getApiTranslator } from '@/lib/api/i18n'
@@ -42,7 +43,8 @@ export async function GET(request: Request) {
 
     const today = new Date()
     const months = Array.from({ length: 12 }, (_, i) => subMonths(today, 11 - i))
-    const yearStart = startOfMonth(months[0]).toISOString()
+    // Historique par formule (lib/saas/plan-features) : les mois au-delà de la durée permise restent vides
+    const yearStart = clampStart(startOfMonth(months[0]).toISOString(), await historyDaysFor(admin, shopIds))!
     const yearEnd = endOfMonth(today).toISOString()
 
     // Ventes et paiements des seules boutiques demandées, lus en entier

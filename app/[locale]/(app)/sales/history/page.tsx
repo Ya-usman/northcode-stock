@@ -15,7 +15,8 @@ import { useShopPermissions } from '@/lib/hooks/use-role-permissions'
 import { useShopScope } from '@/lib/shops/use-shop-scope'
 import { useFilterScope } from '@/lib/filters/use-filter-scope'
 import { EmptyGuide } from '@/components/onboarding/empty-guide'
-import { PlanBadge } from '@/components/saas/plan-lock'
+import { REPORT_FREE_DAYS } from '@/lib/saas/plan-features'
+import { HistoryLimitHint, PlanBadge, openPlanLock, useHistoryWindow } from '@/components/saas/plan-lock'
 import { useTableExport } from '@/lib/export/use-table-export'
 import { isManagerial } from '@/lib/permissions'
 import { Button } from '@/components/ui/button'
@@ -45,7 +46,7 @@ import { receiptLabelsFromT } from '@/lib/receipt/receipt-labels'
 import { hideStockShopBranding } from '@/lib/receipt/branding'
 import { normalize } from '@/lib/utils/normalize'
 import { withTimeout } from '@/lib/utils/with-timeout'
-import { format, parseISO, startOfDay, endOfDay, subDays, subMonths, startOfWeek, startOfMonth, startOfYear } from 'date-fns'
+import { format, parseISO, startOfDay, endOfDay, subDays, subMonths, startOfWeek, startOfMonth, endOfMonth, startOfQuarter, startOfYear } from 'date-fns'
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import type { Sale } from '@/lib/types/database'
 import { setPageCache, getPageCache } from '@/lib/offline/page-cache'
@@ -69,6 +70,13 @@ const statusVariant: Record<string, any> = {
 }
 
 type DialogType = 'cancel' | 'validate'
+
+// Périodes de l'historique des ventes : les mêmes que les Rapports (3 nov. 2026)
+const SALES_PERIODS = ['today', 'yesterday', 'week', 'month', 'last_month', 'quarter', 'year', 'custom'] as const
+const SALES_PERIOD_LABEL: Record<(typeof SALES_PERIODS)[number], string> = {
+  today: 'reports.today', yesterday: 'reports.yesterday', week: 'reports.this_week', month: 'reports.this_month',
+  last_month: 'reports.last_month', quarter: 'reports.this_quarter', year: 'reports.this_year', custom: 'sales.filter_custom',
+}
 
 export default function SalesHistoryPage() {
   const t = useTranslations()
@@ -210,6 +218,16 @@ export default function SalesHistoryPage() {
     methodFilter: 'all', statusFilter: 'all', saleStatusFilter: 'all' as 'all' | 'active' | 'cancelled',
   } : null
   const { search, dateFilter, methodFilter, statusFilter, saleStatusFilter, customStart, customEnd } = targetOverride ? { ...persistedFilters, ...targetOverride } : persistedFilters
+  // Historique selon la formule (lib/saas/plan-features) : 3 mois Starter (« Cette année » = Pro), 12 mois Pro
+  const hist = useHistoryWindow()
+  const presetAllowed = (f: string) => !(f === 'year' && hist.days >= 0 && hist.days <= REPORT_FREE_DAYS)
+  // Période gardée d'une visite précédente : retirée (« Semestre ») ou au-delà de la formule → « Ce mois-ci »
+  useEffect(() => {
+    if (targetOverride) return
+    if (!(SALES_PERIODS as readonly string[]).includes(dateFilter)) { setFilter({ dateFilter: 'month' }); return }
+    if (!presetAllowed(dateFilter) || (dateFilter === 'custom' && hist.earliestDay && customStart && customStart < hist.earliestDay)) setFilter({ dateFilter: 'month' })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [hist.days, dateFilter, customStart])
   const dropTarget = () => {
     setTarget(null); setTargetMissing(false)
     if (targetSaleId) router.replace(pathname)
@@ -305,6 +323,8 @@ export default function SalesHistoryPage() {
       if (cancelled) return
       if (!data) { setTarget(null); setTargetMissing(true); return }
       const d = new Date(data.created_at)
+      // Vente plus ancienne que l'historique de la formule : fenêtre « plus loin avec … » au lieu de l'ouvrir
+      if (hist.earliest && d < hist.earliest) { setTarget(null); setTargetMissing(false); openPlanLock(hist.feature); return }
       const day = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
       setTargetMissing(false); setView('sales'); setTarget({ id: data.id, number: data.sale_number, day })
     }).catch(() => { if (!cancelled) { setTarget(null); setTargetMissing(true) } })
@@ -337,8 +357,12 @@ export default function SalesHistoryPage() {
       case 'today': start = startOfDay(now); break
       case 'week': start = startOfWeek(now, { weekStartsOn: 1 }); break
       case 'month': start = startOfMonth(now); break
-      case 'quarter': start = subMonths(now, 3); break
-      case 'semester': start = subMonths(now, 6); break
+      case 'last_month':
+        start = startOfMonth(subMonths(now, 1))
+        end   = endOfMonth(subMonths(now, 1))
+        break
+      // Mêmes périodes que les Rapports (3 nov. 2026) : trimestre et année civils ; « Semestre » retiré
+      case 'quarter': start = startOfQuarter(now); break
       case 'year': start = startOfYear(now); break
       case 'yesterday':
         start = startOfDay(subDays(now, 1))
@@ -822,7 +846,8 @@ export default function SalesHistoryPage() {
         ? `${format(new Date(customStart), 'dd/MM/yyyy')} – ${format(new Date(customEnd), 'dd/MM/yyyy')}`
         : dateFilter === 'yesterday'
         ? format(subDays(new Date(), 1), 'dd/MM/yyyy')
-        : t('sales.filter_today')
+        // Mois dernier, trimestre, année : la vraie période (avant : le libellé du jour s'imprimait)
+        : (() => { const b = getDateBounds(); return `${format(b.start, 'dd/MM/yyyy')} – ${format(b.end, 'dd/MM/yyyy')}` })()
       const withShop = scope.isAllShops && scope.multiShop
       await generateSalesReportPDF({
         shopName: scopeTitle,
@@ -1129,12 +1154,13 @@ export default function SalesHistoryPage() {
           <Select
             value={dateFilter}
             onValueChange={v => {
+              if (!presetAllowed(v)) { openPlanLock('long_reports'); return }
               if (v === 'custom') {
                 const today = format(new Date(), 'yyyy-MM-dd')
                 const monthStart = format(startOfMonth(new Date()), 'yyyy-MM-dd')
                 setFilter({
                   dateFilter: v,
-                  customStart: customStart || monthStart,
+                  customStart: customStart && (!hist.earliestDay || customStart >= hist.earliestDay) ? customStart : monthStart,
                   customEnd:   customEnd   || today,
                 })
               } else {
@@ -1142,16 +1168,13 @@ export default function SalesHistoryPage() {
               }
             }}
           >
-            <SelectTrigger className="w-[150px] h-9"><SelectValue /></SelectTrigger>
+            <SelectTrigger className="w-[150px] h-9" data-testid="sales-period"><SelectValue /></SelectTrigger>
             <SelectContent>
-              <SelectItem value="today">{t('sales.filter_today')}</SelectItem>
-              <SelectItem value="yesterday">{t('sales.filter_yesterday')}</SelectItem>
-              <SelectItem value="week">{t('sales.filter_week')}</SelectItem>
-              <SelectItem value="month">{t('sales.filter_month')}</SelectItem>
-              <SelectItem value="quarter">{t('sales.filter_quarter')}</SelectItem>
-              <SelectItem value="semester">{t('sales.filter_semester')}</SelectItem>
-              <SelectItem value="year">{t('sales.filter_year')}</SelectItem>
-              <SelectItem value="custom">{t('sales.filter_custom')}</SelectItem>
+              {SALES_PERIODS.filter(f => presetAllowed(f) || hist.lock === 'locked').map(f => (
+                <SelectItem key={f} value={f} data-testid={`sales-preset-${f}`}>
+                  <span className="flex w-full items-center gap-2">{t(SALES_PERIOD_LABEL[f])}{!presetAllowed(f) && <PlanBadge state={hist.lock} feature="long_reports" />}</span>
+                </SelectItem>
+              ))}
             </SelectContent>
           </Select>
         </div>
@@ -1162,7 +1185,11 @@ export default function SalesHistoryPage() {
               type="date"
               value={customStart}
               max={customEnd || format(new Date(), 'yyyy-MM-dd')}
-              onChange={e => setFilter({ customStart: e.target.value })}
+              min={hist.earliestDay ?? undefined}
+              onChange={e => {
+                if (hist.earliestDay && e.target.value && e.target.value < hist.earliestDay) { openPlanLock(hist.feature); setFilter({ customStart: hist.earliestDay }); return }
+                setFilter({ customStart: e.target.value })
+              }}
               className="h-9 w-[140px]"
             />
             <Input
@@ -1173,6 +1200,7 @@ export default function SalesHistoryPage() {
               onChange={e => setFilter({ customEnd: e.target.value })}
               className="h-9 w-[140px]"
             />
+            <HistoryLimitHint className="basis-full" testId="sales-history-hint" />
           </>
         )}
 

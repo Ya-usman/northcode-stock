@@ -14,9 +14,9 @@ import { Lock } from 'lucide-react'
 import { useAuth } from '@/lib/hooks/use-auth'
 import { PremiumDialog, PremiumDialogBody, PremiumDialogFooter } from '@/components/ui/premium-dialog'
 import { cn } from '@/lib/utils/cn'
-import type { FeatureMap, PlanFeature } from '@/lib/saas/plan-features'
+import { historyFeature, type FeatureMap, type PlanFeature } from '@/lib/saas/plan-features'
 
-type Info = { plan: string; features: FeatureMap; required: Record<PlanFeature, 'pro' | 'business'> }
+type Info = { plan: string; features: FeatureMap; required: Record<PlanFeature, 'pro' | 'business'>; history_days?: number }
 const cache = new Map<string, Info>()
 const pending = new Map<string, Promise<Info | null>>()
 
@@ -64,6 +64,37 @@ export function useFeatureLock(feature: PlanFeature): FeatureLockState {
   if (!info) return 'ok'
   if (info.features[feature]) return info.plan === 'trial' && owner ? 'trial' : 'ok'
   return owner ? 'locked' : 'hidden'
+}
+
+/** Historique consultable (lib/saas/plan-features) : durée, premier jour permis (aaaa-mm-jj, heure locale), fonction à
+ *  proposer pour aller plus loin et état du cadenas. days = -1 : sans limite (ou pas encore connu). */
+export function useHistoryWindow(): { days: number; earliestDay: string | null; earliest: Date | null; feature: PlanFeature; lock: FeatureLockState } {
+  const info = usePlanFeatures()
+  const owner = useIsOwner()
+  const days = info && typeof info.history_days === 'number' ? info.history_days : -1
+  const feature = historyFeature(days)
+  if (days < 0) return { days, earliestDay: null, earliest: null, feature, lock: 'ok' }
+  const d = new Date(); d.setHours(0, 0, 0, 0); d.setDate(d.getDate() - days)
+  const pad = (n: number) => String(n).padStart(2, '0')
+  return { days, earliest: d, earliestDay: `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`, feature, lock: owner ? 'locked' : 'hidden' }
+}
+
+/** Ligne « Votre formule : historique des 3 derniers mois. 🔒 Plus loin avec Pro » (lien pour le propriétaire seulement) */
+export function HistoryLimitHint({ className, testId = 'history-limit-hint' }: { className?: string; testId?: string }) {
+  const t = useTranslations('plan_lock')
+  const w = useHistoryWindow()
+  if (w.days < 0) return null
+  const plan = w.feature === 'unlimited_history' ? 'Business' : 'Pro'
+  return (
+    <p className={cn('flex flex-wrap items-center gap-x-2 gap-y-1 px-1 text-xs text-muted-foreground', className)} data-testid={testId}>
+      <span>{t(w.feature === 'unlimited_history' ? 'history_window_12m' : 'history_window_3m')}</span>
+      {w.lock === 'locked' && (
+        <button type="button" onClick={() => openPlanLock(w.feature)} className="inline-flex min-h-[32px] items-center gap-1 font-medium text-stockshop-blue hover:underline dark:text-blue-400" data-testid={`${testId}-more`}>
+          <Lock className="h-3 w-3" aria-hidden />{t('history_more', { plan })}
+        </button>
+      )}
+    </p>
+  )
 }
 
 const EVENT = 'stockshop:plan-lock'

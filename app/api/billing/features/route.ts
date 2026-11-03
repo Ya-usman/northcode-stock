@@ -18,6 +18,6 @@ export async function GET(request: Request) {
   const role = await checkShopRole(supabase, user.id, shopId)
   if (!role) return NextResponse.json({ error: t('shop_access_denied') }, { status: 403 })
   const admin = await createAdminClient() as any
-  const { plan, features } = await getShopFeatures(admin, shopId)
-  return NextResponse.json({ plan, features, required: FEATURE_MIN_PLAN }, { headers: { 'Cache-Control': 'no-store' } })
+  const { plan, features, historyDays } = await getShopFeatures(admin, shopId)
+  return NextResponse.json({ plan, features, required: FEATURE_MIN_PLAN, history_days: historyDays }, { headers: { 'Cache-Control': 'no-store' } })
 }

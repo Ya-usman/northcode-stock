@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+import { historyDaysFor, historyFloor, historyStartAllowed } from '@/lib/saas/plan-features'
 import { createAdminClient, createClient } from '@/lib/supabase/server'
 import { getApiTranslator } from '@/lib/api/i18n'
 import { shopsWithView } from '@/lib/api/role-permissions'
@@ -39,7 +40,13 @@ export async function GET(request: Request) {
       .order('created_at', { ascending: false })
       .limit(1000)
 
-    if (dateFrom) salesQuery = salesQuery.gte('created_at', dateFrom)
+    // Historique par formule (lib/saas/plan-features) : au-delà de la durée permise, seules restent les ventes encore
+    // dues (un crédit non soldé n'est jamais caché, quelle que soit sa date)
+    const hd = await historyDaysFor(admin, allowedIds)
+    const floor = historyFloor(hd)
+    if (dateFrom && historyStartAllowed(dateFrom, hd)) salesQuery = salesQuery.gte('created_at', dateFrom)
+    else if (floor) salesQuery = salesQuery.or(`created_at.gte.${floor.toISOString()},balance.gt.0`)
+    else if (dateFrom) salesQuery = salesQuery.gte('created_at', dateFrom)
     if (dateTo) {
       const endOfDay = new Date(dateTo)
       endOfDay.setHours(23, 59, 59, 999)

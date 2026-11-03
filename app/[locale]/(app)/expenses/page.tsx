@@ -47,7 +47,7 @@ import { compressImage } from '@/lib/utils/compress-image'
 import { hasNativePhotoPicker, pickPhotoNative, PhotoPermissionError } from '@/lib/photo/pick-photo'
 import { useRestoredPhoto } from '@/lib/photo/use-restored-photo'
 import { generateExpensesReportPDF } from '@/lib/utils/pdf'
-import { PlanBadge } from '@/components/saas/plan-lock'
+import { HistoryLimitHint, PlanBadge, openPlanLock, useHistoryWindow } from '@/components/saas/plan-lock'
 import { useTableExport } from '@/lib/export/use-table-export'
 import { receiptSrc } from '@/lib/expenses/receipts'
 import { SegmentedTabs } from '@/components/ui/segmented-tabs'
@@ -91,6 +91,14 @@ export default function ExpensesPage() {
   const [{ monthFilter, categoryFilter, paymentFilter }, setFilter] = usePersistedFilters(
     'expenses', filterScope, { monthFilter: format(new Date(), 'yyyy-MM'), categoryFilter: 'all', paymentFilter: 'all' }, { keepPerScope: true }
   )
+  // Mois passés : selon la formule (lib/saas/plan-features) ; un mois est visible tant qu'il touche la période permise
+  const hist = useHistoryWindow()
+  const monthInHistory = (ym: string) => !hist.earliest || endOfMonth(parseISO(ym + '-01')) >= hist.earliest
+  const atHistoryFloor = !!hist.earliest && !monthInHistory(format(addMonths(parseISO(monthFilter + '-01'), -1), 'yyyy-MM'))
+  useEffect(() => {
+    if (hist.earliest && !monthInHistory(monthFilter)) setFilter({ monthFilter: format(new Date(), 'yyyy-MM') })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [hist.days, monthFilter])
   const [search, setSearch] = useState('')
   const locale = useLocale()
   const { toast } = useToast()
@@ -834,8 +842,10 @@ export default function ExpensesPage() {
             variant="outline"
             size="icon"
             className="h-9 w-9"
-            onClick={() => setFilter({ monthFilter: format(addMonths(new Date(monthFilter + '-01'), -1), 'yyyy-MM') })}
+            onClick={() => (atHistoryFloor ? openPlanLock(hist.feature) : setFilter({ monthFilter: format(addMonths(new Date(monthFilter + '-01'), -1), 'yyyy-MM') }))}
+            disabled={atHistoryFloor && hist.lock !== 'locked'}
             aria-label={t('prev_month')}
+            data-testid="expenses-prev-month"
           >
             <ChevronLeft className="h-4 w-4" />
           </Button>
@@ -852,6 +862,7 @@ export default function ExpensesPage() {
               {Array.from({ length: 12 }, (_, i) => {
                 const d = addMonths(new Date(), -i)
                 const val = format(d, 'yyyy-MM')
+                if (!monthInHistory(val)) return null
                 return (
                   <SelectItem key={val} value={val}>
                     {d.toLocaleDateString(dateLocaleTag(locale), { month: 'long', year: 'numeric' })}
@@ -903,6 +914,7 @@ export default function ExpensesPage() {
           )}
         </div>
       </div>
+      {atHistoryFloor && <HistoryLimitHint className="-mt-2" testId="expenses-history-hint" />}
 
       {/* View toggle */}
       {canWriteExpenses && (

@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+import { historyDaysFor, clampStart } from '@/lib/saas/plan-features'
 import { createAdminClient, createClient } from '@/lib/supabase/server'
 import { getApiTranslator } from '@/lib/api/i18n'
 import { loadShopAccess, parseShopIds } from '@/lib/api/shop-access'
@@ -18,8 +19,8 @@ export async function GET(request: Request) {
 
     const sp = new URL(request.url).searchParams
     const shopIds = parseShopIds(sp.get('shop_ids'))
-    const from = sp.get('from') || '', to = sp.get('to') || ''
-    if (!shopIds || Number.isNaN(Date.parse(from)) || Number.isNaN(Date.parse(to))) {
+    const rawFrom = sp.get('from') || '', to = sp.get('to') || ''
+    if (!shopIds || Number.isNaN(Date.parse(rawFrom)) || Number.isNaN(Date.parse(to))) {
       return NextResponse.json({ error: t('missing_params') }, { status: 400 })
     }
     const access = await loadShopAccess(supabase, user.id, shopIds)
@@ -29,6 +30,8 @@ export async function GET(request: Request) {
     const expenseShops = access.filter(a => a.view('revenue_chart') && a.role !== 'cashier' && a.view('expenses')).map(a => a.shopId)
 
     const admin = await createAdminClient() as any
+    // Historique par formule (lib/saas/plan-features) : jamais plus loin que la durée permise
+    const from = clampStart(rawFrom, await historyDaysFor(admin, shopIds))!
     const [payments, expenses] = await Promise.all([
       fetchShopPayments(admin, revenueShops, from, to),
       expenseShops.length ? fetchAllRows<any>(() => admin

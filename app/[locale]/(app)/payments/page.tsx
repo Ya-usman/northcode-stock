@@ -15,7 +15,7 @@ import { resolveCurrencyCode, currencySymbol } from '@/lib/saas/currencies'
 import { isManagerial as isManagerialRole } from '@/lib/permissions'
 import { generateDebtReceiptPDFBlob, generateReportPDFBlob } from '@/lib/utils/pdf'
 import { sharePDFNative, printPDFNative, isCapacitor } from '@/lib/utils/native-share'
-import { PlanBadge } from '@/components/saas/plan-lock'
+import { HistoryLimitHint, PlanBadge, openPlanLock, useHistoryWindow } from '@/components/saas/plan-lock'
 import { useTableExport } from '@/lib/export/use-table-export'
 import { saveFile } from '@/lib/utils/save-file'
 import { normalize } from '@/lib/utils/normalize'
@@ -603,6 +603,8 @@ export default function CreditsPage() {
   const [histAllSearch, setHistAllSearch] = useState('')
   const [histAllStatusFilter, setHistAllStatusFilter] = useState<'all' | 'solde' | 'en_cours'>('all')
   const [histAllDateFrom, setHistAllDateFrom] = useState('')
+  // Historique global selon la formule (lib/saas/plan-features) ; les crédits encore dus restent toujours listés
+  const hist = useHistoryWindow()
   const [histAllDateTo, setHistAllDateTo] = useState('')
   const [histAllExpandedId, setHistAllExpandedId] = useState<string | null>(null)
   const [histAllFetched, setHistAllFetched] = useState(() =>
@@ -1734,7 +1736,12 @@ export default function CreditsPage() {
               <input
                 type="date"
                 value={histAllDateFrom}
-                onChange={e => setHistAllDateFrom(e.target.value)}
+                min={hist.earliestDay ?? undefined}
+                onChange={e => {
+                  // Plus ancien que l'historique de la formule : fenêtre, date ramenée à la limite (crédits dus toujours listés)
+                  if (hist.earliestDay && e.target.value && e.target.value < hist.earliestDay) { openPlanLock(hist.feature); setHistAllDateFrom(hist.earliestDay); return }
+                  setHistAllDateFrom(e.target.value)
+                }}
                 className="flex-1 h-9 rounded-md border border-input bg-card px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
               />
               <span className="text-muted-foreground text-sm">→</span>
@@ -1754,6 +1761,7 @@ export default function CreditsPage() {
                 {loadingHistAll ? <RefreshCw className="h-3.5 w-3.5 animate-spin" /> : t('payments.filter_btn')}
               </Button>
             </div>
+            <HistoryLimitHint testId="payments-history-hint" />
           </div>
 
           {/* Stats bar — cliquable pour filtrer la liste, même logique que les cartes d'alerte de Stock */}

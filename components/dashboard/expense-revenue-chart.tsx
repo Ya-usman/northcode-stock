@@ -1,5 +1,7 @@
 'use client'
 
+import { useHistoryWindow } from '@/components/saas/plan-lock'
+import { REPORT_FREE_DAYS } from '@/lib/saas/plan-features'
 import { useState, useEffect } from 'react'
 import { useTranslations, useLocale } from 'next-intl'
 import {
@@ -23,6 +25,9 @@ interface MonthData {
 
 export function ExpenseRevenueChart() {
   const t = useTranslations('dashboard')
+  // 6 mois ; 3 seulement avec l'historique Starter (lib/saas/plan-features), jamais de mois vides trompeurs
+  const hist = useHistoryWindow()
+  const monthsCount = hist.days >= 0 && hist.days <= REPORT_FREE_DAYS ? 3 : 6
   const locale = useLocale()
   const { effectiveShopIds } = useAuth()
   const { fmt, symbol } = useCurrency()
@@ -34,7 +39,7 @@ export function ExpenseRevenueChart() {
   useEffect(() => {
     if (!effectiveShopIds.length) return
 
-    const cacheKey = `expense_revenue_trend_${effectiveShopIds.join(',')}`
+    const cacheKey = `expense_revenue_trend_${monthsCount}_${effectiveShopIds.join(',')}`
     const cached = getPageCache<MonthData[]>(cacheKey)
     if (cached) {
       setData(cached)
@@ -43,7 +48,7 @@ export function ExpenseRevenueChart() {
 
     const fetchTrend = async () => {
       const today = new Date()
-      const sixMonthsAgo = startOfMonth(subMonths(today, 5))
+      const sixMonthsAgo = startOfMonth(subMonths(today, monthsCount - 1))
 
       // Lu par le SERVEUR (/api/dashboard/expense-revenue) : chiffre d'affaires de la boutique seulement là où il est
       // autorisé, dépenses seulement là où elles le sont — décidé boutique par boutique, jamais par ce navigateur.
@@ -53,8 +58,8 @@ export function ExpenseRevenueChart() {
       if (!res.ok) throw new Error(json.error || 'expense-revenue')
       const expRaw = json.expenses || [], paymentsRaw = json.payments || []
 
-      const months = Array.from({ length: 6 }, (_, i) => {
-        const d = subMonths(today, 5 - i)
+      const months = Array.from({ length: monthsCount }, (_, i) => {
+        const d = subMonths(today, monthsCount - 1 - i)
         return {
           key:   format(d, 'yyyy-MM'),
           label: d.toLocaleDateString(locale, { month: 'short' }),
@@ -92,7 +97,7 @@ export function ExpenseRevenueChart() {
       setLoading(false)
     })
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [effectiveShopIds.join(','), locale])
+  }, [effectiveShopIds.join(','), locale, monthsCount])
 
   const tickFormatter = (v: number) => chartTickFormatter(v, symbol, isFCFA, locale)
 
@@ -119,7 +124,7 @@ export function ExpenseRevenueChart() {
     return (
       <Card className="border-0 shadow-sm">
         <CardHeader className="pb-2">
-          <CardTitle className="text-sm font-semibold">{t('monthly_trend')}</CardTitle>
+          <CardTitle className="text-sm font-semibold">{t('monthly_trend', { months: monthsCount })}</CardTitle>
         </CardHeader>
         <CardContent className="pb-2">
           <div className="h-[180px] bg-muted/40 rounded-lg animate-pulse" />
@@ -132,7 +137,7 @@ export function ExpenseRevenueChart() {
     <Card className="border-0 shadow-sm">
       <CardHeader className="pb-2">
         <CardTitle className="text-sm font-semibold flex items-center gap-2">
-          {t('monthly_trend')}
+          {t('monthly_trend', { months: monthsCount })}
           {isFCFA && (
             <span className="text-[10px] font-normal text-muted-foreground bg-muted rounded px-1.5 py-0.5">
               F CFA

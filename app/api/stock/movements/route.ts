@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+import { historyDaysFor, historyFloor } from '@/lib/saas/plan-features'
 import { createAdminClient, createClient } from '@/lib/supabase/server'
 import { getApiTranslator } from '@/lib/api/i18n'
 import { canViewFeature } from '@/lib/api/role-permissions'
@@ -54,6 +55,10 @@ export async function GET(request: Request) {
     if (productId && !/^[0-9a-f-]{36}$/i.test(productId)) return NextResponse.json({ error: t('invalid_data') }, { status: 400 })
     const from = searchParams.get('from')
     const to   = searchParams.get('to')
+    // Historique par formule (lib/saas/plan-features) : sans date ou plus ancien → la limite permise
+    const floor = historyFloor(await historyDaysFor(admin, allowedIds))
+    const fromIso = from ? `${from}T00:00:00` : null
+    const since = floor && (!fromIso || new Date(fromIso).getTime() < floor.getTime()) ? floor.toISOString() : fromIso
 
     // Tous les filtres hors recherche ; `search` = conditions « l'une OU l'autre » de la recherche
     const IS_TRANSFER = TRANSFER_REASON_PREFIXES.map(p => `reason.ilike.${p}%`).join(',')
@@ -70,7 +75,7 @@ export async function GET(request: Request) {
       else if (kind === 'sale' || kind === 'in') query = query.eq('type', kind).or(NOT_TRANSFER)
       else if (kind === 'adjustment') query = query.not('type', 'in', '(in,sale)').or(NOT_TRANSFER)
       if (productId) query = query.eq('product_id', productId)
-      if (from) query = query.gte('created_at', `${from}T00:00:00`)
+      if (since) query = query.gte('created_at', since)
       if (to)   query = query.lte('created_at', `${to}T23:59:59`)
       if (search) query = query.or(search)
       return query
