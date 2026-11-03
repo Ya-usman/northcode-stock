@@ -3,6 +3,7 @@ import { writeAuditLog } from '@/lib/api/audit'
 import { getAccountShopIds } from './team-quota'
 import { getAccountForShop, type EntityAccount } from './entity'
 import { getGrantBonus, effectiveLimit } from './grants'
+import { getLegacyTerms, planLimitWithLegacy } from './legacy-terms'
 
 export interface EnforcementResult {
   /** true = calcul seul, rien n'a été écrit (voir PLAN_LIMIT_ENFORCEMENT) */
@@ -69,10 +70,11 @@ export async function enforceAccountPlanLimits(
 
   // Limites effectives = formule + gestes commerciaux actifs (migration 157) :
   // un membre ou une boutique offert n'est jamais suspendu par ce contrôle.
+  // Clients actuels : anciennes limites gardées jusqu'à leur date (lib/saas/legacy-terms, migration 205)
   const plan = getPlan(account.plan)
-  const bonus = await getGrantBonus(supabase, account.entityId)
-  const shopLimit   = effectiveLimit(plan.limits.shops, bonus.shops)               // -1 = illimité
-  const memberLimit = effectiveLimit(plan.limits.team_members, bonus.team_seats)   // -1 = illimité ; propriétaire non compté
+  const [bonus, legacy] = await Promise.all([getGrantBonus(supabase, account.entityId), getLegacyTerms(supabase, account.entityId)])
+  const shopLimit   = effectiveLimit(planLimitWithLegacy(plan.limits.shops, plan.id, legacy, 'shops'), bonus.shops)                       // -1 = illimité
+  const memberLimit = effectiveLimit(planLimitWithLegacy(plan.limits.team_members, plan.id, legacy, 'team_members'), bonus.team_seats) // -1 = illimité ; propriétaire non compté
 
   // ── 1. BOUTIQUES ──────────────────────────────────────────────────────────
   const allShopIds = await getAccountShopIds(supabase, account, { includeSuspended: true })

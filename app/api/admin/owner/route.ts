@@ -36,7 +36,7 @@ export async function POST(request: Request) {
     if (inviteErr) return NextResponse.json({ error: inviteErr.message }, { status: 400 })
 
     const userId = invite.user.id
-    const trialEndsAt = new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString()
+    const trialEndsAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString() // essai de 30 jours partout (3 nov. 2026)
 
     // 2. Créer la boutique
     const { data: shop, error: shopErr } = await admin.from('shops').insert({

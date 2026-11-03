@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createAdminClient, createClient } from '@/lib/supabase/server'
 import { checkShopRole } from '@/lib/api/shop-auth'
-import { getCountry, getPeriodPrice, getPeriodDays, getBillingCurrency, type BillingPeriod } from '@/lib/saas/countries'
+import { getCountry, getPeriodPrice, getPeriodDays, getBillingCurrency, OFFERED_PERIODS, type BillingPeriod } from '@/lib/saas/countries'
 import { checkRateLimit } from '@/lib/rate-limit'
 import { validateBody, uuid, email as emailSchema, billingPeriodEnum, planEnum } from '@/lib/api/validate'
 import { fetchWithTimeout } from '@/lib/api/fetch'
@@ -11,6 +11,7 @@ import { enforceShopPlanLimits } from '@/lib/saas/enforce-limits'
 import { createPaymentIntent, newPaymentReference, setGatewayReference, failPaymentIntent, type Gateway } from '@/lib/billing/payment-intents'
 import { previewWalletCredit, applyWalletCredit } from '@/lib/referrals/apply-credit'
 import { getAccountForShop, setAccountPlan } from '@/lib/saas/entity'
+import { getLegacyTerms, monthlyPriceFor } from '@/lib/saas/legacy-terms'
 import { z } from 'zod'
 
 const subscribeSchema = z.object({
@@ -75,6 +76,8 @@ export async function POST(request: Request) {
     const { plan_id, shop_id, email, locale, billing_period, payment_method, auto_renew, use_credit } = validated.data
 
     const period = billing_period as BillingPeriod
+    // Durées proposées seulement (mensuel, 6 mois, 1 an) : le trimestre n'est plus vendu (3 nov. 2026)
+    if (!OFFERED_PERIODS.includes(period)) return NextResponse.json({ error: t('invalid_data') }, { status: 400 })
 
     // Seul le propriétaire connecté de la boutique paie pour elle (3 nov. 2026). Avant : aucun contrôle de l'appelant,
     // n'importe qui pouvait créer un paiement, ou dépenser le crédit de parrainage d'un autre propriétaire.
@@ -102,10 +105,13 @@ export async function POST(request: Request) {
     // devise boutique du pays (PLN, SEK, CZK…) — voir getBillingCurrency.
     const billingCurrency = getBillingCurrency(country)
     const baseUrl = process.env.NEXT_PUBLIC_APP_URL || `https://${process.env.VERCEL_URL}`
-    const monthlyPrice = country.prices[plan_id as keyof typeof country.prices]
-    if (!monthlyPrice) {
+    const tariffPrice = country.prices[plan_id as keyof typeof country.prices]
+    if (!tariffPrice) {
       return NextResponse.json({ error: t('invalid_plan_for_country') }, { status: 400 })
     }
+    // Clients actuels : ancien prix garanti s'ils renouvellent la même formule sans interruption, et s'il est moins
+    // cher que le tarif (lib/saas/legacy-terms, migration 205)
+    const monthlyPrice = monthlyPriceFor(tariffPrice, plan_id, billingCurrency, await getLegacyTerms(supabase, account?.entityId), account).price
 
     const amount = getPeriodPrice(monthlyPrice, period)
 

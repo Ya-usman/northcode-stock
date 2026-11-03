@@ -24,12 +24,15 @@ export interface Plan {
   paystack_plan_code?: string
 }
 
+// Formules (tarification du 3 nov. 2026) : Starter 1 boutique + 2 employés, Pro 2 + 5, Business 3 + 8 (propriétaire non
+// compté). Essai de 30 jours avec les limites de Pro. Prix réels par pays : lib/saas/countries (prices, addons) ;
+// price_monthly ci-dessous = référence en naira, pour l'affichage historique seulement.
 export const PLANS: Record<PlanId, Plan> = {
   trial: {
     id: 'trial',
     name: 'Free Trial',
     price_monthly: 0,
-    limits: { products: -1, team_members: 2, history_days: 30, shops: 1 },
+    limits: { products: -1, team_members: 5, history_days: 365, shops: 2 },
     features: {
       reports: true,
       export_csv: false,
@@ -43,7 +46,7 @@ export const PLANS: Record<PlanId, Plan> = {
   starter: {
     id: 'starter',
     name: 'Starter',
-    price_monthly: 4999,
+    price_monthly: 5000,
     limits: { products: -1, team_members: 2, history_days: 90, shops: 1 },
     features: {
       reports: true,
@@ -59,7 +62,7 @@ export const PLANS: Record<PlanId, Plan> = {
   pro: {
     id: 'pro',
     name: 'Pro',
-    price_monthly: 9999,
+    price_monthly: 10000,
     limits: { products: -1, team_members: 5, history_days: 365, shops: 2 },
     features: {
       reports: true,
@@ -75,8 +78,8 @@ export const PLANS: Record<PlanId, Plan> = {
   business: {
     id: 'business',
     name: 'Business',
-    price_monthly: 19999,
-    limits: { products: -1, team_members: 30, history_days: -1, shops: 10 },
+    price_monthly: 15000,
+    limits: { products: -1, team_members: 8, history_days: -1, shops: 3 },
     features: {
       reports: true,
       export_csv: true,

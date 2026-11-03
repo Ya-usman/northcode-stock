@@ -8,7 +8,7 @@ export const positiveNumber = z.number().positive()
 export const nonNegativeNumber = z.number().min(0)
 
 export const roleEnum = z.enum(['manager', 'cashier', 'stock_manager', 'viewer'])
-export const billingPeriodEnum = z.enum(['monthly', 'quarterly', 'annual'])
+export const billingPeriodEnum = z.enum(['monthly', 'semiannual', 'annual', 'quarterly'])
 export const planEnum = z.enum(['starter', 'pro', 'business'])
 
 export function badRequest(message: string) {

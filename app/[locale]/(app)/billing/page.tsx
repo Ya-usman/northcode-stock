@@ -5,8 +5,9 @@ import { useState, useEffect, useCallback, useRef } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { useTranslations, useLocale } from 'next-intl'
 import { useAuthContext as useAuth } from '@/lib/contexts/auth-context'
+import { dateLocaleTag } from '@/lib/i18n/date-format'
 import { getPlan, getTrialDaysLeft, hasActiveSubscription } from '@/lib/saas/plans'
-import { getCountry, getPeriodPrice, getBillingCurrency, BILLING_PERIODS, type BillingPeriod } from '@/lib/saas/countries'
+import { getCountry, getPeriodPrice, getBillingCurrency, BILLING_PERIODS, OFFERED_PERIODS, type BillingPeriod } from '@/lib/saas/countries'
 import { formatCurrency } from '@/lib/utils/currency'
 import { currencySymbol } from '@/lib/saas/currencies'
 import { Button } from '@/components/ui/button'
@@ -55,6 +56,17 @@ export default function BillingPage({ params: { locale } }: { params: { locale: 
   // prévisualisation du crédit à l'ouverture de chaque checkout.
   const [rewardWallet, setRewardWallet] = useState<{ available_balance: number; currency: string; auto_apply_to_subscription: boolean } | null>(null)
   const [useCredit, setUseCredit] = useState(false)
+  // Clients actuels (tarification du 3 nov. 2026) : prix garanti par formule et anciennes limites, calculés par le
+  // serveur avec la même règle que le paiement (lib/saas/legacy-terms)
+  const [terms, setTerms] = useState<{ locked: Partial<Record<PlanId, number>>; limits: { plan: string; shops: number; team_members: number; until: string } | null } | null>(null)
+  useEffect(() => {
+    if (!shop?.id) return
+    let alive = true
+    withTimeout(fetch(`/api/billing/terms?shop_id=${shop.id}`)).then(async res => {
+      if (res.ok && alive) setTerms(await res.json())
+    }).catch(() => {})
+    return () => { alive = false }
+  }, [shop?.id])
 
   useEffect(() => {
     withTimeout(fetch('/api/referrals/summary')).then(async res => {
@@ -212,10 +224,12 @@ export default function BillingPage({ params: { locale } }: { params: { locale: 
   // Comparaison contre la devise de FACTURATION (billingCurrency), pas la
   // devise boutique : le crédit s'applique au montant envoyé à la
   // passerelle, qui est en billingCurrency.
+  // Prix mensuel d'une formule pour ce pays (règle unique avec le serveur : lib/saas/countries getPeriodPrice)
+  const monthlyPriceOf = (planId: PlanId) => terms?.locked?.[planId] ?? country.prices[planId]
   const walletMatchesCountry = !!rewardWallet && rewardWallet.currency === billingCurrency && rewardWallet.available_balance > 0
   const creditPreview = (planId: PlanId) => {
     if (!walletMatchesCountry || !useCredit) return null
-    const price = getPeriodPrice(country.prices[planId], period, country.periodPrices?.[planId])
+    const price = getPeriodPrice(monthlyPriceOf(planId), period)
     const applied = Math.min(rewardWallet!.available_balance, price)
     const due = Math.round((price - applied) * 100) / 100
     return { price, applied, due, remaining: rewardWallet!.available_balance - applied }
@@ -282,18 +296,20 @@ export default function BillingPage({ params: { locale } }: { params: { locale: 
   const formatAmount = (amount: number) => formatCurrency(amount, billingCurrency)
 
   const formatPrice = (planId: PlanId, forPeriod = period) =>
-    formatAmount(getPeriodPrice(country.prices[planId], forPeriod, country.periodPrices?.[planId]))
+    formatAmount(getPeriodPrice(monthlyPriceOf(planId), forPeriod))
 
   const periodLabel = {
-    monthly:   t('checkout_total_monthly'),
-    quarterly: t('checkout_total_quarterly'),
-    annual:    t('checkout_total_annual'),
+    monthly:    t('checkout_total_monthly'),
+    semiannual: t('checkout_total_semiannual'),
+    quarterly:  t('checkout_total_quarterly'),
+    annual:     t('checkout_total_annual'),
   }[period]
 
   const periodSuffix = {
-    monthly:   t('per_month'),
-    quarterly: t('per_3months'),
-    annual:    t('per_year'),
+    monthly:    t('per_month'),
+    semiannual: t('per_6months'),
+    quarterly:  t('per_3months'),
+    annual:     t('per_year'),
   }[period]
 
   const checkoutPlanDetails = checkoutPlan ? PLAN_DETAILS.find(p => p.id === checkoutPlan) : null
@@ -369,17 +385,20 @@ export default function BillingPage({ params: { locale } }: { params: { locale: 
             <h2 className="font-semibold">{isSubscribed ? t('change_plan') : t('choose_plan')}</h2>
 
             {/* Période : barre commune (fond qui glisse) */}
-            <SegmentedTabs className="self-start sm:self-auto" value={period} onChange={v => setPeriod(v as BillingPeriod)} testId="billing-period" items={(Object.keys(BILLING_PERIODS) as BillingPeriod[]).map(p => {
-              const cfg = BILLING_PERIODS[p]
-              return {
-                key: p,
-                label: <>{cfg.label}{cfg.badge && <span className={cn('rounded-full px-1.5 py-0.5 text-xs font-bold', p === 'annual'
-                  ? 'bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-400'
-                  : 'bg-stockshop-blue-muted text-stockshop-blue dark:bg-blue-900/40 dark:text-blue-400')}>{cfg.badge}</span>}</>,
-              }
-            })} />
+            {/* Durées : mensuel, 6 mois (2 semaines offertes), 1 an (2 mois offerts) */}
+            <SegmentedTabs className="self-start sm:self-auto" value={period} onChange={v => setPeriod(v as BillingPeriod)} testId="billing-period" items={OFFERED_PERIODS.map(p => ({
+              key: p,
+              label: <>{t(`period_${p}` as any)}{p !== 'monthly' && <span className={cn('rounded-full px-1.5 py-0.5 text-xs font-bold', p === 'annual'
+                ? 'bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-400'
+                : 'bg-stockshop-blue-muted text-stockshop-blue dark:bg-blue-900/40 dark:text-blue-400')}>{t(`badge_${p}` as any)}</span>}</>,
+            }))} />
           </div>
 
+          {terms?.limits && (
+            <p className="mb-4 rounded-lg bg-stockshop-blue-muted px-3 py-2 text-sm text-stockshop-blue dark:bg-blue-950/40 dark:text-blue-300" data-testid="billing-legacy-limits">
+              {t('legacy_limits', { date: new Date(terms.limits.until).toLocaleDateString(dateLocaleTag(locale), { day: 'numeric', month: 'long', year: 'numeric' }), shops: terms.limits.shops, members: terms.limits.team_members })}
+            </p>
+          )}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             {PLAN_DETAILS.map(({ id, popular, features }) => {
               const isCurrent = shop?.plan === id && isSubscribed
@@ -416,10 +435,16 @@ export default function BillingPage({ params: { locale } }: { params: { locale: 
                       </span>
                       <span className="text-muted-foreground text-sm">{periodSuffix}</span>
                     </div>
+                    {/* 6 mois / 1 an : ce qui est offert, puis l'équivalent mensuel, lisibles d'un coup d'œil */}
                     {period !== 'monthly' && (
-                      <p className="text-xs text-muted-foreground mt-0.5">
-                        {t('per_month_equiv', { price: formatPrice(id, 'monthly') })}
+                      <p className="mt-1 text-sm" data-testid="billing-period-note">
+                        <span className="font-semibold text-green-700 dark:text-green-400">{t(`badge_${period}` as any)}</span>
+                        <span className="text-muted-foreground"> · </span>
+                        <span className="font-medium text-foreground">{t('per_month_equiv', { price: formatAmount(Math.round(getPeriodPrice(monthlyPriceOf(id), period) / BILLING_PERIODS[period].months)) })}</span>
                       </p>
+                    )}
+                    {terms?.locked?.[id] !== undefined && (
+                      <p className="mt-1 text-xs font-medium text-green-700 dark:text-green-400" data-testid="billing-locked-price">{t('locked_price')}</p>
                     )}
                   </div>
 
@@ -489,9 +514,8 @@ export default function BillingPage({ params: { locale } }: { params: { locale: 
                   </span>
                 </div>
                 {period !== 'monthly' && (() => {
-                  const overrides = country.periodPrices?.[checkoutPlan]
-                  const monthly = getPeriodPrice(country.prices[checkoutPlan], 'monthly', overrides)
-                  const total   = getPeriodPrice(country.prices[checkoutPlan], period,   overrides)
+                  const monthly = getPeriodPrice(monthlyPriceOf(checkoutPlan), 'monthly')
+                  const total   = getPeriodPrice(monthlyPriceOf(checkoutPlan), period)
                   const months  = BILLING_PERIODS[period].months
                   const saved   = monthly * months - total
                   return saved > 0 ? (
