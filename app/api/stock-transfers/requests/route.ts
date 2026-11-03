@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+import { requireFeature } from '@/lib/saas/plan-features'
 import { shopShortLabels } from '@/lib/shops/short-name-server'
 import { createAdminClient } from '@/lib/supabase/server'
 import { getAuthedUser } from '@/lib/api/shop-auth'
@@ -89,6 +90,8 @@ export async function POST(request: Request) {
     const role = await memberRole(supabase, user.id, shopId)
     if (!(await canRequestFor(supabase, admin, role, shopId))) return NextResponse.json({ error: t('permission_denied') }, { status: 403 })
     if (!(await sameEntity(admin, shopId, sourceShopId))) return NextResponse.json({ error: t('transfer_other_company') }, { status: 400 })
+    const locked = await requireFeature(admin, [shopId], 'transfers', t)
+    if (locked) return NextResponse.json(locked.body, { status: locked.status })
 
     const { items } = await loadElsewhere(admin, shopId, [productId])
     const offer = items[productId]?.shops.find(s => s.shop_id === sourceShopId)

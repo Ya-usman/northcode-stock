@@ -20,6 +20,7 @@ import {
   TrendingUp, ChevronDown, ChevronUp, Table2, Users, RotateCcw, FileDown, FileSpreadsheet,
 } from 'lucide-react'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
+import { PlanBadge } from '@/components/saas/plan-lock'
 import { useTableExport } from '@/lib/export/use-table-export'
 import { cn } from '@/lib/utils/cn'
 import { withTimeout } from '@/lib/utils/with-timeout'
@@ -287,7 +288,7 @@ export default function CaissePage() {
       {/* Header */}
       <div className="flex items-center justify-between gap-2">
         <PageHeader className="flex-1" title={t('title')} description={tRoot('page_header.caisse')} />
-        {hasAny && (
+        {hasAny && cashExport.lock !== 'hidden' && (
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="outline" size="icon" className="h-9 w-9" loading={cashExport.exporting} aria-label={tRoot('actions.download')} title={tRoot('actions.download')} data-testid="export-menu">
@@ -297,10 +298,10 @@ export default function CaissePage() {
             <DropdownMenuContent align="end" className="w-52">
               <DropdownMenuItem onClick={() => exportCash('xlsx')} className="gap-2.5" data-testid="export-xlsx">
                 <FileSpreadsheet className="h-4 w-4 flex-shrink-0 text-green-600 dark:text-green-400" />{tRoot('exports.excel')}
-              </DropdownMenuItem>
+              <PlanBadge state={cashExport.lock} feature="exports" /></DropdownMenuItem>
               <DropdownMenuItem onClick={() => exportCash('csv')} className="gap-2.5" data-testid="export-csv">
                 <Table2 className="h-4 w-4 flex-shrink-0 text-muted-foreground" />{tRoot('exports.csv')}
-              </DropdownMenuItem>
+              <PlanBadge state={cashExport.lock} feature="exports" /></DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
         )}

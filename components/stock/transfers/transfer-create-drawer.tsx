@@ -4,6 +4,7 @@
 // explicitement en « Toutes les boutiques » (jamais une boutique cachée). Étapes : « Vers quelle boutique ? »,
 // produits (recherche ou scan du code-barres ; nom, code, quantité TRANSFÉRABLE = vendable, lots périmés exclus),
 // quantités ; « Enregistrer en brouillon » ou « Envoyer ». Le serveur reste l'autorité (stock revérifié à l'envoi).
+import { handlePlanRefusal } from '@/components/saas/plan-lock'
 import { useEffect, useMemo, useState } from 'react'
 import { useTranslations } from 'next-intl'
 import { Hash, Minus, Package, Plus, ScanLine, Search, X } from 'lucide-react'
@@ -164,7 +165,7 @@ export function TransferCreateDrawer({ open, onOpenChange, source, shops, workfl
         const res = await withTimeout(fetch('/api/stock-transfers', { method: 'POST', headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ source_shop_id: source.id, destination_shop_id: dest, notes: notes.trim() || null, items, send, ...(send ? { serials: serialsPayload } : {}), ...(prefill ? { request_id: prefill.request_id } : {}) }) }))
         const json = await res.json()
-        if (!res.ok) { toast({ title: json.error || tRoot('toast.error'), variant: 'destructive' }); return }
+        if (!res.ok) { if (handlePlanRefusal(json)) onOpenChange(false); else toast({ title: json.error || tRoot('toast.error'), variant: 'destructive' }); return }
         reference = json.data?.reference || ''
       }
       onDone({ reference, sent: send })

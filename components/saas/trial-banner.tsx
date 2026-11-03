@@ -51,6 +51,8 @@ export function TrialBanner({ daysLeft, locale }: TrialBannerProps) {
         >
           {t('upgrade_now')}
         </Link>
+        {/* Fonctions réservées (lib/saas/plan-features) : dites avant la fin de l'essai, jamais une surprise */}
+        <span className="mt-0.5 block text-[11px] font-normal opacity-90 sm:text-xs" data-testid="trial-starter-note">{t('trial_starter_note')}</span>
       </span>
 
       <button

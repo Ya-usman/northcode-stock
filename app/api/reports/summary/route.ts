@@ -4,6 +4,7 @@ import { getApiTranslator } from '@/lib/api/i18n'
 import { loadShopAccess, parseShopIds } from '@/lib/api/shop-access'
 import { reportSections, type ReportSections } from '@/lib/api/report-sections'
 import { fetchAllRows } from '@/lib/dashboard/fetch-rows'
+import { getShopFeatures, reportStartAllowed, featureRefusal } from '@/lib/saas/plan-features'
 
 // GET /api/reports/summary?shop_ids=a,b&start=ISO&end=ISO  (pure lecture)
 // Données de la page Rapports, calculées par le SERVEUR (avant : lues directement par le navigateur, la base ne
@@ -38,6 +39,15 @@ export async function GET(request: Request) {
     const where = (k: keyof ReportSections) => reportShops.filter(id => sections[id][k])
 
     const admin = await createAdminClient() as any
+    // Plus de 3 mois en arrière : formule Pro et plus, pour chaque boutique affichée
+    for (const id of reportShops) {
+      if (reportStartAllowed(start, false)) break  // dans les 3 derniers mois : permis à tous
+      const { features } = await getShopFeatures(admin, id)
+      if (!reportStartAllowed(start, features.long_reports)) {
+        const r = featureRefusal('long_reports', t('plan_feature_required', { plan: 'Pro' }))
+        return NextResponse.json(r.body, { status: r.status })
+      }
+    }
     const startDay = start.slice(0, 10), endDay = end.slice(0, 10)
 
     // Ventes actives de la période (boutiques des Rapports), filtrées par vendeur là où la personne est limitée à ses ventes

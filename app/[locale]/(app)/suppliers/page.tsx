@@ -13,6 +13,7 @@ import { dateLocaleTag } from '@/lib/i18n/date-format'
 import dynamic from 'next/dynamic'
 import { Search, Plus, Edit2, Trash2, Phone, MapPin, Package, Store, ChevronDown, ChevronRight, X, ArrowRightLeft, FileText, Download, Send, CheckCircle2, Ban, Mail, Copy, Share2, History, RotateCcw, ShoppingCart, MessageCircle, Save, Clock, AlertTriangle, Banknote, TrendingDown, FileDown, FileSpreadsheet, Table2, Upload } from 'lucide-react'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
+import { PlanBadge, handlePlanRefusal, openPlanLock, useFeatureLock } from '@/components/saas/plan-lock'
 import { useTableExport } from '@/lib/export/use-table-export'
 import { isCapacitor } from '@/lib/utils/native-share'
 import { shareViaWhatsApp, normalizeWhatsAppNumber } from '@/lib/utils/whatsapp'
@@ -279,6 +280,8 @@ export default function SuppliersPage() {
   const [creatingPo, setCreatingPo] = useState(false)
   const [poActionLoading, setPoActionLoading] = useState<string | null>(null)
   const [emailPo, setEmailPo] = useState<any | null>(null)
+  // Envoi par e-mail au fournisseur : formule Pro et plus (le PDF et WhatsApp restent ouverts)
+  const poEmailLock = useFeatureLock('po_email')
   const [poEmailSending, setPoEmailSending] = useState(false)
   const [poEmailCopy, setPoEmailCopy] = useState(true)
   const [poEmailLog, setPoEmailLog] = useState<{ id: string; recipient: string; status: string; created_at: string; sent_by_name: string | null }[]>([])
@@ -1145,7 +1148,7 @@ export default function SuppliersPage() {
         body: JSON.stringify({ id: po.id, shop_id: po.shop_id, locale, copy: poEmailCopy }),
       })
       const json = await res.json().catch(() => ({}))
-      if (!res.ok) { toast({ title: json.error || t('toast.error'), variant: 'destructive' }); return }
+      if (!res.ok) { if (handlePlanRefusal(json)) setEmailPo(null); else toast({ title: json.error || t('toast.error'), variant: 'destructive' }); return }
       toast({ title: t('suppliers.po_email_sent_toast', { email: json.recipient }), variant: 'success' })
       setEmailPo(null)
       fetchPurchaseOrders()
@@ -1273,7 +1276,7 @@ export default function SuppliersPage() {
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input value={search} onChange={e => setFilter({ search: e.target.value })} placeholder={t('suppliers.search_placeholder')} className="pl-9 h-9" />
         </div>
-        <DropdownMenu>
+        {(canManageAny || suppliersExport.lock !== 'hidden') && (<DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button variant="outline" size="icon" className="h-9 w-9 flex-shrink-0" loading={suppliersExport.exporting} aria-label={t('products.import_export')} title={t('products.import_export')} data-testid="suppliers-files">
               <FileDown className="h-4 w-4" />
@@ -1284,16 +1287,18 @@ export default function SuppliersPage() {
               <DropdownMenuItem onClick={() => setShowImport(true)} className="gap-2.5" data-testid="suppliers-import">
                 <Upload className="h-4 w-4 flex-shrink-0" />{t('import.suppliers.title')}
               </DropdownMenuItem>
-              <DropdownMenuSeparator />
+              {suppliersExport.lock !== 'hidden' && <DropdownMenuSeparator />}
             </>)}
+            {suppliersExport.lock !== 'hidden' && (<>
             <DropdownMenuItem onClick={() => exportSuppliers('xlsx')} className="gap-2.5" data-testid="export-xlsx">
               <FileSpreadsheet className="h-4 w-4 flex-shrink-0 text-green-600 dark:text-green-400" />{t('exports.excel')}
-            </DropdownMenuItem>
+            <PlanBadge state={suppliersExport.lock} feature="exports" /></DropdownMenuItem>
             <DropdownMenuItem onClick={() => exportSuppliers('csv')} className="gap-2.5" data-testid="export-csv">
               <Table2 className="h-4 w-4 flex-shrink-0 text-muted-foreground" />{t('exports.csv')}
-            </DropdownMenuItem>
+            <PlanBadge state={suppliersExport.lock} feature="exports" /></DropdownMenuItem>
+            </>)}
           </DropdownMenuContent>
-        </DropdownMenu>
+        </DropdownMenu>)}
         {canManageAny && (
           <Button
             variant="stockshop"
@@ -2051,8 +2056,8 @@ export default function SuppliersPage() {
           return (
             <>
               <PremiumDialogBody>
-                <p className="text-xs text-muted-foreground">{t('suppliers.po_send_hint')}</p>
-                {canEmail && (
+                <p className="text-xs text-muted-foreground" data-testid="po-send-hint">{t(poEmailLock === 'locked' ? 'suppliers.po_send_hint_pro' : poEmailLock === 'hidden' ? 'suppliers.po_send_hint_basic' : 'suppliers.po_send_hint')}</p>
+                {canEmail && poEmailLock !== 'locked' && poEmailLock !== 'hidden' && (
                   <div className="space-y-2 rounded-lg border bg-muted/30 p-3" data-testid="po-email-panel">
                     {supplierEmail ? (
                       <>
@@ -2112,17 +2117,18 @@ export default function SuppliersPage() {
                 >
                   <MessageCircle className="h-4 w-4 flex-shrink-0 text-green-600" /><span className="truncate">{t('suppliers.po_send_whatsapp')}</span>
                 </Button>
-                {canEmail && (
+                {canEmail && poEmailLock !== 'hidden' && (
                   <Button
                     type="button"
                     variant="stockshop"
                     className={FOOTER_PRIMARY_CLASS}
-                    onClick={() => sendPoEmail(emailPo)}
+                    onClick={() => (poEmailLock === 'locked' ? openPlanLock('po_email') : sendPoEmail(emailPo))}
                     loading={poEmailSending}
-                    disabled={!supplierEmail || !isOnline}
+                    disabled={poEmailLock !== 'locked' && (!supplierEmail || !isOnline)}
                     data-testid="po-send-email"
                   >
                     <Mail className="h-4 w-4 flex-shrink-0" /><span className="truncate">{t('suppliers.po_send_email')}</span>
+                    <PlanBadge state={poEmailLock} feature="po_email" className="ml-1 bg-white/90 text-stockshop-blue dark:bg-blue-950" />
                   </Button>
                 )}
               </div>

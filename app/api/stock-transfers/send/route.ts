@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+import { requireFeature } from '@/lib/saas/plan-features'
 import { createAdminClient } from '@/lib/supabase/server'
 import { getAuthedUser, checkShopRole } from '@/lib/api/shop-auth'
 import { canWriteFeature } from '@/lib/api/role-permissions'
@@ -25,6 +26,8 @@ export async function POST(request: Request) {
     const role = await checkShopRole(supabase, user.id, tr.source_shop_id)
     if (!role || !(await canWriteFeature(supabase, role, tr.source_shop_id, 'transfers')))
       return NextResponse.json({ error: t('permission_denied') }, { status: 403 })
+    const locked = await requireFeature(admin, [tr.source_shop_id], 'transfers', t)
+    if (locked) return NextResponse.json(locked.body, { status: locked.status })
 
     // Produit suivi (lot C, migration 199) : un numéro par unité envoyée, contrôlés par la base dans la même transaction
     const tracked = await trackedProductNames(admin, ((await admin.from('stock_transfer_items').select('source_product_id').eq('stock_transfer_id', transfer_id)).data || []).map((x: any) => x.source_product_id))

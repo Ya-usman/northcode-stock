@@ -7,6 +7,7 @@ import { useState } from 'react'
 import { useLocale, useTranslations } from 'next-intl'
 import { useToast } from '@/components/ui/use-toast'
 import type { ExportSpec } from './table-export'
+import { useFeatureLock, openPlanLock } from '@/components/saas/plan-lock'
 
 const DATE_LOCALE: Record<string, string> = { fr: 'fr-FR', en: 'en-GB', ha: 'ha-NG' }
 
@@ -16,12 +17,15 @@ export function useTableExport() {
   const { toast } = useToast()
   const [exporting, setExporting] = useState(false)
   const dl = DATE_LOCALE[locale] ?? 'fr-FR'
+  // Exports Excel / CSV : formule Pro et plus (lib/saas/plan-features) ; verrouillé → fenêtre « incluse dans Pro »
+  const lock = useFeatureLock('exports')
 
   /** « 7 oct. 2026 » — pour composer une période */
   const day = (d: Date) => { try { return d.toLocaleDateString(dl, { day: 'numeric', month: 'short', year: 'numeric' }) } catch { return d.toLocaleDateString('fr-FR') } }
   const range = (from: Date, to: Date) => (day(from) === day(to) ? day(from) : t('period_range', { from: day(from), to: day(to) }))
 
   const run = async (spec: Omit<ExportSpec, 'locale' | 'labels'>, format: 'xlsx' | 'csv', fileExtra?: string | null) => {
+    if (lock === 'locked' || lock === 'hidden') { openPlanLock('exports'); return }
     setExporting(true)
     try {
       let when: string
@@ -33,5 +37,5 @@ export function useTableExport() {
     } finally { setExporting(false) }
   }
 
-  return { run, exporting, day, range, kind: (k: 'products' | 'sales' | 'cash' | 'expenses' | 'debts' | 'expiry') => t(`kinds.${k}`), total: t('total'), labelExcel: t('excel'), labelCsv: t('csv') }
+  return { run, exporting, lock, day, range, kind: (k: 'products' | 'sales' | 'cash' | 'expenses' | 'debts' | 'expiry') => t(`kinds.${k}`), total: t('total'), labelExcel: t('excel'), labelCsv: t('csv') }
 }

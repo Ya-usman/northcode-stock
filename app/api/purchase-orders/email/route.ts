@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+import { requireFeature } from '@/lib/saas/plan-features'
 import { Resend } from 'resend'
 import { createAdminClient } from '@/lib/supabase/server'
 import { getAuthedUser, checkShopRole } from '@/lib/api/shop-auth'
@@ -69,6 +70,9 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: t('permission_denied') }, { status: 403 })
 
     const admin = await createAdminClient() as any
+    // Formule Pro et plus ; le bon reste téléchargeable et partageable par WhatsApp
+    const locked = await requireFeature(admin, [shop_id], 'po_email', t)
+    if (locked) return NextResponse.json(locked.body, { status: locked.status })
     const { data: po } = await admin
       .from('purchase_orders')
       .select('id, shop_id, reference, status, notes, created_at, is_opening_balance, supplier_id, purchase_order_items(product_name, unit, quantity_ordered, unit_price, pack_unit, units_per_pack, pack_qty), suppliers(name, phone, city, email, shop_id)')

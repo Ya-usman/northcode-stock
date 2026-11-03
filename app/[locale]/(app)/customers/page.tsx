@@ -7,6 +7,7 @@ import { normalize } from '@/lib/utils/normalize'
 import { useTranslations } from 'next-intl'
 import { Search, Plus, Edit2, Trash2, Phone, MapPin, Store, User, Merge, AlertTriangle, Save, FileDown, FileSpreadsheet, Table2, Upload } from 'lucide-react'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
+import { PlanBadge } from '@/components/saas/plan-lock'
 import { useTableExport } from '@/lib/export/use-table-export'
 import { cn } from '@/lib/utils/cn'
 import { createClient } from '@/lib/supabase/client'
@@ -362,7 +363,7 @@ export default function CustomersPage() {
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input value={search} onChange={e => setFilter({ search: e.target.value })} placeholder={t('actions.search')} className="pl-9 h-9" />
         </div>
-        <DropdownMenu>
+        {(canWriteCustomers || customersExport.lock !== 'hidden') && (<DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button variant="outline" size="icon" className="h-9 w-9 flex-shrink-0" loading={customersExport.exporting} aria-label={t('products.import_export')} title={t('products.import_export')} data-testid="customers-files">
               <FileDown className="h-4 w-4" />
@@ -373,16 +374,18 @@ export default function CustomersPage() {
               <DropdownMenuItem onClick={() => setShowImport(true)} className="gap-2.5" data-testid="customers-import">
                 <Upload className="h-4 w-4 flex-shrink-0" />{t('import.customers.title')}
               </DropdownMenuItem>
-              <DropdownMenuSeparator />
+              {customersExport.lock !== 'hidden' && <DropdownMenuSeparator />}
             </>)}
+            {customersExport.lock !== 'hidden' && (<>
             <DropdownMenuItem onClick={() => exportCustomers('xlsx')} className="gap-2.5" data-testid="export-xlsx">
               <FileSpreadsheet className="h-4 w-4 flex-shrink-0 text-green-600 dark:text-green-400" />{t('exports.excel')}
-            </DropdownMenuItem>
+            <PlanBadge state={customersExport.lock} feature="exports" /></DropdownMenuItem>
             <DropdownMenuItem onClick={() => exportCustomers('csv')} className="gap-2.5" data-testid="export-csv">
               <Table2 className="h-4 w-4 flex-shrink-0 text-muted-foreground" />{t('exports.csv')}
-            </DropdownMenuItem>
+            <PlanBadge state={customersExport.lock} feature="exports" /></DropdownMenuItem>
+            </>)}
           </DropdownMenuContent>
-        </DropdownMenu>
+        </DropdownMenu>)}
         {canWriteCustomers && (
           <Button
             variant="stockshop"

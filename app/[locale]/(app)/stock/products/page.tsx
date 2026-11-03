@@ -75,6 +75,7 @@ import { savePendingMovement, updateCachedProductQuantity } from '@/lib/offline/
 import { registerBackgroundSync } from '@/lib/offline/sync'
 import { useRolePermissions, useShopPermissions } from '@/lib/hooks/use-role-permissions'
 import { EmptyGuide } from '@/components/onboarding/empty-guide'
+import { PlanBadge } from '@/components/saas/plan-lock'
 import { useTableExport } from '@/lib/export/use-table-export'
 import { PRODUCT_UNITS } from '@/lib/import/products-import'
 import { normalizeMeasures, displayUnitPrice, isFineUnit, stockAmount, measuresOf, measureName } from '@/lib/products/sale-measures'
@@ -1738,8 +1739,10 @@ export default function StockPage({ params: { locale } }: { params: { locale: st
                 <DropdownMenuContent align="end" className="min-w-[220px]">
                   {canWriteStock && (
                     <>
-                      <DropdownMenuItem onClick={() => exportProducts('xlsx')} data-testid="export-xlsx"><FileSpreadsheet className="mr-2 h-4 w-4" /> {t('exports.excel')}</DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => exportProducts('csv')} data-testid="export-csv"><FileDown className="mr-2 h-4 w-4" /> {t('exports.csv')}</DropdownMenuItem>
+                      {productsExport.lock !== 'hidden' && (<>
+                      <DropdownMenuItem onClick={() => exportProducts('xlsx')} data-testid="export-xlsx"><FileSpreadsheet className="mr-2 h-4 w-4" /> {t('exports.excel')}<PlanBadge state={productsExport.lock} feature="exports" /></DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => exportProducts('csv')} data-testid="export-csv"><FileDown className="mr-2 h-4 w-4" /> {t('exports.csv')}<PlanBadge state={productsExport.lock} feature="exports" /></DropdownMenuItem>
+                      </>)}
                     </>
                   )}
                   {viewMode === 'cards' && canSelectProducts && !selectionMode && (

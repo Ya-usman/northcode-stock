@@ -1,5 +1,6 @@
 'use client'
 
+import { PlanLockDialog } from '@/components/saas/plan-lock'
 import { useEffect, useState, useRef, useCallback } from 'react'
 import { purgeCostCaches } from '@/lib/offline/page-cache'
 import { usePathname, useRouter } from 'next/navigation'
@@ -549,6 +550,7 @@ export function AppLayout({ children, locale }: { children: React.ReactNode; loc
       </PremiumDialog>
 
       <WhatsNewPanel open={whatsNewOpen} onOpenChange={setWhatsNewOpen} items={whatsNew.items} />
+      <PlanLockDialog />
 
       <Script
         id="crisp-widget"

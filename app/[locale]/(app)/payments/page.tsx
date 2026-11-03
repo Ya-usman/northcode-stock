@@ -15,6 +15,7 @@ import { resolveCurrencyCode, currencySymbol } from '@/lib/saas/currencies'
 import { isManagerial as isManagerialRole } from '@/lib/permissions'
 import { generateDebtReceiptPDFBlob, generateReportPDFBlob } from '@/lib/utils/pdf'
 import { sharePDFNative, printPDFNative, isCapacitor } from '@/lib/utils/native-share'
+import { PlanBadge } from '@/components/saas/plan-lock'
 import { useTableExport } from '@/lib/export/use-table-export'
 import { saveFile } from '@/lib/utils/save-file'
 import { normalize } from '@/lib/utils/normalize'
@@ -1650,12 +1651,14 @@ export default function CreditsPage() {
                       <DropdownMenuItem onSelect={() => exportDebtorsPDF()} className="gap-2.5 py-2.5">
                         <FileText className="h-4 w-4 flex-shrink-0 text-red-500" />{t('actions.export_pdf')}
                       </DropdownMenuItem>
+                      {debtsExport.lock !== 'hidden' && (<>
                       <DropdownMenuItem onSelect={() => exportDebtors('xlsx')} className="gap-2.5 py-2.5" data-testid="export-xlsx">
                         <FileSpreadsheet className="h-4 w-4 flex-shrink-0 text-green-600 dark:text-green-400" />{t('exports.excel')}
-                      </DropdownMenuItem>
+                      <PlanBadge state={debtsExport.lock} feature="exports" /></DropdownMenuItem>
                       <DropdownMenuItem onSelect={() => exportDebtors('csv')} className="gap-2.5 py-2.5" data-testid="export-csv">
                         <Table2 className="h-4 w-4 flex-shrink-0 text-muted-foreground" />{t('exports.csv')}
-                      </DropdownMenuItem>
+                      <PlanBadge state={debtsExport.lock} feature="exports" /></DropdownMenuItem>
+                      </>)}
                     </DropdownMenuContent>
                   </DropdownMenu>
                 </div>

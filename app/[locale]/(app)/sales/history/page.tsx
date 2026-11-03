@@ -15,6 +15,7 @@ import { useShopPermissions } from '@/lib/hooks/use-role-permissions'
 import { useShopScope } from '@/lib/shops/use-shop-scope'
 import { useFilterScope } from '@/lib/filters/use-filter-scope'
 import { EmptyGuide } from '@/components/onboarding/empty-guide'
+import { PlanBadge } from '@/components/saas/plan-lock'
 import { useTableExport } from '@/lib/export/use-table-export'
 import { isManagerial } from '@/lib/permissions'
 import { Button } from '@/components/ui/button'
@@ -1232,12 +1233,14 @@ export default function SalesHistoryPage() {
                 <DropdownMenuItem onSelect={() => exportPDF()} className="gap-2.5 py-2.5">
                   <FileText className="h-4 w-4 flex-shrink-0 text-red-500" />{t('actions.export_pdf')}
                 </DropdownMenuItem>
+                {salesExport.lock !== 'hidden' && (<>
                 <DropdownMenuItem onSelect={() => exportSales('xlsx')} className="gap-2.5 py-2.5" data-testid="export-xlsx">
                   <FileSpreadsheet className="h-4 w-4 flex-shrink-0 text-green-600 dark:text-green-400" />{t('exports.excel')}
-                </DropdownMenuItem>
+                <PlanBadge state={salesExport.lock} feature="exports" /></DropdownMenuItem>
                 <DropdownMenuItem onSelect={() => exportSales('csv')} className="gap-2.5 py-2.5" data-testid="export-csv">
                   <Table2 className="h-4 w-4 flex-shrink-0 text-muted-foreground" />{t('exports.csv')}
-                </DropdownMenuItem>
+                <PlanBadge state={salesExport.lock} feature="exports" /></DropdownMenuItem>
+                </>)}
               </DropdownMenuContent>
             </DropdownMenu>
           </div>

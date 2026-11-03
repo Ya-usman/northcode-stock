@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+import { requireFeature } from '@/lib/saas/plan-features'
 import { shopShortLabels } from '@/lib/shops/short-name-server'
 import { canViewCost, canViewFeature, canWriteFeature } from '@/lib/api/role-permissions'
 import { createAdminClient } from '@/lib/supabase/server'
@@ -115,6 +116,9 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: t('permission_denied') }, { status: 403 })
 
     const admin = await createAdminClient() as any
+    // Formule Pro et plus (transferts) ; un transfert déjà en route se réceptionne toujours
+    const locked = await requireFeature(admin, [source_shop_id], 'transfers', t)
+    if (locked) return NextResponse.json(locked.body, { status: locked.status })
     // Produit suivi par numéro de série (lot C, migration 199) : à l'envoi, un numéro par unité (contrôlés par la base)
     const trackedNames = await trackedProductNames(admin, cleanItems.map(it => it.product_id))
     const serialList = cleanSerialsByProduct(serials)

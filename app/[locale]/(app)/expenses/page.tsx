@@ -47,6 +47,7 @@ import { compressImage } from '@/lib/utils/compress-image'
 import { hasNativePhotoPicker, pickPhotoNative, PhotoPermissionError } from '@/lib/photo/pick-photo'
 import { useRestoredPhoto } from '@/lib/photo/use-restored-photo'
 import { generateExpensesReportPDF } from '@/lib/utils/pdf'
+import { PlanBadge } from '@/components/saas/plan-lock'
 import { useTableExport } from '@/lib/export/use-table-export'
 import { receiptSrc } from '@/lib/expenses/receipts'
 import { SegmentedTabs } from '@/components/ui/segmented-tabs'
@@ -883,12 +884,14 @@ export default function ExpensesPage() {
                 <DropdownMenuItem onClick={exportPDF} className="gap-2.5">
                   <FileText className="h-4 w-4 text-red-500 flex-shrink-0" />{t('export_pdf')}
                 </DropdownMenuItem>
+                {expensesExport.lock !== 'hidden' && (<>
                 <DropdownMenuItem onClick={() => exportExpenses('xlsx')} className="gap-2.5" data-testid="export-xlsx">
                   <FileSpreadsheet className="h-4 w-4 text-green-600 dark:text-green-400 flex-shrink-0" />{tRoot('exports.excel')}
-                </DropdownMenuItem>
+                <PlanBadge state={expensesExport.lock} feature="exports" /></DropdownMenuItem>
                 <DropdownMenuItem onClick={() => exportExpenses('csv')} className="gap-2.5" data-testid="export-csv">
                   <Table2 className="h-4 w-4 text-muted-foreground flex-shrink-0" />{tRoot('exports.csv')}
-                </DropdownMenuItem>
+                <PlanBadge state={expensesExport.lock} feature="exports" /></DropdownMenuItem>
+                </>)}
               </DropdownMenuContent>
             </DropdownMenu>
           )}

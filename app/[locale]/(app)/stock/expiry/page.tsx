@@ -7,6 +7,7 @@ import { useTranslations } from 'next-intl'
 import { format } from 'date-fns'
 import { CalendarClock, CheckCircle2, Edit2, FileSpreadsheet, FileText, MoreHorizontal, PackageCheck, PackageMinus, Search, Store, Table2, Tag, X } from 'lucide-react'
 import { useUnitLabel } from '@/lib/products/use-unit-label'
+import { PlanBadge } from '@/components/saas/plan-lock'
 import { useTableExport } from '@/lib/export/use-table-export'
 import { createClient } from '@/lib/supabase/client'
 import { useAuthContext as useAuth } from '@/lib/contexts/auth-context'
@@ -328,14 +329,16 @@ export default function ExpiryPage({ params: { locale } }: { params: { locale: s
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-56">
+              {expiryExport.lock !== 'hidden' && (<>
               <DropdownMenuItem onClick={() => exportExpiry('xlsx')} className="gap-2.5 py-2.5" data-testid="export-xlsx">
                 <FileSpreadsheet className="h-4 w-4 flex-shrink-0 text-green-600 dark:text-green-400" />
                 {t('exports.excel')}
-              </DropdownMenuItem>
+              <PlanBadge state={expiryExport.lock} feature="exports" /></DropdownMenuItem>
               <DropdownMenuItem onClick={() => exportExpiry('csv')} className="gap-2.5 py-2.5" data-testid="export-csv">
                 <Table2 className="h-4 w-4 flex-shrink-0 text-muted-foreground" />
                 {t('exports.csv')}
-              </DropdownMenuItem>
+              <PlanBadge state={expiryExport.lock} feature="exports" /></DropdownMenuItem>
+              </>)}
               <DropdownMenuItem onClick={exportPDF} className="gap-2.5 py-2.5" data-testid="export-pdf">
                 <FileText className="h-4 w-4 flex-shrink-0 text-red-500" />
                 {t('actions.export_pdf')}

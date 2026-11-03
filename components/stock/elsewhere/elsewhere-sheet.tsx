@@ -4,6 +4,7 @@
 // pour orienter le client (ville, téléphone, ouverte ou fermée, quantité exacte), et DEMANDE de transfert à la boutique
 // qui a le stock (elle décide dans Stock › Transferts). Utilisé en caisse et dans la fiche produit.
 
+import { PlanBadge, handlePlanRefusal, openPlanLock, useFeatureLock } from '@/components/saas/plan-lock'
 import { useCallback, useEffect, useState } from 'react'
 import { useTranslations } from 'next-intl'
 import { Clock, MapPin, Minus, Phone, Plus, Send, Store } from 'lucide-react'
@@ -58,6 +59,8 @@ export function ElsewhereSheet({ open, onOpenChange, shopId, product, entry, can
   const [qty, setQty] = useState(1)
   const [note, setNote] = useState('')
   const [sending, setSending] = useState(false)
+  // Demande de transfert : formule Pro et plus (voir le stock des autres boutiques reste ouvert)
+  const requestLock = useFeatureLock('transfers')
   useEffect(() => { if (!open) { setAsking(null); setNote('') } }, [open])
 
   const startAsk = (s: ElsewhereShop) => {
@@ -73,7 +76,7 @@ export function ElsewhereSheet({ open, onOpenChange, shopId, product, entry, can
         body: JSON.stringify({ shop_id: shopId, product_id: product.id, source_shop_id: s.shop_id, quantity: qty, note: note.trim() || null }),
       })
       const json = await res.json().catch(() => ({}))
-      if (!res.ok) { toast({ title: json.error || t('request_failed'), variant: 'destructive' }); return }
+      if (!res.ok) { if (!handlePlanRefusal(json)) toast({ title: json.error || t('request_failed'), variant: 'destructive' }); return }
       toast({ title: t('request_sent', { shop: s.name }), variant: 'success' })
       setAsking(null)
       onRequested?.()
@@ -110,9 +113,9 @@ export function ElsewhereSheet({ open, onOpenChange, shopId, product, entry, can
                   <a href={`tel:${s.phone.replace(/\s+/g, '')}`}><Phone className="h-4 w-4" />{t('call')}</a>
                 </Button>
               )}
-              {canRequest && s.pending === 0 && asking !== s.shop_id && (
-                <Button variant="stockshop" className="h-10 flex-1 gap-1.5" onClick={() => startAsk(s)} data-testid="elsewhere-request">
-                  <Send className="h-4 w-4" />{t('request')}
+              {canRequest && requestLock !== 'hidden' && s.pending === 0 && asking !== s.shop_id && (
+                <Button variant="stockshop" className="h-10 flex-1 gap-1.5" onClick={() => (requestLock === 'locked' ? openPlanLock('transfers') : startAsk(s))} data-testid="elsewhere-request">
+                  <Send className="h-4 w-4" />{t('request')}<PlanBadge state={requestLock} feature="transfers" className="ml-1 bg-white/90 text-stockshop-blue dark:bg-blue-950" />
                 </Button>
               )}
             </div>

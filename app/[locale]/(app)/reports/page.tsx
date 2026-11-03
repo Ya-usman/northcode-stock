@@ -7,12 +7,14 @@ import { usePersistedFilters } from '@/lib/hooks/use-persisted-filters'
 import { useLocale, useTranslations } from 'next-intl'
 import { dateFnsLocale } from '@/lib/i18n/date-format'
 import { getPaymentMethodLabel } from '@/lib/saas/countries'
-import { Download, Receipt, TrendingDown, Banknote } from 'lucide-react'
+import { Download, Receipt, TrendingDown, Banknote, Lock } from 'lucide-react'
 import { PremiumDialog, PremiumDialogBody, PremiumDialogFooter } from '@/components/ui/premium-dialog'
 import {
   PieChart, Pie, Cell,
   Tooltip, ResponsiveContainer,
 } from 'recharts'
+import { PlanBadge, handlePlanRefusal, openPlanLock, useFeatureLock } from '@/components/saas/plan-lock'
+import { REPORT_FREE_DAYS, reportStartAllowed } from '@/lib/saas/plan-features'
 import { useAuthContext as useAuth } from '@/lib/contexts/auth-context'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -24,7 +26,7 @@ import { useCurrency } from '@/lib/hooks/use-currency'
 import { useToast } from '@/components/ui/use-toast'
 import { generateReportPDFBlob, savePDF } from '@/lib/utils/pdf'
 import { cn } from '@/lib/utils/cn'
-import { format, subDays, startOfDay, endOfDay, startOfMonth, startOfWeek, startOfQuarter, startOfYear } from 'date-fns'
+import { format, subDays, subMonths, startOfDay, endOfDay, startOfMonth, endOfMonth, startOfWeek, startOfQuarter, startOfYear } from 'date-fns'
 import { useOffline } from '@/lib/offline/use-offline'
 import { useRefetchOnReconnect } from '@/lib/hooks/use-refetch-on-reconnect'
 import { useRefetchOnVisible } from '@/lib/hooks/use-refetch-on-visible'
@@ -61,6 +63,13 @@ const EMPTY_REPORTS: ReportsData = {
   totalExpenses: 0,
 }
 
+// Périodes proposées (3 nov. 2026) : celles d'un logiciel de caisse ; « Semestre » retiré (personnalisée à la place)
+const PERIODS = ['today', 'yesterday', 'week', 'month', 'last_month', 'quarter', 'year', 'custom'] as const
+const PERIOD_LABEL: Record<(typeof PERIODS)[number], string> = {
+  today: 'reports.today', yesterday: 'reports.yesterday', week: 'reports.this_week', month: 'reports.this_month',
+  last_month: 'reports.last_month', quarter: 'reports.this_quarter', year: 'reports.this_year', custom: 'sales.filter_custom',
+}
+
 export default function ReportsPage() {
   const t = useTranslations()
   const locale = useLocale()
@@ -86,11 +95,17 @@ export default function ReportsPage() {
     if (pdfSheet) { URL.revokeObjectURL(pdfSheet.url); setPdfSheet(null) }
   }
 
-  const getDateRange = () => {
+  // Plus de 3 mois en arrière : formule Pro et plus (lib/saas/plan-features, même règle que le serveur)
+  const reportsLock = useFeatureLock('long_reports')
+  const tLock = useTranslations('plan_lock')
+  const longLocked = reportsLock === 'locked' || reportsLock === 'hidden'
+  const earliestDay = format(subDays(new Date(), REPORT_FREE_DAYS), 'yyyy-MM-dd')
+
+  const rangeOf = (filter: string) => {
     const now = new Date()
     let start: Date
     let end = endOfDay(now)
-    switch (dateFilter) {
+    switch (filter) {
       case 'today':     start = startOfDay(now); break
       case 'yesterday':
         start = startOfDay(subDays(now, 1))
@@ -98,8 +113,11 @@ export default function ReportsPage() {
         break
       case 'week':     start = startOfWeek(now, { weekStartsOn: 1 }); break
       case 'month':    start = startOfMonth(now); break
+      case 'last_month':
+        start = startOfMonth(subMonths(now, 1))
+        end   = endOfMonth(subMonths(now, 1))
+        break
       case 'quarter':  start = startOfQuarter(now); break
-      case 'semester': start = new Date(now.getFullYear(), now.getMonth() < 6 ? 0 : 6, 1); break
       case 'year':     start = startOfYear(now); break
       case 'custom':   return {
         start: startOfDay(new Date(customStart)).toISOString(),
@@ -109,6 +127,17 @@ export default function ReportsPage() {
     }
     return { start: start.toISOString(), end: end.toISOString() }
   }
+  const getDateRange = () => rangeOf(dateFilter)
+  // Règle fixe, la même toute l'année : « Cette année » = Pro ; les autres périodes tiennent dans les 3 derniers mois
+  // (« Mois dernier » et « Ce trimestre » compris) ; personnalisée = début limité aux 3 derniers mois
+  const presetAllowed = (filter: string) => !longLocked || filter !== 'year'
+  // Période gardée d'une visite précédente : retirée (« Semestre ») ou devenue trop ancienne → « Ce mois-ci »
+  useEffect(() => {
+    if (!PERIODS.includes(dateFilter as any)) { setFilter({ dateFilter: 'month' }); return }
+    if (!longLocked) return
+    if (dateFilter === 'custom' ? customStart && customStart < earliestDay : !presetAllowed(dateFilter)) setFilter({ dateFilter: 'month', customStart: today })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [longLocked, dateFilter, customStart])
 
   const getDateLabel = () => {
     if (dateFilter === 'custom') {
@@ -128,7 +157,7 @@ export default function ReportsPage() {
   const loadFreshReportData = async (start: string, end: string): Promise<ReportsData> => {
     const res = await fetch(`/api/reports/summary?${new URLSearchParams({ shop_ids: effectiveShopIds.join(','), start, end })}`)
     const j = await res.json().catch(() => ({}))
-    if (!res.ok) throw new Error(j.error || t('errors.generic'))
+    if (!res.ok) { handlePlanRefusal(j); throw new Error(j.error || t('errors.generic')) }
     // Libellé lisible : traduit (Espèces, Carte, Crédit…) ou nom de marque (Orange Money, MTN MoMo…)
     const methodName = (id: string) => id === 'mixed'
       ? t('receipt.method_mixed')
@@ -318,17 +347,14 @@ export default function ReportsPage() {
         <div className="flex items-center justify-between gap-2">
           <div className="flex flex-col gap-0.5">
             <Label className="text-[10px] font-normal text-muted-foreground px-0.5">{t('reports.date_range')}</Label>
-            <Select value={dateFilter} onValueChange={v => setFilter({ dateFilter: v })}>
-              <SelectTrigger className="w-[165px] sm:w-[190px] text-xs sm:text-sm h-9"><SelectValue /></SelectTrigger>
+            <Select value={dateFilter} onValueChange={v => (presetAllowed(v) ? setFilter({ dateFilter: v }) : openPlanLock('long_reports'))}>
+              <SelectTrigger className="w-[165px] sm:w-[190px] text-xs sm:text-sm h-9" data-testid="reports-period"><SelectValue /></SelectTrigger>
               <SelectContent>
-                <SelectItem value="today">{t('reports.today')}</SelectItem>
-                <SelectItem value="yesterday">{t('reports.yesterday')}</SelectItem>
-                <SelectItem value="week">{t('reports.this_week')}</SelectItem>
-                <SelectItem value="month">{t('reports.this_month')}</SelectItem>
-                <SelectItem value="quarter">{t('reports.this_quarter')}</SelectItem>
-                <SelectItem value="semester">{t('reports.this_semester')}</SelectItem>
-                <SelectItem value="year">{t('reports.this_year')}</SelectItem>
-                <SelectItem value="custom">{t('sales.filter_custom')}</SelectItem>
+                {PERIODS.filter(f => presetAllowed(f) || reportsLock === 'locked').map(f => (
+                  <SelectItem key={f} value={f} data-testid={`reports-preset-${f}`}>
+                    <span className="flex w-full items-center gap-2">{t(PERIOD_LABEL[f])}{!presetAllowed(f) && <PlanBadge state={reportsLock} feature="long_reports" />}</span>
+                  </SelectItem>
+                ))}
               </SelectContent>
             </Select>
             <p className="text-[10px] text-muted-foreground px-1">{getDateLabel()}</p>
@@ -353,7 +379,11 @@ export default function ReportsPage() {
                 type="date"
                 value={customStart}
                 max={customEnd}
-                onChange={e => setFilter({ customStart: e.target.value })}
+                min={longLocked ? earliestDay : undefined}
+                onChange={e => {
+                  if (longLocked && e.target.value && e.target.value < earliestDay) { openPlanLock('long_reports'); setFilter({ customStart: earliestDay }); return }
+                  setFilter({ customStart: e.target.value })
+                }}
                 className="flex-1 h-9 rounded-md border border-input bg-background px-2 text-xs sm:text-sm focus:outline-none focus:ring-1 focus:ring-ring"
               />
             </div>
@@ -369,6 +399,17 @@ export default function ReportsPage() {
               />
             </div>
           </div>
+        )}
+        {/* Formule sans rapports longs : la limite est dite, jamais silencieuse */}
+        {dateFilter === 'custom' && longLocked && (
+          <p className="flex flex-wrap items-center gap-x-2 gap-y-1 px-1 text-xs text-muted-foreground" data-testid="reports-window-hint">
+            <span>{tLock('reports_window')}</span>
+            {reportsLock === 'locked' && (
+              <button type="button" onClick={() => openPlanLock('long_reports')} className="inline-flex min-h-[32px] items-center gap-1 font-medium text-stockshop-blue hover:underline dark:text-blue-400" data-testid="reports-window-more">
+                <Lock className="h-3 w-3" aria-hidden />{tLock('reports_more')}
+              </button>
+            )}
+          </p>
         )}
       </div>
 

@@ -7,6 +7,7 @@
 // annulation). Contexte : une boutique ou « Toutes les boutiques » ; chaque action utilise les boutiques RÉELLES du
 // transfert ; une création depuis « Toutes » demande la boutique source. Le serveur revérifie tous les droits.
 import { useEffect, useMemo, useState } from 'react'
+import { PlanBadge, handlePlanRefusal, openPlanLock, useFeatureLock } from '@/components/saas/plan-lock'
 import { useLocale, useTranslations } from 'next-intl'
 import { useRouter } from 'next/navigation'
 import { Ban, CheckCircle2, Download, FileEdit, MessageCircle, Plus, QrCode, ScanLine, Search, Send, Share2, Truck } from 'lucide-react'
@@ -53,6 +54,8 @@ export function StockTransfersTab() {
   const { toast } = useToast()
   const { canWrite } = useRolePermissions()
   const canCreate = canWrite('transfers')
+  // Formule Pro et plus pour créer ou envoyer ; la liste, la réception et l'annulation restent ouvertes
+  const transfersLock = useFeatureLock('transfers')
 
   const scope = useShopScope()
   const scopeKey = scope.shopIds.join(',')
@@ -135,7 +138,7 @@ export function StockTransfersTab() {
     try {
       const res = await fetch('/api/stock-transfers/send', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ transfer_id: tr.id }) })
       const json = await res.json()
-      if (!res.ok) { toast({ title: json.error || tRoot('toast.error'), variant: 'destructive' }); return }
+      if (!res.ok) { if (!handlePlanRefusal(json)) toast({ title: json.error || tRoot('toast.error'), variant: 'destructive' }); return }
       toast({ title: tRoot('transfers.created_toast', { reference: tr.reference }), variant: 'success' })
       setDetailId(null); fetchRows()
     } finally { setBusy(null) }
@@ -241,9 +244,9 @@ export function StockTransfersTab() {
             <ScanLine className="h-4 w-4 shrink-0" /><span className="hidden sm:inline">{t('scan_button')}</span>
           </Button>
         )}
-        {canCreate && userShops.length > 1 && (
-          <Button variant="stockshop" className="h-11 w-full gap-2 sm:w-auto" onClick={openCreate} data-testid="transfers-new">
-            <Plus className="h-4 w-4" />{tRoot('transfers.new_transfer')}
+        {canCreate && userShops.length > 1 && transfersLock !== 'hidden' && (
+          <Button variant="stockshop" className="h-11 w-full gap-2 sm:w-auto" onClick={transfersLock === 'locked' ? () => openPlanLock('transfers') : openCreate} data-testid="transfers-new">
+            <Plus className="h-4 w-4" />{tRoot('transfers.new_transfer')}<PlanBadge state={transfersLock} feature="transfers" className="ml-1 bg-white/90 text-stockshop-blue dark:bg-blue-950" />
           </Button>
         )}
       </div>
