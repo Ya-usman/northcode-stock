@@ -14,11 +14,16 @@ const SQL_FILE = fs.existsSync(ROOT + '/supabase/migrations/178_expired_not_sell
   ? ROOT + '/supabase/migrations/178_expired_not_sellable.sql' : ROOT + '/supabase/drafts/178_expired_not_sellable.sql'
 const sql = fs.readFileSync(SQL_FILE, 'utf8')
 
-console.log('\n1. Cohérence application ↔ SQL (178) : fuseau par défaut et zones autorisées par pays')
+// Fuseaux : la DERNIÈRE migration qui redéfinit les fonctions fait foi (207 depuis le 3 nov. 2026 : nouveaux pays)
+const TZ_SQL_FILE = fs.readdirSync(ROOT + '/supabase/migrations').filter(f => /^\d{3}_.*\.sql$/.test(f)).sort().reverse()
+  .map(f => ROOT + '/supabase/migrations/' + f).find(f => /FUNCTION public\.country_time_zones/.test(fs.readFileSync(f, 'utf8'))) || SQL_FILE
+const tzSql = fs.readFileSync(TZ_SQL_FILE, 'utf8')
+
+console.log(`\n1. Cohérence application ↔ SQL (${path.basename(TZ_SQL_FILE)}) : fuseau par défaut et zones autorisées par pays`)
 {
-  const defBody = sql.match(/FUNCTION public\.country_default_time_zone[\s\S]*?\$\$([\s\S]*?)\$\$/)[1]
+  const defBody = tzSql.match(/FUNCTION public\.country_default_time_zone[\s\S]*?\$(?:function)?\$([\s\S]*?)\$(?:function)?\$/)[1]
   const sqlDefaults = Object.fromEntries([...defBody.matchAll(/WHEN '([A-Z]{2})' THEN '([^']+)'/g)].map(m => [m[1], m[2]]))
-  const zonesBody = sql.match(/FUNCTION public\.country_time_zones[\s\S]*?\$\$([\s\S]*?)\$\$/)[1]
+  const zonesBody = tzSql.match(/FUNCTION public\.country_time_zones[\s\S]*?\$(?:function)?\$([\s\S]*?)\$(?:function)?\$/)[1]
   const sqlMulti = Object.fromEntries([...zonesBody.matchAll(/WHEN '([A-Z]{2})' THEN ARRAY\[([\s\S]*?)\]/g)]
     .map(m => [m[1], [...m[2].matchAll(/'([^']+)'/g)].map(x => x[1])]))
   const countries = Array.from(new Set([...TZ.KNOWN_TIME_ZONE_COUNTRIES, ...Object.keys(sqlDefaults), ...Object.keys(sqlMulti), 'XX', 'ZZ']))

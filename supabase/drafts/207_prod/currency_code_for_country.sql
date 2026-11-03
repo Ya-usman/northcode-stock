@@ -1,0 +1,41 @@
+CREATE OR REPLACE FUNCTION public.currency_code_for_country(p_country text)
+ RETURNS text
+ LANGUAGE sql
+ IMMUTABLE
+AS $function$
+  SELECT CASE p_country
+    WHEN 'NG' THEN 'NGN'
+    WHEN 'GH' THEN 'GHS'
+    WHEN 'GN' THEN 'GNF'
+    WHEN 'GM' THEN 'GMD'
+    WHEN 'SL' THEN 'SLE'
+    WHEN 'LR' THEN 'LRD'
+    WHEN 'CV' THEN 'CVE'
+    WHEN 'MR' THEN 'MRU'
+    WHEN 'CD' THEN 'CDF'
+    WHEN 'US' THEN 'USD'
+    WHEN 'CA' THEN 'CAD'
+    WHEN 'CM' THEN 'XAF' WHEN 'CG' THEN 'XAF' WHEN 'GA' THEN 'XAF'
+    WHEN 'GQ' THEN 'XAF' WHEN 'CF' THEN 'XAF' WHEN 'TD' THEN 'XAF'
+    WHEN 'CI' THEN 'XOF' WHEN 'ML' THEN 'XOF' WHEN 'NE' THEN 'XOF'
+    WHEN 'SN' THEN 'XOF' WHEN 'BJ' THEN 'XOF' WHEN 'TG' THEN 'XOF'
+    WHEN 'BF' THEN 'XOF' WHEN 'GW' THEN 'XOF'
+    -- Union européenne — 21 pays en euro
+    WHEN 'DE' THEN 'EUR' WHEN 'AT' THEN 'EUR' WHEN 'BE' THEN 'EUR'
+    WHEN 'BG' THEN 'EUR' WHEN 'HR' THEN 'EUR' WHEN 'CY' THEN 'EUR'
+    WHEN 'ES' THEN 'EUR' WHEN 'EE' THEN 'EUR' WHEN 'FI' THEN 'EUR'
+    WHEN 'FR' THEN 'EUR' WHEN 'GR' THEN 'EUR' WHEN 'IE' THEN 'EUR'
+    WHEN 'IT' THEN 'EUR' WHEN 'LV' THEN 'EUR' WHEN 'LT' THEN 'EUR'
+    WHEN 'LU' THEN 'EUR' WHEN 'MT' THEN 'EUR' WHEN 'NL' THEN 'EUR'
+    WHEN 'PT' THEN 'EUR' WHEN 'SK' THEN 'EUR' WHEN 'SI' THEN 'EUR'
+    -- Union européenne — 6 pays hors zone euro (jamais EUR)
+    WHEN 'CZ' THEN 'CZK'
+    WHEN 'DK' THEN 'DKK'
+    WHEN 'HU' THEN 'HUF'
+    WHEN 'PL' THEN 'PLN'
+    WHEN 'RO' THEN 'RON'
+    WHEN 'SE' THEN 'SEK'
+    ELSE 'NGN'
+  END
+$function$
+;

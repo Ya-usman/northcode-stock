@@ -20,6 +20,46 @@ const DEFAULTS: Record<string, string> = {
   MT: 'Europe/Malta', NE: 'Africa/Niamey', NG: 'Africa/Lagos', NL: 'Europe/Amsterdam', PL: 'Europe/Warsaw',
   RO: 'Europe/Bucharest', SE: 'Europe/Stockholm', SI: 'Europe/Ljubljana', SK: 'Europe/Bratislava', SL: 'Africa/Freetown',
   SN: 'Africa/Dakar', TD: 'Africa/Ndjamena', TG: 'Africa/Lome',
+  // Nouveaux pays (3 nov. 2026) — miroir de country_default_time_zone (migration 207)
+  KE: 'Africa/Nairobi',
+  UG: 'Africa/Kampala',
+  TZ: 'Africa/Dar_es_Salaam',
+  RW: 'Africa/Kigali',
+  ET: 'Africa/Addis_Ababa',
+  MA: 'Africa/Casablanca',
+  TN: 'Africa/Tunis',
+  DZ: 'Africa/Algiers',
+  EG: 'Africa/Cairo',
+  ZA: 'Africa/Johannesburg',
+  IN: 'Asia/Kolkata',
+  PK: 'Asia/Karachi',
+  BD: 'Asia/Dhaka',
+  PH: 'Asia/Manila',
+  VN: 'Asia/Ho_Chi_Minh',
+  NP: 'Asia/Kathmandu',
+  LK: 'Asia/Colombo',
+  KH: 'Asia/Phnom_Penh',
+  MM: 'Asia/Yangon',
+  CN: 'Asia/Shanghai',
+  TH: 'Asia/Bangkok',
+  JP: 'Asia/Tokyo',
+  KR: 'Asia/Seoul',
+  SG: 'Asia/Singapore',
+  AE: 'Asia/Dubai',
+  SA: 'Asia/Riyadh',
+  CO: 'America/Bogota',
+  PE: 'America/Lima',
+  AR: 'America/Argentina/Buenos_Aires',
+  UY: 'America/Montevideo',
+  PA: 'America/Panama',
+  CR: 'America/Costa_Rica',
+  BO: 'America/La_Paz',
+  GT: 'America/Guatemala',
+  HN: 'America/Tegucigalpa',
+  HT: 'America/Port-au-Prince',
+  SV: 'America/El_Salvador',
+  VE: 'America/Caracas',
+  CH: 'Europe/Zurich',
 }
 
 /** Pays à plusieurs fuseaux : toutes les zones IANA acceptées (zone.tab) */
@@ -38,6 +78,13 @@ const MULTI: Record<string, string[]> = {
   CD: ['Africa/Kinshasa', 'Africa/Lubumbashi'],
   ES: ['Europe/Madrid', 'Africa/Ceuta', 'Atlantic/Canary'],
   PT: ['Europe/Lisbon', 'Atlantic/Madeira', 'Atlantic/Azores'],
+  // Nouveaux pays à plusieurs fuseaux (3 nov. 2026) — miroir de country_time_zones (migration 207)
+  ID: ['Asia/Jakarta', 'Asia/Pontianak', 'Asia/Makassar', 'Asia/Jayapura'],
+  MY: ['Asia/Kuala_Lumpur', 'Asia/Kuching'],
+  BR: ['America/Sao_Paulo', 'America/Noronha', 'America/Belem', 'America/Fortaleza', 'America/Recife', 'America/Araguaina', 'America/Maceio', 'America/Bahia', 'America/Campo_Grande', 'America/Cuiaba', 'America/Santarem', 'America/Porto_Velho', 'America/Boa_Vista', 'America/Manaus', 'America/Eirunepe', 'America/Rio_Branco'],
+  MX: ['America/Mexico_City', 'America/Cancun', 'America/Merida', 'America/Monterrey', 'America/Matamoros', 'America/Chihuahua', 'America/Ciudad_Juarez', 'America/Ojinaga', 'America/Mazatlan', 'America/Bahia_Banderas', 'America/Hermosillo', 'America/Tijuana'],
+  CL: ['America/Santiago', 'America/Punta_Arenas', 'Pacific/Easter'],
+  EC: ['America/Guayaquil', 'Pacific/Galapagos'],
 }
 
 /** Zones proposées en premier dans la liste (les autres zones autorisées restent acceptées, ex. fuseau de l'appareil) */
@@ -47,6 +94,12 @@ const PRIMARY: Record<string, string[]> = {
   CD: ['Africa/Kinshasa', 'Africa/Lubumbashi'],
   ES: ['Europe/Madrid', 'Atlantic/Canary'],
   PT: ['Europe/Lisbon', 'Atlantic/Madeira', 'Atlantic/Azores'],
+  ID: ['Asia/Jakarta', 'Asia/Pontianak', 'Asia/Makassar', 'Asia/Jayapura'],
+  MY: ['Asia/Kuala_Lumpur', 'Asia/Kuching'],
+  BR: ['America/Sao_Paulo', 'America/Manaus', 'America/Fortaleza', 'America/Cuiaba', 'America/Rio_Branco'],
+  MX: ['America/Mexico_City', 'America/Cancun', 'America/Chihuahua', 'America/Mazatlan', 'America/Hermosillo', 'America/Tijuana'],
+  CL: ['America/Santiago', 'America/Punta_Arenas', 'Pacific/Easter'],
+  EC: ['America/Guayaquil', 'Pacific/Galapagos'],
 }
 
 /** Zones autorisées pour un pays (null = pays inconnu : aucune zone acceptée) — miroir de country_time_zones (SQL) */

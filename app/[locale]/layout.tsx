@@ -25,7 +25,8 @@ export function generateStaticParams() {
 // catches a failed (app)/layout.tsx chunk load — the one time the full-catalog
 // provider from (app)/layout.tsx is guaranteed NOT to have mounted — so it can
 // only ever render with whatever this outer provider supplies.
-const PUBLIC_NAMESPACES = ['landing', 'auth', 'register', 'error_page', 'reset_password', 'offline'] as const
+// country_picker + countries : choix du pays des tarifs sur la page d'accueil (avant le 3 nov. 2026 : clés brutes affichées)
+const PUBLIC_NAMESPACES = ['landing', 'auth', 'register', 'error_page', 'reset_password', 'offline', 'country_picker', 'countries'] as const
 
 export default async function LocaleLayout({ children, params: { locale } }: LocaleLayoutProps) {
   if (!locales.includes(locale as Locale)) notFound()

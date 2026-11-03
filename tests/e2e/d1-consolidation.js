@@ -136,11 +136,14 @@ console.log('\n8 ter. Repli : dernier taux AVANT la date, au plus 5 jours calend
   ok(xaf.consolidated.value === 1000 && !xaf.consolidated.partial && xaf.consolidated.fallbacks.length === 0, 'XAF → EUR sans aucun taux en base : exact, jamais de repli ni de manquant')
 }
 
-console.log('\n8 bis. Devises de l’application = contrainte de la migration 177')
+// La DERNIÈRE migration qui redéfinit la contrainte fait foi (207 depuis le 3 nov. 2026 : nouveaux pays)
+const CONSO_FILE = fs.readdirSync(ROOT + '/supabase/migrations').filter(f => /^\d{3}_.*\.sql$/.test(f)).sort().reverse()
+  .map(f => ROOT + '/supabase/migrations/' + f).find(f => /entities_consolidation_currency_supported CHECK/.test(fs.readFileSync(f, 'utf8')))
+console.log(`\n8 bis. Devises de l’application = contrainte de la migration ${path.basename(CONSO_FILE).slice(0, 3)}`)
 {
   const { SUPPORTED_CURRENCY_CODES } = jiti(ROOT + '/lib/saas/currencies.ts')
-  const m177 = fs.readFileSync(ROOT + '/supabase/migrations/177_entities_consolidation_currency.sql', 'utf8')
-  const inCheck = m177.match(/entities_consolidation_currency_supported CHECK \(consolidation_currency = ANY \(ARRAY\[([\s\S]*?)\]/)[1].match(/'([A-Z]{3})'/g).map(s => s.slice(1, 4))
+  const mig = fs.readFileSync(CONSO_FILE, 'utf8')
+  const inCheck = mig.match(/entities_consolidation_currency_supported CHECK \(consolidation_currency (?:= ANY \(ARRAY\[|IN \()([\s\S]*?)[\])]/)[1].match(/'([A-Z]{3})'/g).map(s => s.slice(1, 4))
   ok(inCheck.length === SUPPORTED_CURRENCY_CODES.length && inCheck.every(c => SUPPORTED_CURRENCY_CODES.includes(c)), `${inCheck.length} codes, identiques des deux côtés`)
 }
 

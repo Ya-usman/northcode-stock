@@ -8,6 +8,11 @@ export type CountryCode =
   | 'DE' | 'AT' | 'BE' | 'BG' | 'HR' | 'CY' | 'DK' | 'ES' | 'EE' | 'FI'
   | 'FR' | 'GR' | 'HU' | 'IE' | 'IT' | 'LV' | 'LT' | 'LU' | 'MT' | 'NL'
   | 'PL' | 'PT' | 'CZ' | 'RO' | 'SK' | 'SI' | 'SE'
+  // Nouveaux pays (tarification du 3 nov. 2026, tableau validé) : Afrique de l'Est et du Nord, Asie, Amériques, Europe hors UE
+  | 'KE' | 'UG' | 'TZ' | 'RW' | 'ET' | 'MA' | 'TN' | 'DZ' | 'EG' | 'ZA' | 'IN' | 'PK'
+  | 'BD' | 'PH' | 'ID' | 'VN' | 'NP' | 'LK' | 'KH' | 'MM' | 'CN' | 'MY' | 'TH' | 'JP'
+  | 'KR' | 'SG' | 'AE' | 'SA' | 'BR' | 'MX' | 'CL' | 'CO' | 'PE' | 'AR' | 'UY' | 'EC'
+  | 'PA' | 'CR' | 'BO' | 'GT' | 'HN' | 'HT' | 'SV' | 'VE' | 'GB' | 'CH'
 
 // Durées d'abonnement (tarification du 3 nov. 2026) : mensuel ; 6 mois = 2 semaines offertes (5,5 mois payés) ;
 // 1 an = 2 mois offerts (10 mois payés). Le trimestre n'est plus proposé : gardé pour lire les abonnements déjà payés.
@@ -572,6 +577,708 @@ export const COUNTRIES: Record<CountryCode, CountryConfig> = {
       { id: 'etransfer', label: 'e-Transfer',     icon: '🏦', type: 'transfer' },
       { id: 'paypal',    label: 'PayPal',         icon: '🔵', type: 'card' },
       { id: 'credit',    label: 'Credit',         icon: '📝', type: 'credit' },
+    ],
+  },
+
+  // ── Nouveaux pays (tarification du 3 nov. 2026, tableau validé) ─────────
+  // Paiement de l'abonnement par Flutterwave ; « billingCurrency: 'USD' » : pays où les commerçants comptent en dollars
+  // (la boutique garde sa monnaie locale pour la caisse, le stock et les rapports).
+
+  KE: {
+    code: 'KE', name: 'Kenya', flag: '🇰🇪', flagColor: '#006600',
+    currency: 'KES', currencySymbol: 'KSh', gateway: 'flutterwave',
+    prices: { starter: 1000, pro: 2000, business: 3000 },
+    addons: { seat: 300, shop: 800 },
+    phonePrefix: '+254', cityPlaceholder: 'Nairobi, Mombasa, Kisumu…',
+    paymentMethods: [
+      { id: 'cash', label: 'Cash', icon: '💵', type: 'cash' },
+      { id: 'mpesa', label: 'M-Pesa', icon: '📱', type: 'mobile_money' },
+      { id: 'airtel_money', label: 'Airtel Money', icon: '📱', type: 'mobile_money' },
+      { id: 'card', label: 'Card', icon: '💳', type: 'card' },
+      { id: 'transfer', label: 'Bank Transfer', icon: '🏦', type: 'transfer' },
+      { id: 'credit', label: 'Credit', icon: '📝', type: 'credit' },
+    ],
+  },
+
+  UG: {
+    code: 'UG', name: 'Ouganda', flag: '🇺🇬', flagColor: '#FCDC04',
+    currency: 'UGX', currencySymbol: 'USh', gateway: 'flutterwave',
+    prices: { starter: 30000, pro: 60000, business: 90000 },
+    addons: { seat: 9000, shop: 24000 },
+    phonePrefix: '+256', cityPlaceholder: 'Kampala, Gulu, Mbarara…',
+    paymentMethods: [
+      { id: 'cash', label: 'Cash', icon: '💵', type: 'cash' },
+      { id: 'mtn_momo', label: 'MTN MoMo', icon: '📱', type: 'mobile_money' },
+      { id: 'airtel_money', label: 'Airtel Money', icon: '📱', type: 'mobile_money' },
+      { id: 'card', label: 'Card', icon: '💳', type: 'card' },
+      { id: 'transfer', label: 'Bank Transfer', icon: '🏦', type: 'transfer' },
+      { id: 'credit', label: 'Credit', icon: '📝', type: 'credit' },
+    ],
+  },
+
+  TZ: {
+    code: 'TZ', name: 'Tanzanie', flag: '🇹🇿', flagColor: '#1EB53A',
+    currency: 'TZS', currencySymbol: 'TSh', gateway: 'flutterwave',
+    prices: { starter: 20000, pro: 40000, business: 60000 },
+    addons: { seat: 6000, shop: 16000 },
+    phonePrefix: '+255', cityPlaceholder: 'Dar es Salaam, Arusha, Mwanza…',
+    paymentMethods: [
+      { id: 'cash', label: 'Cash', icon: '💵', type: 'cash' },
+      { id: 'mpesa', label: 'M-Pesa', icon: '📱', type: 'mobile_money' },
+      { id: 'mixx', label: 'Mixx by Yas', icon: '📱', type: 'mobile_money' },
+      { id: 'airtel_money', label: 'Airtel Money', icon: '📱', type: 'mobile_money' },
+      { id: 'card', label: 'Card', icon: '💳', type: 'card' },
+      { id: 'transfer', label: 'Bank Transfer', icon: '🏦', type: 'transfer' },
+      { id: 'credit', label: 'Credit', icon: '📝', type: 'credit' },
+    ],
+  },
+
+  RW: {
+    code: 'RW', name: 'Rwanda', flag: '🇷🇼', flagColor: '#00A1DE',
+    currency: 'RWF', currencySymbol: 'FRw', gateway: 'flutterwave',
+    prices: { starter: 10000, pro: 20000, business: 30000 },
+    addons: { seat: 3000, shop: 8000 },
+    phonePrefix: '+250', cityPlaceholder: 'Kigali, Huye, Musanze…',
+    paymentMethods: [
+      { id: 'cash', label: 'Cash', icon: '💵', type: 'cash' },
+      { id: 'mtn_momo', label: 'MTN MoMo', icon: '📱', type: 'mobile_money' },
+      { id: 'airtel_money', label: 'Airtel Money', icon: '📱', type: 'mobile_money' },
+      { id: 'card', label: 'Card', icon: '💳', type: 'card' },
+      { id: 'transfer', label: 'Bank Transfer', icon: '🏦', type: 'transfer' },
+      { id: 'credit', label: 'Credit', icon: '📝', type: 'credit' },
+    ],
+  },
+
+  ET: {
+    code: 'ET', name: 'Éthiopie', flag: '🇪🇹', flagColor: '#078930',
+    currency: 'ETB', currencySymbol: 'Br', gateway: 'flutterwave',
+    prices: { starter: 1000, pro: 2000, business: 3000 },
+    addons: { seat: 300, shop: 800 },
+    phonePrefix: '+251', cityPlaceholder: 'Addis-Abeba, Dire Dawa, Mekele…',
+    paymentMethods: [
+      { id: 'cash', label: 'Cash', icon: '💵', type: 'cash' },
+      { id: 'telebirr', label: 'telebirr', icon: '📱', type: 'mobile_money' },
+      { id: 'cbe_birr', label: 'CBE Birr', icon: '📱', type: 'mobile_money' },
+      { id: 'card', label: 'Card', icon: '💳', type: 'card' },
+      { id: 'transfer', label: 'Bank Transfer', icon: '🏦', type: 'transfer' },
+      { id: 'credit', label: 'Credit', icon: '📝', type: 'credit' },
+    ],
+  },
+
+  MA: {
+    code: 'MA', name: 'Maroc', flag: '🇲🇦', flagColor: '#C1272D',
+    currency: 'MAD', currencySymbol: 'DH', gateway: 'flutterwave',
+    prices: { starter: 75, pro: 150, business: 225 },
+    addons: { seat: 25, shop: 60 },
+    phonePrefix: '+212', cityPlaceholder: 'Casablanca, Rabat, Marrakech…',
+    paymentMethods: [
+      { id: 'cash', label: 'Cash', icon: '💵', type: 'cash' },
+      { id: 'card', label: 'Card', icon: '💳', type: 'card' },
+      { id: 'transfer', label: 'Bank Transfer', icon: '🏦', type: 'transfer' },
+      { id: 'credit', label: 'Credit', icon: '📝', type: 'credit' },
+    ],
+  },
+
+  TN: {
+    code: 'TN', name: 'Tunisie', flag: '🇹🇳', flagColor: '#E70013',
+    currency: 'TND', currencySymbol: 'DT', gateway: 'flutterwave',
+    prices: { starter: 25, pro: 50, business: 75 },
+    addons: { seat: 8, shop: 20 },
+    phonePrefix: '+216', cityPlaceholder: 'Tunis, Sfax, Sousse…',
+    paymentMethods: [
+      { id: 'cash', label: 'Cash', icon: '💵', type: 'cash' },
+      { id: 'card', label: 'Card', icon: '💳', type: 'card' },
+      { id: 'd17', label: 'D17', icon: '📱', type: 'mobile_money' },
+      { id: 'transfer', label: 'Bank Transfer', icon: '🏦', type: 'transfer' },
+      { id: 'credit', label: 'Credit', icon: '📝', type: 'credit' },
+    ],
+  },
+
+  DZ: {
+    code: 'DZ', name: 'Algérie', flag: '🇩🇿', flagColor: '#006233',
+    currency: 'DZD', currencySymbol: 'DA', gateway: 'flutterwave',
+    prices: { starter: 1000, pro: 2000, business: 3000 },
+    addons: { seat: 300, shop: 800 },
+    phonePrefix: '+213', cityPlaceholder: 'Alger, Oran, Constantine…',
+    paymentMethods: [
+      { id: 'cash', label: 'Cash', icon: '💵', type: 'cash' },
+      { id: 'card', label: 'Card', icon: '💳', type: 'card' },
+      { id: 'baridimob', label: 'BaridiMob', icon: '📱', type: 'mobile_money' },
+      { id: 'transfer', label: 'Bank Transfer', icon: '🏦', type: 'transfer' },
+      { id: 'credit', label: 'Credit', icon: '📝', type: 'credit' },
+    ],
+  },
+
+  EG: {
+    code: 'EG', name: 'Égypte', flag: '🇪🇬', flagColor: '#CE1126',
+    currency: 'EGP', currencySymbol: 'E£', gateway: 'flutterwave',
+    prices: { starter: 400, pro: 800, business: 1200 },
+    addons: { seat: 120, shop: 320 },
+    phonePrefix: '+20', cityPlaceholder: 'Le Caire, Alexandrie, Gizeh…',
+    paymentMethods: [
+      { id: 'cash', label: 'Cash', icon: '💵', type: 'cash' },
+      { id: 'card', label: 'Card', icon: '💳', type: 'card' },
+      { id: 'vodafone_cash', label: 'Vodafone Cash', icon: '📱', type: 'mobile_money' },
+      { id: 'instapay', label: 'InstaPay', icon: '📱', type: 'mobile_money' },
+      { id: 'transfer', label: 'Bank Transfer', icon: '🏦', type: 'transfer' },
+      { id: 'credit', label: 'Credit', icon: '📝', type: 'credit' },
+    ],
+  },
+
+  ZA: {
+    code: 'ZA', name: 'Afrique du Sud', flag: '🇿🇦', flagColor: '#007A4D',
+    currency: 'ZAR', currencySymbol: 'R', gateway: 'flutterwave',
+    prices: { starter: 150, pro: 300, business: 450 },
+    addons: { seat: 45, shop: 120 },
+    phonePrefix: '+27', cityPlaceholder: 'Johannesburg, Le Cap, Durban…',
+    paymentMethods: [
+      { id: 'cash', label: 'Cash', icon: '💵', type: 'cash' },
+      { id: 'card', label: 'Card', icon: '💳', type: 'card' },
+      { id: 'transfer', label: 'Bank Transfer', icon: '🏦', type: 'transfer' },
+      { id: 'snapscan', label: 'SnapScan', icon: '📱', type: 'mobile_money' },
+      { id: 'credit', label: 'Credit', icon: '📝', type: 'credit' },
+    ],
+  },
+
+  IN: {
+    code: 'IN', name: 'Inde', flag: '🇮🇳', flagColor: '#FF9933',
+    currency: 'INR', currencySymbol: '₹', gateway: 'flutterwave',
+    prices: { starter: 499, pro: 999, business: 1499 },
+    addons: { seat: 149, shop: 399 },
+    phonePrefix: '+91', cityPlaceholder: 'Mumbai, Delhi, Bangalore…',
+    paymentMethods: [
+      { id: 'cash', label: 'Cash', icon: '💵', type: 'cash' },
+      { id: 'upi', label: 'UPI', icon: '📱', type: 'mobile_money' },
+      { id: 'card', label: 'Card', icon: '💳', type: 'card' },
+      { id: 'transfer', label: 'Bank Transfer', icon: '🏦', type: 'transfer' },
+      { id: 'credit', label: 'Credit', icon: '📝', type: 'credit' },
+    ],
+  },
+
+  PK: {
+    code: 'PK', name: 'Pakistan', flag: '🇵🇰', flagColor: '#01411C',
+    currency: 'PKR', currencySymbol: 'Rs', gateway: 'flutterwave',
+    prices: { starter: 1500, pro: 3000, business: 4500 },
+    addons: { seat: 450, shop: 1200 },
+    phonePrefix: '+92', cityPlaceholder: 'Karachi, Lahore, Islamabad…',
+    paymentMethods: [
+      { id: 'cash', label: 'Cash', icon: '💵', type: 'cash' },
+      { id: 'jazzcash', label: 'JazzCash', icon: '📱', type: 'mobile_money' },
+      { id: 'easypaisa', label: 'Easypaisa', icon: '📱', type: 'mobile_money' },
+      { id: 'card', label: 'Card', icon: '💳', type: 'card' },
+      { id: 'transfer', label: 'Bank Transfer', icon: '🏦', type: 'transfer' },
+      { id: 'credit', label: 'Credit', icon: '📝', type: 'credit' },
+    ],
+  },
+
+  BD: {
+    code: 'BD', name: 'Bangladesh', flag: '🇧🇩', flagColor: '#006A4E',
+    currency: 'BDT', currencySymbol: '৳', gateway: 'flutterwave',
+    prices: { starter: 500, pro: 1000, business: 1500 },
+    addons: { seat: 150, shop: 400 },
+    phonePrefix: '+880', cityPlaceholder: 'Dacca, Chittagong, Khulna…',
+    paymentMethods: [
+      { id: 'cash', label: 'Cash', icon: '💵', type: 'cash' },
+      { id: 'bkash', label: 'bKash', icon: '📱', type: 'mobile_money' },
+      { id: 'nagad', label: 'Nagad', icon: '📱', type: 'mobile_money' },
+      { id: 'card', label: 'Card', icon: '💳', type: 'card' },
+      { id: 'transfer', label: 'Bank Transfer', icon: '🏦', type: 'transfer' },
+      { id: 'credit', label: 'Credit', icon: '📝', type: 'credit' },
+    ],
+  },
+
+  PH: {
+    code: 'PH', name: 'Philippines', flag: '🇵🇭', flagColor: '#0038A8',
+    currency: 'PHP', currencySymbol: '₱', gateway: 'flutterwave',
+    prices: { starter: 300, pro: 600, business: 900 },
+    addons: { seat: 90, shop: 240 },
+    phonePrefix: '+63', cityPlaceholder: 'Manille, Cebu, Davao…',
+    paymentMethods: [
+      { id: 'cash', label: 'Cash', icon: '💵', type: 'cash' },
+      { id: 'gcash', label: 'GCash', icon: '📱', type: 'mobile_money' },
+      { id: 'maya', label: 'Maya', icon: '📱', type: 'mobile_money' },
+      { id: 'card', label: 'Card', icon: '💳', type: 'card' },
+      { id: 'transfer', label: 'Bank Transfer', icon: '🏦', type: 'transfer' },
+      { id: 'credit', label: 'Credit', icon: '📝', type: 'credit' },
+    ],
+  },
+
+  ID: {
+    code: 'ID', name: 'Indonésie', flag: '🇮🇩', flagColor: '#CE1126',
+    currency: 'IDR', currencySymbol: 'Rp', gateway: 'flutterwave',
+    prices: { starter: 100000, pro: 200000, business: 300000 },
+    addons: { seat: 30000, shop: 80000 },
+    phonePrefix: '+62', cityPlaceholder: 'Jakarta, Surabaya, Bandung…',
+    paymentMethods: [
+      { id: 'cash', label: 'Cash', icon: '💵', type: 'cash' },
+      { id: 'qris', label: 'QRIS', icon: '📱', type: 'mobile_money' },
+      { id: 'gopay', label: 'GoPay', icon: '📱', type: 'mobile_money' },
+      { id: 'ovo', label: 'OVO', icon: '📱', type: 'mobile_money' },
+      { id: 'card', label: 'Card', icon: '💳', type: 'card' },
+      { id: 'transfer', label: 'Bank Transfer', icon: '🏦', type: 'transfer' },
+      { id: 'credit', label: 'Credit', icon: '📝', type: 'credit' },
+    ],
+  },
+
+  VN: {
+    code: 'VN', name: 'Viêt Nam', flag: '🇻🇳', flagColor: '#DA251D',
+    currency: 'VND', currencySymbol: '₫', gateway: 'flutterwave',
+    prices: { starter: 150000, pro: 300000, business: 450000 },
+    addons: { seat: 45000, shop: 120000 },
+    phonePrefix: '+84', cityPlaceholder: 'Hô Chi Minh-Ville, Hanoï, Da Nang…',
+    paymentMethods: [
+      { id: 'cash', label: 'Cash', icon: '💵', type: 'cash' },
+      { id: 'momo', label: 'MoMo', icon: '📱', type: 'mobile_money' },
+      { id: 'vietqr', label: 'VietQR', icon: '🏦', type: 'transfer' },
+      { id: 'card', label: 'Card', icon: '💳', type: 'card' },
+      { id: 'credit', label: 'Credit', icon: '📝', type: 'credit' },
+    ],
+  },
+
+  NP: {
+    code: 'NP', name: 'Népal', flag: '🇳🇵', flagColor: '#DC143C',
+    currency: 'NPR', currencySymbol: 'Rs', gateway: 'flutterwave',
+    billingCurrency: 'USD',
+    prices: { starter: 5, pro: 10, business: 15 },
+    addons: { seat: 1.5, shop: 4 },
+    phonePrefix: '+977', cityPlaceholder: 'Katmandou, Pokhara, Lalitpur…',
+    paymentMethods: [
+      { id: 'cash', label: 'Cash', icon: '💵', type: 'cash' },
+      { id: 'esewa', label: 'eSewa', icon: '📱', type: 'mobile_money' },
+      { id: 'khalti', label: 'Khalti', icon: '📱', type: 'mobile_money' },
+      { id: 'card', label: 'Card', icon: '💳', type: 'card' },
+      { id: 'transfer', label: 'Bank Transfer', icon: '🏦', type: 'transfer' },
+      { id: 'credit', label: 'Credit', icon: '📝', type: 'credit' },
+    ],
+  },
+
+  LK: {
+    code: 'LK', name: 'Sri Lanka', flag: '🇱🇰', flagColor: '#8D153A',
+    currency: 'LKR', currencySymbol: 'Rs', gateway: 'flutterwave',
+    billingCurrency: 'USD',
+    prices: { starter: 5, pro: 10, business: 15 },
+    addons: { seat: 1.5, shop: 4 },
+    phonePrefix: '+94', cityPlaceholder: 'Colombo, Kandy, Galle…',
+    paymentMethods: [
+      { id: 'cash', label: 'Cash', icon: '💵', type: 'cash' },
+      { id: 'card', label: 'Card', icon: '💳', type: 'card' },
+      { id: 'transfer', label: 'Bank Transfer', icon: '🏦', type: 'transfer' },
+      { id: 'credit', label: 'Credit', icon: '📝', type: 'credit' },
+    ],
+  },
+
+  KH: {
+    code: 'KH', name: 'Cambodge', flag: '🇰🇭', flagColor: '#032EA1',
+    currency: 'KHR', currencySymbol: '៛', gateway: 'flutterwave',
+    billingCurrency: 'USD',
+    prices: { starter: 5, pro: 10, business: 15 },
+    addons: { seat: 1.5, shop: 4 },
+    phonePrefix: '+855', cityPlaceholder: 'Phnom Penh, Siem Reap, Battambang…',
+    paymentMethods: [
+      { id: 'cash', label: 'Cash', icon: '💵', type: 'cash' },
+      { id: 'aba', label: 'ABA', icon: '🏦', type: 'transfer' },
+      { id: 'card', label: 'Card', icon: '💳', type: 'card' },
+      { id: 'credit', label: 'Credit', icon: '📝', type: 'credit' },
+    ],
+  },
+
+  MM: {
+    code: 'MM', name: 'Birmanie', flag: '🇲🇲', flagColor: '#FECB00',
+    currency: 'MMK', currencySymbol: 'K', gateway: 'flutterwave',
+    billingCurrency: 'USD',
+    prices: { starter: 5, pro: 10, business: 15 },
+    addons: { seat: 1.5, shop: 4 },
+    phonePrefix: '+95', cityPlaceholder: 'Rangoun, Mandalay, Naypyidaw…',
+    paymentMethods: [
+      { id: 'cash', label: 'Cash', icon: '💵', type: 'cash' },
+      { id: 'kbzpay', label: 'KBZPay', icon: '📱', type: 'mobile_money' },
+      { id: 'wave_money', label: 'Wave Money', icon: '📱', type: 'mobile_money' },
+      { id: 'card', label: 'Card', icon: '💳', type: 'card' },
+      { id: 'credit', label: 'Credit', icon: '📝', type: 'credit' },
+    ],
+  },
+
+  CN: {
+    code: 'CN', name: 'Chine', flag: '🇨🇳', flagColor: '#DE2910',
+    currency: 'CNY', currencySymbol: '¥', gateway: 'flutterwave',
+    prices: { starter: 70, pro: 140, business: 250 },
+    addons: { seat: 20, shop: 55 },
+    phonePrefix: '+86', cityPlaceholder: 'Shanghai, Pékin, Canton…',
+    paymentMethods: [
+      { id: 'cash', label: 'Cash', icon: '💵', type: 'cash' },
+      { id: 'alipay', label: 'Alipay', icon: '📱', type: 'mobile_money' },
+      { id: 'wechat_pay', label: 'WeChat Pay', icon: '📱', type: 'mobile_money' },
+      { id: 'card', label: 'Card', icon: '💳', type: 'card' },
+      { id: 'credit', label: 'Credit', icon: '📝', type: 'credit' },
+    ],
+  },
+
+  MY: {
+    code: 'MY', name: 'Malaisie', flag: '🇲🇾', flagColor: '#010066',
+    currency: 'MYR', currencySymbol: 'RM', gateway: 'flutterwave',
+    prices: { starter: 45, pro: 90, business: 160 },
+    addons: { seat: 15, shop: 35 },
+    phonePrefix: '+60', cityPlaceholder: 'Kuala Lumpur, George Town, Johor Bahru…',
+    paymentMethods: [
+      { id: 'cash', label: 'Cash', icon: '💵', type: 'cash' },
+      { id: 'duitnow', label: 'DuitNow QR', icon: '📱', type: 'mobile_money' },
+      { id: 'tng', label: 'Touch \'n Go', icon: '📱', type: 'mobile_money' },
+      { id: 'card', label: 'Card', icon: '💳', type: 'card' },
+      { id: 'transfer', label: 'Bank Transfer', icon: '🏦', type: 'transfer' },
+      { id: 'credit', label: 'Credit', icon: '📝', type: 'credit' },
+    ],
+  },
+
+  TH: {
+    code: 'TH', name: 'Thaïlande', flag: '🇹🇭', flagColor: '#2D2A4A',
+    currency: 'THB', currencySymbol: '฿', gateway: 'flutterwave',
+    prices: { starter: 350, pro: 700, business: 1200 },
+    addons: { seat: 100, shop: 280 },
+    phonePrefix: '+66', cityPlaceholder: 'Bangkok, Chiang Mai, Phuket…',
+    paymentMethods: [
+      { id: 'cash', label: 'Cash', icon: '💵', type: 'cash' },
+      { id: 'promptpay', label: 'PromptPay', icon: '📱', type: 'mobile_money' },
+      { id: 'card', label: 'Card', icon: '💳', type: 'card' },
+      { id: 'transfer', label: 'Bank Transfer', icon: '🏦', type: 'transfer' },
+      { id: 'credit', label: 'Credit', icon: '📝', type: 'credit' },
+    ],
+  },
+
+  JP: {
+    code: 'JP', name: 'Japon', flag: '🇯🇵', flagColor: '#BC002D',
+    currency: 'JPY', currencySymbol: '¥', gateway: 'flutterwave',
+    prices: { starter: 2500, pro: 4000, business: 8000 },
+    addons: { seat: 800, shop: 2000 },
+    phonePrefix: '+81', cityPlaceholder: 'Tokyo, Osaka, Nagoya…',
+    paymentMethods: [
+      { id: 'cash', label: 'Cash', icon: '💵', type: 'cash' },
+      { id: 'card', label: 'Card', icon: '💳', type: 'card' },
+      { id: 'paypay', label: 'PayPay', icon: '📱', type: 'mobile_money' },
+      { id: 'credit', label: 'Credit', icon: '📝', type: 'credit' },
+    ],
+  },
+
+  KR: {
+    code: 'KR', name: 'Corée du Sud', flag: '🇰🇷', flagColor: '#003478',
+    currency: 'KRW', currencySymbol: '₩', gateway: 'flutterwave',
+    prices: { starter: 20000, pro: 35000, business: 70000 },
+    addons: { seat: 7000, shop: 17000 },
+    phonePrefix: '+82', cityPlaceholder: 'Séoul, Busan, Incheon…',
+    paymentMethods: [
+      { id: 'cash', label: 'Cash', icon: '💵', type: 'cash' },
+      { id: 'card', label: 'Card', icon: '💳', type: 'card' },
+      { id: 'kakaopay', label: 'KakaoPay', icon: '📱', type: 'mobile_money' },
+      { id: 'transfer', label: 'Bank Transfer', icon: '🏦', type: 'transfer' },
+      { id: 'credit', label: 'Credit', icon: '📝', type: 'credit' },
+    ],
+  },
+
+  SG: {
+    code: 'SG', name: 'Singapour', flag: '🇸🇬', flagColor: '#EF3340',
+    currency: 'SGD', currencySymbol: 'S$', gateway: 'flutterwave',
+    prices: { starter: 20, pro: 35, business: 70 },
+    addons: { seat: 7, shop: 17 },
+    phonePrefix: '+65', cityPlaceholder: 'Singapour',
+    paymentMethods: [
+      { id: 'cash', label: 'Cash', icon: '💵', type: 'cash' },
+      { id: 'paynow', label: 'PayNow', icon: '📱', type: 'mobile_money' },
+      { id: 'card', label: 'Card', icon: '💳', type: 'card' },
+      { id: 'credit', label: 'Credit', icon: '📝', type: 'credit' },
+    ],
+  },
+
+  AE: {
+    code: 'AE', name: 'Émirats arabes unis', flag: '🇦🇪', flagColor: '#00732F',
+    currency: 'AED', currencySymbol: 'AED', gateway: 'flutterwave',
+    prices: { starter: 50, pro: 90, business: 180 },
+    addons: { seat: 18, shop: 45 },
+    phonePrefix: '+971', cityPlaceholder: 'Dubaï, Abou Dabi, Charjah…',
+    paymentMethods: [
+      { id: 'cash', label: 'Cash', icon: '💵', type: 'cash' },
+      { id: 'card', label: 'Card', icon: '💳', type: 'card' },
+      { id: 'transfer', label: 'Bank Transfer', icon: '🏦', type: 'transfer' },
+      { id: 'credit', label: 'Credit', icon: '📝', type: 'credit' },
+    ],
+  },
+
+  SA: {
+    code: 'SA', name: 'Arabie saoudite', flag: '🇸🇦', flagColor: '#006C35',
+    currency: 'SAR', currencySymbol: 'SAR', gateway: 'flutterwave',
+    prices: { starter: 50, pro: 90, business: 180 },
+    addons: { seat: 18, shop: 45 },
+    phonePrefix: '+966', cityPlaceholder: 'Riyad, Djeddah, La Mecque…',
+    paymentMethods: [
+      { id: 'cash', label: 'Cash', icon: '💵', type: 'cash' },
+      { id: 'mada', label: 'mada', icon: '💳', type: 'card' },
+      { id: 'card', label: 'Card', icon: '💳', type: 'card' },
+      { id: 'stc_pay', label: 'STC Pay', icon: '📱', type: 'mobile_money' },
+      { id: 'credit', label: 'Credit', icon: '📝', type: 'credit' },
+    ],
+  },
+
+  BR: {
+    code: 'BR', name: 'Brésil', flag: '🇧🇷', flagColor: '#009C3B',
+    currency: 'BRL', currencySymbol: 'R$', gateway: 'flutterwave',
+    prices: { starter: 50, pro: 100, business: 175 },
+    addons: { seat: 15, shop: 40 },
+    phonePrefix: '+55', cityPlaceholder: 'São Paulo, Rio de Janeiro, Salvador…',
+    paymentMethods: [
+      { id: 'cash', label: 'Cash', icon: '💵', type: 'cash' },
+      { id: 'pix', label: 'Pix', icon: '📱', type: 'mobile_money' },
+      { id: 'card', label: 'Card', icon: '💳', type: 'card' },
+      { id: 'transfer', label: 'Bank Transfer', icon: '🏦', type: 'transfer' },
+      { id: 'credit', label: 'Credit', icon: '📝', type: 'credit' },
+    ],
+  },
+
+  MX: {
+    code: 'MX', name: 'Mexique', flag: '🇲🇽', flagColor: '#006847',
+    currency: 'MXN', currencySymbol: 'MX$', gateway: 'flutterwave',
+    prices: { starter: 200, pro: 400, business: 700 },
+    addons: { seat: 60, shop: 150 },
+    phonePrefix: '+52', cityPlaceholder: 'Mexico, Guadalajara, Monterrey…',
+    paymentMethods: [
+      { id: 'cash', label: 'Cash', icon: '💵', type: 'cash' },
+      { id: 'card', label: 'Card', icon: '💳', type: 'card' },
+      { id: 'spei', label: 'SPEI', icon: '🏦', type: 'transfer' },
+      { id: 'credit', label: 'Credit', icon: '📝', type: 'credit' },
+    ],
+  },
+
+  CL: {
+    code: 'CL', name: 'Chili', flag: '🇨🇱', flagColor: '#0039A6',
+    currency: 'CLP', currencySymbol: 'CLP', gateway: 'flutterwave',
+    prices: { starter: 10000, pro: 20000, business: 35000 },
+    addons: { seat: 3000, shop: 7500 },
+    phonePrefix: '+56', cityPlaceholder: 'Santiago, Valparaíso, Concepción…',
+    paymentMethods: [
+      { id: 'cash', label: 'Cash', icon: '💵', type: 'cash' },
+      { id: 'card', label: 'Card', icon: '💳', type: 'card' },
+      { id: 'transfer', label: 'Bank Transfer', icon: '🏦', type: 'transfer' },
+      { id: 'credit', label: 'Credit', icon: '📝', type: 'credit' },
+    ],
+  },
+
+  CO: {
+    code: 'CO', name: 'Colombie', flag: '🇨🇴', flagColor: '#FCD116',
+    currency: 'COP', currencySymbol: 'COP', gateway: 'flutterwave',
+    prices: { starter: 40000, pro: 80000, business: 140000 },
+    addons: { seat: 12000, shop: 30000 },
+    phonePrefix: '+57', cityPlaceholder: 'Bogota, Medellín, Cali…',
+    paymentMethods: [
+      { id: 'cash', label: 'Cash', icon: '💵', type: 'cash' },
+      { id: 'nequi', label: 'Nequi', icon: '📱', type: 'mobile_money' },
+      { id: 'daviplata', label: 'Daviplata', icon: '📱', type: 'mobile_money' },
+      { id: 'card', label: 'Card', icon: '💳', type: 'card' },
+      { id: 'transfer', label: 'Bank Transfer', icon: '🏦', type: 'transfer' },
+      { id: 'credit', label: 'Credit', icon: '📝', type: 'credit' },
+    ],
+  },
+
+  PE: {
+    code: 'PE', name: 'Pérou', flag: '🇵🇪', flagColor: '#D91023',
+    currency: 'PEN', currencySymbol: 'S/', gateway: 'flutterwave',
+    prices: { starter: 35, pro: 70, business: 125 },
+    addons: { seat: 10, shop: 30 },
+    phonePrefix: '+51', cityPlaceholder: 'Lima, Arequipa, Trujillo…',
+    paymentMethods: [
+      { id: 'cash', label: 'Cash', icon: '💵', type: 'cash' },
+      { id: 'yape', label: 'Yape', icon: '📱', type: 'mobile_money' },
+      { id: 'plin', label: 'Plin', icon: '📱', type: 'mobile_money' },
+      { id: 'card', label: 'Card', icon: '💳', type: 'card' },
+      { id: 'transfer', label: 'Bank Transfer', icon: '🏦', type: 'transfer' },
+      { id: 'credit', label: 'Credit', icon: '📝', type: 'credit' },
+    ],
+  },
+
+  AR: {
+    code: 'AR', name: 'Argentine', flag: '🇦🇷', flagColor: '#74ACDF',
+    currency: 'ARS', currencySymbol: 'AR$', gateway: 'flutterwave',
+    billingCurrency: 'USD',
+    prices: { starter: 10, pro: 20, business: 35 },
+    addons: { seat: 3, shop: 8 },
+    phonePrefix: '+54', cityPlaceholder: 'Buenos Aires, Córdoba, Rosario…',
+    paymentMethods: [
+      { id: 'cash', label: 'Cash', icon: '💵', type: 'cash' },
+      { id: 'mercado_pago', label: 'Mercado Pago', icon: '📱', type: 'mobile_money' },
+      { id: 'card', label: 'Card', icon: '💳', type: 'card' },
+      { id: 'transfer', label: 'Bank Transfer', icon: '🏦', type: 'transfer' },
+      { id: 'credit', label: 'Credit', icon: '📝', type: 'credit' },
+    ],
+  },
+
+  UY: {
+    code: 'UY', name: 'Uruguay', flag: '🇺🇾', flagColor: '#0038A8',
+    currency: 'UYU', currencySymbol: 'UY$', gateway: 'flutterwave',
+    billingCurrency: 'USD',
+    prices: { starter: 10, pro: 20, business: 35 },
+    addons: { seat: 3, shop: 8 },
+    phonePrefix: '+598', cityPlaceholder: 'Montevideo, Salto, Paysandú…',
+    paymentMethods: [
+      { id: 'cash', label: 'Cash', icon: '💵', type: 'cash' },
+      { id: 'card', label: 'Card', icon: '💳', type: 'card' },
+      { id: 'transfer', label: 'Bank Transfer', icon: '🏦', type: 'transfer' },
+      { id: 'credit', label: 'Credit', icon: '📝', type: 'credit' },
+    ],
+  },
+
+  EC: {
+    code: 'EC', name: 'Équateur', flag: '🇪🇨', flagColor: '#FFD100',
+    currency: 'USD', currencySymbol: '$', gateway: 'flutterwave',
+    prices: { starter: 10, pro: 20, business: 35 },
+    addons: { seat: 3, shop: 8 },
+    phonePrefix: '+593', cityPlaceholder: 'Guayaquil, Quito, Cuenca…',
+    paymentMethods: [
+      { id: 'cash', label: 'Cash', icon: '💵', type: 'cash' },
+      { id: 'card', label: 'Card', icon: '💳', type: 'card' },
+      { id: 'transfer', label: 'Bank Transfer', icon: '🏦', type: 'transfer' },
+      { id: 'credit', label: 'Credit', icon: '📝', type: 'credit' },
+    ],
+  },
+
+  PA: {
+    code: 'PA', name: 'Panama', flag: '🇵🇦', flagColor: '#005293',
+    currency: 'USD', currencySymbol: '$', gateway: 'flutterwave',
+    prices: { starter: 10, pro: 20, business: 35 },
+    addons: { seat: 3, shop: 8 },
+    phonePrefix: '+507', cityPlaceholder: 'Panama, Colón, David…',
+    paymentMethods: [
+      { id: 'cash', label: 'Cash', icon: '💵', type: 'cash' },
+      { id: 'yappy', label: 'Yappy', icon: '📱', type: 'mobile_money' },
+      { id: 'card', label: 'Card', icon: '💳', type: 'card' },
+      { id: 'transfer', label: 'Bank Transfer', icon: '🏦', type: 'transfer' },
+      { id: 'credit', label: 'Credit', icon: '📝', type: 'credit' },
+    ],
+  },
+
+  CR: {
+    code: 'CR', name: 'Costa Rica', flag: '🇨🇷', flagColor: '#002B7F',
+    currency: 'CRC', currencySymbol: '₡', gateway: 'flutterwave',
+    billingCurrency: 'USD',
+    prices: { starter: 10, pro: 20, business: 35 },
+    addons: { seat: 3, shop: 8 },
+    phonePrefix: '+506', cityPlaceholder: 'San José, Alajuela, Cartago…',
+    paymentMethods: [
+      { id: 'cash', label: 'Cash', icon: '💵', type: 'cash' },
+      { id: 'sinpe', label: 'SINPE Móvil', icon: '📱', type: 'mobile_money' },
+      { id: 'card', label: 'Card', icon: '💳', type: 'card' },
+      { id: 'transfer', label: 'Bank Transfer', icon: '🏦', type: 'transfer' },
+      { id: 'credit', label: 'Credit', icon: '📝', type: 'credit' },
+    ],
+  },
+
+  BO: {
+    code: 'BO', name: 'Bolivie', flag: '🇧🇴', flagColor: '#007934',
+    currency: 'BOB', currencySymbol: 'Bs', gateway: 'flutterwave',
+    prices: { starter: 50, pro: 100, business: 150 },
+    addons: { seat: 15, shop: 40 },
+    phonePrefix: '+591', cityPlaceholder: 'Santa Cruz, La Paz, Cochabamba…',
+    paymentMethods: [
+      { id: 'cash', label: 'Cash', icon: '💵', type: 'cash' },
+      { id: 'qr_simple', label: 'QR Simple', icon: '🏦', type: 'transfer' },
+      { id: 'card', label: 'Card', icon: '💳', type: 'card' },
+      { id: 'credit', label: 'Credit', icon: '📝', type: 'credit' },
+    ],
+  },
+
+  GT: {
+    code: 'GT', name: 'Guatemala', flag: '🇬🇹', flagColor: '#4997D0',
+    currency: 'GTQ', currencySymbol: 'Q', gateway: 'flutterwave',
+    prices: { starter: 50, pro: 100, business: 150 },
+    addons: { seat: 15, shop: 40 },
+    phonePrefix: '+502', cityPlaceholder: 'Guatemala, Mixco, Quetzaltenango…',
+    paymentMethods: [
+      { id: 'cash', label: 'Cash', icon: '💵', type: 'cash' },
+      { id: 'card', label: 'Card', icon: '💳', type: 'card' },
+      { id: 'transfer', label: 'Bank Transfer', icon: '🏦', type: 'transfer' },
+      { id: 'credit', label: 'Credit', icon: '📝', type: 'credit' },
+    ],
+  },
+
+  HN: {
+    code: 'HN', name: 'Honduras', flag: '🇭🇳', flagColor: '#0073CF',
+    currency: 'HNL', currencySymbol: 'L', gateway: 'flutterwave',
+    prices: { starter: 200, pro: 400, business: 600 },
+    addons: { seat: 60, shop: 160 },
+    phonePrefix: '+504', cityPlaceholder: 'Tegucigalpa, San Pedro Sula, La Ceiba…',
+    paymentMethods: [
+      { id: 'cash', label: 'Cash', icon: '💵', type: 'cash' },
+      { id: 'card', label: 'Card', icon: '💳', type: 'card' },
+      { id: 'transfer', label: 'Bank Transfer', icon: '🏦', type: 'transfer' },
+      { id: 'credit', label: 'Credit', icon: '📝', type: 'credit' },
+    ],
+  },
+
+  HT: {
+    code: 'HT', name: 'Haïti', flag: '🇭🇹', flagColor: '#00209F',
+    currency: 'HTG', currencySymbol: 'G', gateway: 'flutterwave',
+    billingCurrency: 'USD',
+    prices: { starter: 5, pro: 10, business: 15 },
+    addons: { seat: 1.5, shop: 4 },
+    phonePrefix: '+509', cityPlaceholder: 'Port-au-Prince, Cap-Haïtien, Les Cayes…',
+    paymentMethods: [
+      { id: 'cash', label: 'Cash', icon: '💵', type: 'cash' },
+      { id: 'moncash', label: 'MonCash', icon: '📱', type: 'mobile_money' },
+      { id: 'card', label: 'Card', icon: '💳', type: 'card' },
+      { id: 'credit', label: 'Credit', icon: '📝', type: 'credit' },
+    ],
+  },
+
+  SV: {
+    code: 'SV', name: 'Salvador', flag: '🇸🇻', flagColor: '#0F47AF',
+    currency: 'USD', currencySymbol: '$', gateway: 'flutterwave',
+    prices: { starter: 5, pro: 10, business: 15 },
+    addons: { seat: 1.5, shop: 4 },
+    phonePrefix: '+503', cityPlaceholder: 'San Salvador, Santa Ana, San Miguel…',
+    paymentMethods: [
+      { id: 'cash', label: 'Cash', icon: '💵', type: 'cash' },
+      { id: 'card', label: 'Card', icon: '💳', type: 'card' },
+      { id: 'transfer', label: 'Bank Transfer', icon: '🏦', type: 'transfer' },
+      { id: 'credit', label: 'Credit', icon: '📝', type: 'credit' },
+    ],
+  },
+
+  VE: {
+    code: 'VE', name: 'Venezuela', flag: '🇻🇪', flagColor: '#FFCC00',
+    currency: 'VES', currencySymbol: 'Bs.', gateway: 'flutterwave',
+    billingCurrency: 'USD',
+    prices: { starter: 5, pro: 10, business: 15 },
+    addons: { seat: 1.5, shop: 4 },
+    phonePrefix: '+58', cityPlaceholder: 'Caracas, Maracaibo, Valencia…',
+    paymentMethods: [
+      { id: 'cash', label: 'Cash', icon: '💵', type: 'cash' },
+      { id: 'pago_movil', label: 'Pago Móvil', icon: '🏦', type: 'transfer' },
+      { id: 'card', label: 'Card', icon: '💳', type: 'card' },
+      { id: 'credit', label: 'Credit', icon: '📝', type: 'credit' },
+    ],
+  },
+
+  GB: {
+    code: 'GB', name: 'Royaume-Uni', flag: '🇬🇧', flagColor: '#012169',
+    currency: 'GBP', currencySymbol: '£', gateway: 'flutterwave',
+    prices: { starter: 12, pro: 20, business: 40 },
+    addons: { seat: 4, shop: 10 },
+    phonePrefix: '+44', cityPlaceholder: 'Londres, Manchester, Birmingham…',
+    paymentMethods: [
+      { id: 'cash', label: 'Cash', icon: '💵', type: 'cash' },
+      { id: 'card', label: 'Card', icon: '💳', type: 'card' },
+      { id: 'transfer', label: 'Bank Transfer', icon: '🏦', type: 'transfer' },
+      { id: 'credit', label: 'Credit', icon: '📝', type: 'credit' },
+    ],
+  },
+
+  CH: {
+    code: 'CH', name: 'Suisse', flag: '🇨🇭', flagColor: '#DA291C',
+    currency: 'CHF', currencySymbol: 'CHF', gateway: 'flutterwave',
+    prices: { starter: 15, pro: 25, business: 50 },
+    addons: { seat: 5, shop: 12 },
+    phonePrefix: '+41', cityPlaceholder: 'Zurich, Genève, Bâle…',
+    paymentMethods: [
+      { id: 'cash', label: 'Cash', icon: '💵', type: 'cash' },
+      { id: 'card', label: 'Card', icon: '💳', type: 'card' },
+      { id: 'twint', label: 'TWINT', icon: '📱', type: 'mobile_money' },
+      { id: 'transfer', label: 'Bank Transfer', icon: '🏦', type: 'transfer' },
+      { id: 'credit', label: 'Credit', icon: '📝', type: 'credit' },
     ],
   },
 }
