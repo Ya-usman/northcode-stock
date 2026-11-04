@@ -9,6 +9,8 @@ import { SegmentedTabs } from '@/components/ui/segmented-tabs'
 import { HelpTours } from '@/components/onboarding/help-tours'
 import { cn } from '@/lib/utils/cn'
 
+const SUPPORT_WHATSAPP = (process.env.NEXT_PUBLIC_SUPPORT_WHATSAPP || '').replace(/\D/g, '')
+
 // Page Aide (refaite le 31 oct. 2026) : questions fréquentes et manuel illustré, TRADUITS (messages « help_page »)
 // avec des captures prises dans chaque langue (public/manual/<langue>/<écran>.png, téléphone, compte vitrine).
 // À refaire quand l'application sera terminée et toutes les vues à jour (consigne de l'utilisateur).
@@ -152,10 +154,13 @@ export default function HelpPage() {
             <h2 className="mb-1 font-semibold">{t('contact_title')}</h2>
             <p className="mb-4 text-sm text-blue-100">{t('contact_body')}</p>
             <div className="flex flex-wrap gap-3">
-              {/* Numéro WhatsApp du support : adresse provisoire tant que le numéro n'est pas fourni */}
-              <a href="https://wa.me/message/stockshop" className="flex items-center gap-2 rounded-lg bg-card px-4 py-2 text-sm font-medium text-stockshop-blue transition-colors hover:bg-stockshop-blue-muted dark:text-blue-400 dark:hover:bg-blue-950/40">
-                <MessageCircle className="h-4 w-4" />WhatsApp
-              </a>
+              {/* WhatsApp du support : affiché seulement quand le numéro existe (NEXT_PUBLIC_SUPPORT_WHATSAPP, chiffres avec
+                  l'indicatif, sans « + ») ; avant, un lien provisoire menait nulle part */}
+              {SUPPORT_WHATSAPP && (
+                <a href={`https://wa.me/${SUPPORT_WHATSAPP}`} target="_blank" rel="noopener noreferrer" data-testid="help-whatsapp" className="flex items-center gap-2 rounded-lg bg-card px-4 py-2 text-sm font-medium text-stockshop-blue transition-colors hover:bg-stockshop-blue-muted dark:text-blue-400 dark:hover:bg-blue-950/40">
+                  <MessageCircle className="h-4 w-4" />WhatsApp
+                </a>
+              )}
               <a href="mailto:support@stockshop.tech" className="flex items-center gap-2 rounded-lg bg-white/10 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-white/20">
                 <Mail className="h-4 w-4" />support@stockshop.tech
               </a>

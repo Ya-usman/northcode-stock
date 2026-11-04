@@ -3159,15 +3159,15 @@
     "payment_paystack": "Paiement sécurisé via Paystack · Carte, virement, USSD",
     "payment_flutterwave": "Paiement mobile via Flutterwave · MTN MoMo · Orange Money · Wave ({country})",
     "faq_title": "Questions fréquentes",
-    "faq_1_q": "Mes données sont-elles supprimées si mon plan expire ?",
-    "faq_1_a": "Non. Vos données sont conservées en sécurité et restent accessibles dès que vous souscrivez à nouveau.",
-    "faq_2_q": "Puis-je changer de plan ou de période ?",
-    "faq_2_a": "Oui. Vous pouvez upgrader, downgrader ou changer de période à tout moment. Le changement est immédiat.",
+    "faq_1_q": "Mes données sont-elles supprimées si mon abonnement expire ?",
+    "faq_1_a": "Non. Vos données sont conservées et vous les retrouvez dès que vous reprenez un abonnement. Avec Starter ou Pro, l'historique affiché est limité (3 mois ou 1 an), mais rien n'est effacé.",
+    "faq_2_q": "Puis-je changer de formule ou de durée ?",
+    "faq_2_a": "Oui, à tout moment. Une formule supérieure s'applique tout de suite et les jours déjà payés sont déduits du prix. Une formule inférieure commence à la fin de la période déjà payée. Renouveler en avance, ou choisir une autre durée, ajoute la nouvelle période à la suite de l'actuelle : aucun jour n'est perdu.",
     "faq_3_q": "Comment fonctionne le paiement ?",
-    "faq_3_paystack": "Nous utilisons Paystack pour les paiements sécurisés. Carte, virement bancaire ou USSD acceptés.",
-    "faq_3_flutterwave": "Nous utilisons Flutterwave pour les paiements Mobile Money en {country}. MTN MoMo, Orange Money et Wave acceptés.",
-    "faq_4_q": "Y a-t-il un remboursement ?",
-    "faq_4_a": "Oui. Contactez-nous dans les 7 jours suivant le paiement pour un remboursement complet.",
+    "faq_3_gateway": "Le paiement se fait sur la page sécurisée de {gateway}. Moyens acceptés pour {country} : {methods}. StockShop ne reçoit jamais vos codes ni les données de votre carte.",
+    "faq_3_unavailable": "Le paiement en ligne n'est pas encore ouvert pour {country}. Écrivez-nous à support@stockshop.tech : nous vous indiquerons comment vous abonner.",
+    "faq_4_q": "Puis-je être remboursé ?",
+    "faq_4_a": "L'essai gratuit de 30 jours permet de tout essayer avant de payer : les abonnements et les options ne sont pas remboursés. Seule exception : un paiement fait par erreur (paiement en double, mauvaise formule), signalé sous 48 heures à support@stockshop.tech.",
     "payment_cancelled": "Paiement annulé",
     "payment_success": "Paiement réussi !",
     "payment_success_desc": "Votre abonnement est maintenant actif.",
@@ -5505,7 +5505,11 @@
           },
           {
             "q": "Puis-je changer de formule ?",
-            "a": "Oui, à tout moment depuis **Abonnement**."
+            "a": "Oui, à tout moment depuis **Abonnement**. Une formule supérieure s'applique tout de suite et les jours déjà payés sont déduits. Une formule inférieure commence à la fin de la période payée. **Renouveler** en avance ajoute la nouvelle période à la suite de l'actuelle."
+          },
+          {
+            "q": "Puis-je être remboursé ?",
+            "a": "L'essai gratuit de 30 jours sert à tout essayer avant de payer : les abonnements ne sont pas remboursés. Seule exception : un paiement fait par erreur, signalé sous 48 heures à **support@stockshop.tech**."
           },
           {
             "q": "Comment fonctionne le parrainage ?",

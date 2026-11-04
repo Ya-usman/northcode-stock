@@ -3159,15 +3159,15 @@
     "payment_paystack": "Biyan kuɗi ta Paystack · Kati, canja-wuri, USSD",
     "payment_flutterwave": "Biyan kuɗi ta Flutterwave · MTN MoMo · Orange Money · Wave ({country})",
     "faq_title": "Tambayoyi da aka fi yi",
-    "faq_1_q": "Shin za a goge bayanan na idan shirin ya ƙare?",
-    "faq_1_a": "A'a. Bayanan na an ajiye lafiya kuma za a iya samunsu da zarar kun yi biyan kuɗi.",
-    "faq_2_q": "Shin zan iya canza shiri ko lokacin biya?",
-    "faq_2_a": "Eh. Za ka iya ingantawa, raguwa ko canza lokaci a kowane lokaci. Canjin nan take.",
+    "faq_1_q": "Shin za a goge bayananku idan biyan kuɗinku ya ƙare?",
+    "faq_1_a": "A'a. Ana ajiye bayananku kuma za ku same su da zarar kun sake biyan kuɗi. Da Starter ko Pro, tarihin da ake nunawa yana da iyaka (watanni 3 ko shekara 1), amma ba a share komai ba.",
+    "faq_2_q": "Zan iya canza shiri ko tsawon lokaci?",
+    "faq_2_a": "Eh, a kowane lokaci. Shiri mafi girma yana aiki nan take kuma ana cire kwanakin da aka riga aka biya daga farashin. Shiri mafi ƙanƙanta yana farawa a ƙarshen lokacin da aka riga aka biya. Sabuntawa da wuri, ko zaɓar wani tsawon lokaci, yana ƙara sabon lokaci bayan na yanzu: babu ranar da za ta ɓace.",
     "faq_3_q": "Yaya biyan kuɗi ke aiki?",
-    "faq_3_paystack": "Muna amfani da Paystack don biyan kuɗi. Kati, canja-wuri na banki ko USSD an karɓa.",
-    "faq_3_flutterwave": "Muna amfani da Flutterwave don biyan kuɗi ta wayar hannu a {country}. MTN MoMo, Orange Money da Wave an karɓa.",
-    "faq_4_q": "Shin akwai dawowar kuɗi?",
-    "faq_4_a": "Eh. Tuntuɓe mu cikin kwanaki 7 bayan biya don cikakken dawowar kuɗi.",
+    "faq_3_gateway": "Ana biya a shafin {gateway} mai tsaro. Hanyoyin da ake karɓa a {country}: {methods}. StockShop ba ta taɓa karɓar lambobin sirrinku ko bayanan katinku ba.",
+    "faq_3_unavailable": "Biyan kuɗi ta intanet bai buɗe ba tukuna a {country}. Ku rubuto mana a support@stockshop.tech, za mu gaya muku yadda za ku biya.",
+    "faq_4_q": "Zan iya samun dawowar kuɗi?",
+    "faq_4_a": "Gwaji kyauta na kwanaki 30 yana ba ku damar gwada komai kafin ku biya: ba a dawo da kuɗin biyan shiri ko na zaɓuɓɓuka ba. Abin da kawai aka ware: biyan da aka yi bisa kuskure (biya sau biyu, shiri mara kyau), idan an sanar cikin awanni 48 a support@stockshop.tech.",
     "payment_cancelled": "An soke biya",
     "payment_success": "An yi biya!",
     "payment_success_desc": "Biyan kuɗin ka na aiki yanzu.",
@@ -5505,7 +5505,11 @@
           },
           {
             "q": "Zan iya canza tsari?",
-            "a": "Eh, a kowane lokaci daga **Biyan Kuɗi**."
+            "a": "Eh, a kowane lokaci daga **Biyan Kuɗi**. Shiri mafi girma yana aiki nan take kuma ana cire kwanakin da aka riga aka biya. Shiri mafi ƙanƙanta yana farawa a ƙarshen lokacin da aka biya. **Sabunta** da wuri yana ƙara sabon lokaci bayan na yanzu."
+          },
+          {
+            "q": "Zan iya samun dawowar kuɗi?",
+            "a": "Gwaji kyauta na kwanaki 30 yana ba ku damar gwada komai kafin ku biya: ba a dawo da kuɗin biyan shiri ba. Abin da kawai aka ware: biyan da aka yi bisa kuskure, idan an sanar cikin awanni 48 a **support@stockshop.tech**."
           },
           {
             "q": "Ta yaya gayyata take aiki?",

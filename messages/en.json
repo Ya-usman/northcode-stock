@@ -3159,15 +3159,15 @@
     "payment_paystack": "Secure payment via Paystack · Card, transfer, USSD",
     "payment_flutterwave": "Mobile payment via Flutterwave · MTN MoMo · Orange Money · Wave ({country})",
     "faq_title": "Frequently asked questions",
-    "faq_1_q": "Is my data deleted if my plan expires?",
-    "faq_1_a": "No. Your data is safely stored and accessible as soon as you subscribe again.",
-    "faq_2_q": "Can I change my plan or billing period?",
-    "faq_2_a": "Yes. You can upgrade, downgrade or change period at any time. Changes are immediate.",
+    "faq_1_q": "Is my data deleted if my subscription expires?",
+    "faq_1_a": "No. Your data is kept and you get it back as soon as you subscribe again. With Starter or Pro, the history shown is limited (3 months or 1 year), but nothing is deleted.",
+    "faq_2_q": "Can I change my plan or duration?",
+    "faq_2_a": "Yes, at any time. A higher plan applies right away and the days already paid are deducted from the price. A lower plan starts at the end of the period already paid. Renewing early, or choosing another duration, adds the new period after the current one: no day is lost.",
     "faq_3_q": "How does payment work?",
-    "faq_3_paystack": "We use Paystack for secure payments. Card, bank transfer or USSD accepted.",
-    "faq_3_flutterwave": "We use Flutterwave for Mobile Money payments in {country}. MTN MoMo, Orange Money and Wave accepted.",
-    "faq_4_q": "Is there a refund policy?",
-    "faq_4_a": "Yes. Contact us within 7 days of payment for a full refund.",
+    "faq_3_gateway": "Payment is made on the secure {gateway} page. Accepted in {country}: {methods}. StockShop never receives your codes or your card details.",
+    "faq_3_unavailable": "Online payment is not open yet in {country}. Write to us at support@stockshop.tech and we will tell you how to subscribe.",
+    "faq_4_q": "Can I get a refund?",
+    "faq_4_a": "The 30-day free trial lets you try everything before paying: subscriptions and add-ons are not refunded. The only exception is a payment made by mistake (double payment, wrong plan) reported within 48 hours to support@stockshop.tech.",
     "payment_cancelled": "Payment cancelled",
     "payment_success": "Payment successful!",
     "payment_success_desc": "Your subscription is now active.",
@@ -5505,7 +5505,11 @@
           },
           {
             "q": "Can I change plans?",
-            "a": "Yes, at any time from **Subscription**."
+            "a": "Yes, at any time from **Subscription**. A higher plan applies right away and the days already paid are deducted. A lower plan starts at the end of the paid period. **Renew** early to add the new period after the current one."
+          },
+          {
+            "q": "Can I get a refund?",
+            "a": "The 30-day free trial lets you try everything before paying: subscriptions are not refunded. The only exception is a payment made by mistake, reported within 48 hours to **support@stockshop.tech**."
           },
           {
             "q": "How does referral work?",

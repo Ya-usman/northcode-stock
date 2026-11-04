@@ -344,7 +344,10 @@ export default function BillingPage({ params: { locale } }: { params: { locale: 
   const faqItems = [
     { q: t('faq_1_q'), a: t('faq_1_a') },
     { q: t('faq_2_q'), a: t('faq_2_a') },
-    { q: t('faq_3_q'), a: isNigeria ? t('faq_3_paystack') : t('faq_3_flutterwave', { country: country.name }) },
+    // Passerelle et moyens RÉELS du pays de tarification (mêmes que la fenêtre de paiement) ; Stripe pas encore ouvert
+    { q: t('faq_3_q'), a: isStripe
+      ? t('faq_3_unavailable', { country: country.name })
+      : t('faq_3_gateway', { gateway: gatewayLabel, country: country.name, methods: subscriptionMethods.map(m => m.label).join(', ') }) },
     { q: t('faq_4_q'), a: t('faq_4_a') },
   ]
 

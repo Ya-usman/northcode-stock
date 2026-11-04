@@ -188,6 +188,39 @@ const payBtn = page => page.getByRole('button', { name: /^Payer/ }).last()
     await s3.browser.close()
   }
 
+  console.log('\n8. FAQ vraies (page Abonnement et page Aide)')
+  {
+    const s4 = await session({ width: 1366, height: 900, scale: 1, locale: 'fr', email: 'ghislainx123@gmail.com' })
+    const errors = []; s4.page.on('pageerror', e => errors.push(e.message.slice(0, 160)))
+    const sent = []
+    await s4.page.route(/\/(api|rest\/v1)\//, async route => {
+      const r = route.request()
+      if (['GET', 'HEAD', 'OPTIONS'].includes(r.method())) return route.fallback()
+      const w = `${r.method()} ${new URL(r.url()).pathname}`
+      if (!['POST /api/auth/set-role', 'PATCH /rest/v1/profiles'].includes(w)) sent.push(w)
+      return route.fulfill({ status: 200, contentType: 'application/json', body: '{"ok":true}' })
+    })
+    page = s4.page
+    await page.goto(`${BASE}/fr/billing`, { waitUntil: 'domcontentloaded', timeout: 120000 }); await wait(7000)
+    const faq = norm(await page.getByText('Questions fréquentes').locator('xpath=..').innerText())
+    ok(!/immédiat\b|Le changement est immédiat/.test(faq.replace('tout de suite', '')) && !faq.includes('7 jours'), 'plus de « changement immédiat » ni de « remboursement sous 7 jours »')
+    ok(faq.includes('Une formule inférieure commence à la fin de la période déjà payée') && faq.includes('aucun jour n\'est perdu'), 'changement de formule : règle réelle')
+    ok(faq.includes('page sécurisée de NotchPay') && faq.includes('MTN MoMo') && !faq.includes('Flutterwave'), 'paiement : NotchPay et moyens réels du Cameroun (plus « Flutterwave »)')
+    ok(faq.includes('ne sont pas remboursés') && faq.includes('48 heures'), 'remboursement : règle réelle (erreur sous 48 h)')
+    ok(!/—|–|\(s\)/.test(faq), 'pas de tiret long ni « (s) »')
+    await page.getByText('Questions fréquentes').scrollIntoViewIfNeeded()
+    await page.screenshot({ path: OUT + '/faq-billing.png' })
+    await page.goto(`${BASE}/fr/help`, { waitUntil: 'domcontentloaded', timeout: 120000 }); await wait(6000)
+    ok(await page.locator('a[href*="wa.me/message"]').count() === 0, 'page Aide : plus de lien WhatsApp factice')
+    const qs = page.getByTestId('help-faq-question')
+    const refund = qs.filter({ hasText: 'Puis-je être remboursé ?' })
+    ok(await refund.count() === 1, 'page Aide : question « Puis-je être remboursé ? »')
+    await refund.click(); await wait(500)
+    ok(norm(await page.locator('main').innerText()).includes('signalé sous 48 heures'), 'page Aide : réponse affichée')
+    ok(sent.length === 0 && errors.length === 0, `aucune écriture ni erreur JS (${[...sent, ...errors].join(', ') || 'aucune'})`)
+    await s4.browser.close()
+  }
+
   console.log(`\n${pass} réussis, ${fail} échec(s)`)
   process.exit(fail ? 1 : 0)
 })()
