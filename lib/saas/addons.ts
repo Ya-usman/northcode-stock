@@ -157,3 +157,22 @@ export async function addPurchasedAddons(admin: any, entityId: string, plan: str
   }
   return null
 }
+
+/**
+ * Rappel avant renouvellement (7 jours avant, une seule fois par période) : options qui ne seront PAS renouvelées.
+ * null = rien à rappeler. Clé de journal : entreprise + date de fin (une nouvelle période = un nouveau rappel possible).
+ */
+export function addonReminderDue(
+  e: { id: string; plan_expires_at: string | null; addon_seats?: unknown; addon_shops?: unknown; addon_seats_renew?: unknown; addon_shops_renew?: unknown },
+  sentKeys: Set<string>, now = new Date(),
+): { key: string; seats: number; shops: number } | null {
+  if (!e.plan_expires_at) return null
+  const end = new Date(e.plan_expires_at).getTime()
+  if (!(end > now.getTime() && end <= now.getTime() + 7 * 86_400_000)) return null
+  const a = parseAddons(e)
+  const seats = a.seatsRenew === null ? 0 : Math.max(0, a.seats - a.seatsRenew)
+  const shops = a.shopsRenew === null ? 0 : Math.max(0, a.shops - a.shopsRenew)
+  if (!seats && !shops) return null
+  const key = `${e.id}:${e.plan_expires_at.slice(0, 10)}`
+  return sentKeys.has(key) ? null : { key, seats, shops }
+}

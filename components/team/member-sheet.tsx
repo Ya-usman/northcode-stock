@@ -25,6 +25,7 @@ import { isPendingInvite, type TeamPerson } from '@/lib/team/use-team-people'
 import { teamActions } from '@/lib/team/team-actions'
 import { PersonAvatar, PresenceText, RoleBadge } from './team-ui'
 import { AssignDialog } from './assign-dialog'
+import { handleLimitRefusal } from '@/components/billing/limit-reached-dialog'
 
 const supabase = createClient() as any
 
@@ -89,11 +90,11 @@ export function MemberSheet({ person, onOpenChange, shops, roleByShop, myUserId,
       .catch(() => setHistory([]))
   }, [person?.user_id, ownerShopId]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  const run = async (key: string, fn: () => Promise<{ ok: boolean; error?: string }>, success: string) => {
+  const run = async (key: string, fn: () => Promise<{ ok: boolean; error?: string; code?: string }>, success: string) => {
     setBusy(key)
     const r = await fn()
     setBusy(null)
-    if (!r.ok) { toast({ title: r.error || t('toast.retry_error'), variant: 'destructive' }); return false }
+    if (!r.ok) { if (!handleLimitRefusal(r)) toast({ title: r.error || t('toast.retry_error'), variant: 'destructive' }); return false }
     toast({ title: success, variant: 'success' })
     onChanged()
     return true

@@ -24,6 +24,7 @@ import { useOffline } from '@/lib/offline/use-offline'
 import { useRefetchOnReconnect } from '@/lib/hooks/use-refetch-on-reconnect'
 import { useRefetchOnVisible } from '@/lib/hooks/use-refetch-on-visible'
 import { SegmentedTabs } from '@/components/ui/segmented-tabs'
+import { takeReturn } from '@/lib/billing/resume-after-payment'
 import { AddonsCard, type AddonInfo } from '@/components/billing/addons-card'
 import { addonsMonthly, parseAddons, renewalAddons } from '@/lib/saas/addons'
 
@@ -38,6 +39,7 @@ const PLAN_ICONS: Record<PlanId, React.ReactNode> = {
 export default function BillingPage({ params: { locale } }: { params: { locale: string } }) {
   const t = useTranslations('billing_page')
   const tAddons = useTranslations('addons')
+  const tLimit = useTranslations('limit_reached')
   const tRoot = useTranslations()
   const { shop, user, refreshShop } = useAuth()
   const tCountries = useTranslations('countries')
@@ -119,6 +121,13 @@ export default function BillingPage({ params: { locale } }: { params: { locale: 
     const checked = searchParams.get('checked')
     const error = searchParams.get('error')
     if (success === '1' && !checked) {
+      // Option achetée au moment d'un blocage : retour sur la page de départ, saisie remise (lib/billing/resume-after-payment)
+      const back = takeReturn()
+      if (back) {
+        toast({ title: tLimit('added_returning'), variant: 'success' })
+        setTimeout(() => { window.location.replace(`/${locale}${back}`) }, 1500)
+        return
+      }
       toast({ title: t('payment_success'), description: t('payment_success_desc'), variant: 'success' })
       // After verify, the enforce-limits call runs fire-and-forget server-side.
       // We wait briefly then reload so the new plan + any suspensions are visible.

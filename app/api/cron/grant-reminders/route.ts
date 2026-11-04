@@ -10,12 +10,15 @@ import { getPlan } from '@/lib/saas/plans'
 import { reminderToSend, type ReminderStage } from '@/lib/saas/grants'
 import { getAccountForShop, getEntityShopIds } from '@/lib/saas/entity'
 import { countTeamSeats, getShopLimit } from '@/lib/saas/team-quota'
+import { addonReminderDue } from '@/lib/saas/addons'
 
 // Rappel de fin des gestes commerciaux (migration 157) — chaque matin.
 //  • Au propriétaire de l'entreprise, dans sa langue : notification push
 //    (ses appareils) + e-mail, à 7 jours puis la veille de la fin.
 //  • Aux administrateurs : récapitulatif des rappels envoyés (e-mail).
 // Un rappel n'est jamais envoyé deux fois (journal billing.grant_expiry_reminder).
+// Options payées (migration 210, 4 nov. 2026) : 7 jours avant le renouvellement, e-mail au propriétaire quand des
+// options ne seront pas renouvelées (retrait programmé) ; une fois par période (journal billing.addon_renewal_reminder).
 // ?dry=1 : calcule et renvoie ce qui serait envoyé, sans rien envoyer ni journaliser
 // (&now=<date ISO> pour simuler un autre jour).
 
@@ -159,6 +162,65 @@ export async function GET(request: Request) {
       reminders.push(r)
     }
 
+    // ── Options qui ne seront pas renouvelées (retrait programmé), 7 jours avant la fin de l'abonnement ────────────
+    const addonReminders: { entity_id: string; entity_name: string; seats: number; shops: number; expires_at: string; over_seats: number; over_shops: number; email: string }[] = []
+    const { data: addonEntities } = await admin.from('entities')
+      .select('id, name, plan, plan_expires_at, addon_seats, addon_shops, addon_seats_renew, addon_shops_renew')
+      .gt('plan_expires_at', now.toISOString()).lte('plan_expires_at', new Date(now.getTime() + 7 * DAY).toISOString())
+      .or('addon_seats_renew.not.is.null,addon_shops_renew.not.is.null')
+    if (addonEntities?.length) {
+      const { data: aLogs } = await admin.from('audit_logs').select('metadata')
+        .eq('action', 'billing.addon_renewal_reminder').gte('created_at', new Date(now.getTime() - 14 * DAY).toISOString())
+      const aSent = new Set<string>((aLogs || []).map((l: any) => String(l.metadata?.key)))
+      for (const e of addonEntities as any[]) {
+        const due = addonReminderDue(e, aSent, now)
+        if (!due) continue
+        const { data: shops } = await admin.from('shops').select('id').eq('entity_id', e.id).is('deleted_at', null).order('created_at', { ascending: true })
+        if (!shops?.length) continue
+        const account = await getAccountForShop(admin, shops[0].id)
+        if (!account) continue
+        // Après le renouvellement : places en trop si rien n'est fait (même règle que la remise en ordre)
+        const [seatsNow, shopIdsNow, shopLim] = await Promise.all([
+          countTeamSeats(admin, account), getEntityShopIds(admin, account, { includeSuspended: true }), getShopLimit(admin, account),
+        ])
+        const overSeats = seatsNow.limit === -1 ? 0 : Math.max(0, seatsNow.used - (seatsNow.limit - due.seats))
+        const overShops = shopLim.limit === -1 ? 0 : Math.max(0, shopIdsNow.length - (shopLim.limit - due.shops))
+        const { data: owner } = account.ownerId ? await admin.from('profiles').select('full_name, locale').eq('id', account.ownerId).maybeSingle() : { data: null }
+        const { data: authUser } = account.ownerId ? await admin.auth.admin.getUserById(account.ownerId) : { data: null }
+        const locale = normalizeLocale(owner?.locale)
+        const t = getLocaleTranslator(locale, 'addon_reminder')
+        const tA = getLocaleTranslator(locale, 'addons')
+        const date = formatDate(e.plan_expires_at, locale)
+        const detail = [due.seats ? tA('seats_count', { count: due.seats }) : '', due.shops ? tA('shops_count', { count: due.shops }) : ''].filter(Boolean).join(', ')
+        const body = [
+          t('body', { entity: account.name || '', count: due.seats + due.shops, detail, date }),
+          overSeats || overShops ? t('over', { seats: overSeats, shops: overShops }) : t('within_limit'),
+        ].join(' ')
+        let email = 'skipped'
+        const to = authUser?.user?.email ?? null
+        if (!dry) {
+          if (to && process.env.RESEND_API_KEY) {
+            const { error: mailError } = await resend.emails.send({
+              from: EMAIL_FROM, to, subject: t('email_subject', { date }),
+              html: `
+              <p>${esc(t('greeting', { name: owner?.full_name || '' }))}</p>
+              <p>${esc(body)}</p>
+              <p><a href="${appUrl}/${locale}/billing" style="background:#073e8a;color:#fff;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:bold;">${esc(t('cta'))}</a></p>
+              <p style="color:#666;font-size:12px;">${esc(t('footer'))}</p>`,
+            })
+            email = mailError ? `error: ${mailError.message}` : 'sent'
+          } else if (!to) email = 'no_owner_email'
+          await writeAuditLog({
+            action: 'billing.addon_renewal_reminder', shop_id: shops[0].id, target_id: e.id, target_type: 'entity',
+            metadata: { key: due.key, seats: due.seats, shops: due.shops, expires_at: e.plan_expires_at, over_seats: overSeats, over_shops: overShops, email },
+          })
+          aSent.add(due.key)
+        }
+        addonReminders.push({ entity_id: e.id, entity_name: account.name || '', seats: due.seats, shops: due.shops, expires_at: e.plan_expires_at, over_seats: overSeats, over_shops: overShops, email })
+        if (dry) (addonReminders[addonReminders.length - 1] as any).preview = body
+      }
+    }
+
     // Récapitulatif aux administrateurs (pour agir avant la fin : désactivation, formule…)
     const adminEmails = (process.env.SUPER_ADMIN_EMAILS || '').split(',').map(e => e.trim()).filter(Boolean)
     if (!dry && reminders.length && adminEmails.length && process.env.RESEND_API_KEY) {
@@ -171,7 +233,7 @@ export async function GET(request: Request) {
       }).catch(() => {})
     }
 
-    const summary = { dry, checked: (grants || []).length, reminders: reminders.map(({ title, body, ...r }) => r) }
+    const summary = { dry, checked: (grants || []).length, reminders: reminders.map(({ title, body, ...r }) => r), addon_reminders: addonReminders }
     if (!dry) await logCronRun('grant-reminders', 'success', summary)
     return NextResponse.json(dry ? { ...summary, preview: reminders.map(r => ({ grant_id: r.grant_id, title: r.title, body: r.body })) } : summary)
   } catch (err: any) {

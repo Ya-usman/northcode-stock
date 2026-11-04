@@ -18,6 +18,7 @@ import type { Shop, UserRole } from '@/lib/types/database'
 import { canManageRole, manageableRoles, isAccountOwner } from '@/lib/team/roles'
 import { topRole, type TeamPerson } from '@/lib/team/use-team-people'
 import { teamActions } from '@/lib/team/team-actions'
+import { handleLimitRefusal } from '@/components/billing/limit-reached-dialog'
 
 interface Props {
   open: boolean
@@ -85,7 +86,7 @@ export function AssignDialog({ open, onOpenChange, shops, roleByShop, people, fi
     setSaving(true)
     const r = await teamActions.assign({ shop_id: effectiveShopId, user_id: person.user_id, role: role as string })
     setSaving(false)
-    if (!r.ok) { toast({ title: r.error || t('toast.retry_error'), variant: 'destructive' }); return }
+    if (!r.ok) { if (handleLimitRefusal(r)) { onOpenChange(false); return } toast({ title: r.error || t('toast.retry_error'), variant: 'destructive' }); return }
     toast({ title: t('team.assign_done', { name: person.full_name, shop: shopName(effectiveShopId) }), variant: 'success' })
     onOpenChange(false)
     onDone()

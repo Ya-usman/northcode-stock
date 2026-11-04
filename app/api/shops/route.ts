@@ -84,7 +84,7 @@ export async function POST(request: Request) {
         .eq('user_id', user.id).eq('role', 'owner').eq('is_active', true)
       if ((count ?? 0) >= shopLimit) {
         return NextResponse.json(
-          { error: t('shop_limit_reached', { plan: plan.name, limit: shopLimit }) },
+          { error: t('shop_limit_reached', { plan: plan.name, limit: shopLimit }), code: 'shop_limit' },
           { status: 403 }
         )
       }

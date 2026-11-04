@@ -48,6 +48,12 @@ export default function ShopsPage({ params: { locale } }: { params: { locale: st
   const quota = useTeamQuota(isOwner ? contextShopId : null)
   const { planLabel, subscriptionOf, statusOf, toneClass } = useShopStatus()
   const [createOpen, setCreateOpen] = useState(false)
+  // Retour après l'achat d'une boutique en plus (fenêtre « Limite atteinte ») : la création se rouvre, saisie remise
+  useEffect(() => {
+    if (new URLSearchParams(window.location.search).get('resume') !== 'shop') return
+    window.history.replaceState(window.history.state, '', window.location.pathname)
+    setCreateOpen(true)
+  }, [])
 
   const refreshAll = () => { refreshStats(); refreshPeople(); quota.refresh() }
   useRefetchOnVisible(refreshAll)

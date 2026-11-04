@@ -102,6 +102,12 @@ export default function ShopDetailPage({ params: { shopId } }: { params: { shopI
   const [sheetUserId, setSheetUserId] = useState<string | null>(null)
   const [assignOpen, setAssignOpen] = useState(false)
   const [inviteOpen, setInviteOpen] = useState(false)
+  // Retour après l'achat d'une place (fenêtre « Limite atteinte ») : l'invitation se rouvre, saisie remise
+  useEffect(() => {
+    if (new URLSearchParams(window.location.search).get('resume') !== 'invite') return
+    window.history.replaceState(window.history.state, '', window.location.pathname + '?tab=team')
+    setInviteOpen(true)
+  }, [])
 
   // Téléphone : la barre d'onglets défile ; l'onglet ouvert doit rester visible
   useEffect(() => {
@@ -451,6 +457,7 @@ export default function ShopDetailPage({ params: { shopId } }: { params: { shopI
         fixedShopId={shopId}
         roleByShop={roleByShop}
         onDone={refreshPeople}
+        resumePath={`/shops/${shopId}?tab=team&resume=invite`}
       />
       <ShopFormDrawer open={editOpen} onOpenChange={setEditOpen} shop={shop} />
       <ShopFormDrawer open={createOpen} onOpenChange={setCreateOpen} onSaved={s => { startNavigationProgress(`/${locale}/shops/${s.id}`); router.push(`/${locale}/shops/${s.id}`) }} />

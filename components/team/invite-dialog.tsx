@@ -20,7 +20,9 @@ import type { Shop, UserRole } from '@/lib/types/database'
 import { manageableRoles } from '@/lib/team/roles'
 import { teamActions } from '@/lib/team/team-actions'
 import { sharedAccountSignals } from '@/lib/team/shared-account-signals'
-import { emitOnboarding } from '@/lib/onboarding/events'
+import { emitOnboarding } from '@/lib/onboarding/events'
+import { handleLimitRefusal } from '@/components/billing/limit-reached-dialog'
+import { takeDraft } from '@/lib/billing/resume-after-payment'
 
 interface Props {
   open: boolean
@@ -32,9 +34,11 @@ interface Props {
   fixedShopId?: string
   roleByShop: Record<string, UserRole>
   onDone: () => void
+  /** Page où revenir après l'achat d'une place (chemin sans la langue), avec ?resume=invite */
+  resumePath?: string
 }
 
-export function InviteDialog({ open, onOpenChange, shops, defaultShopId, fixedShopId, roleByShop, onDone }: Props) {
+export function InviteDialog({ open, onOpenChange, shops, defaultShopId, fixedShopId, roleByShop, onDone, resumePath }: Props) {
   const t = useTranslations()
   const { toast } = useToast()
   const [shopId, setShopId] = useState('')
@@ -55,6 +59,13 @@ export function InviteDialog({ open, onOpenChange, shops, defaultShopId, fixedSh
     if (!open) return
     setShopId(fixedShopId || (defaultShopId && shops.some(s => s.id === defaultShopId) ? defaultShopId : shops[0]?.id || ''))
     setFullName(''); setEmail(''); setErrors({}); setExisting(null)
+    // Retour après l'achat d'une place : la saisie d'avant le blocage est remise
+    const d = takeDraft('invite')
+    if (d) {
+      if (!fixedShopId && d.shopId && shops.some(s => s.id === d.shopId)) setShopId(d.shopId)
+      setFullName(d.fullName || ''); setEmail(d.email || '')
+      if (d.role) setRole(d.role as UserRole)
+    }
   }, [open]) // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
@@ -75,6 +86,8 @@ export function InviteDialog({ open, onOpenChange, shops, defaultShopId, fixedSh
       return
     }
     if (!r.ok) {
+      // Plus de place : proposer l'option, la saisie est gardée pour le retour après paiement
+      if (handleLimitRefusal(r, { returnTo: resumePath, draft: { kind: 'invite', shopId: effectiveShopId, fullName: fullName.trim(), email: email.trim(), role } })) { onOpenChange(false); return }
       if (r.code === 'email_other_account') setErrors({ email: r.error })
       else toast({ title: r.error || t('toast.retry_error'), variant: 'destructive' })
       return
@@ -90,7 +103,7 @@ export function InviteDialog({ open, onOpenChange, shops, defaultShopId, fixedSh
     setSending(true)
     const r = await teamActions.assign({ shop_id: effectiveShopId, user_id: existing.user_id, role })
     setSending(false)
-    if (!r.ok) { toast({ title: r.error || t('toast.retry_error'), variant: 'destructive' }); return }
+    if (!r.ok) { if (handleLimitRefusal(r)) { onOpenChange(false); return } toast({ title: r.error || t('toast.retry_error'), variant: 'destructive' }); return }
     emitOnboarding('member_invited')
     toast({ title: t('team.assign_done', { name: existing.full_name || email, shop: shopName }), variant: 'success' })
     onOpenChange(false)

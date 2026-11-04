@@ -42,6 +42,7 @@ import { useOfflineRoutes } from '@/lib/offline/use-offline-routes'
 import { CacheBanner } from './cache-banner'
 import { RouteGuard } from './route-guard'
 import Script from 'next/script'
+import { LimitReachedDialog } from '@/components/billing/limit-reached-dialog'
 
 const supabase = createClient()
 
@@ -551,6 +552,7 @@ export function AppLayout({ children, locale }: { children: React.ReactNode; loc
 
       <WhatsNewPanel open={whatsNewOpen} onOpenChange={setWhatsNewOpen} items={whatsNew.items} />
       <PlanLockDialog />
+      <LimitReachedDialog />
 
       <Script
         id="crisp-widget"

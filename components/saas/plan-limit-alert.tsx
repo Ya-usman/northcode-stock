@@ -2,12 +2,11 @@
 
 import { useEffect, useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { ArrowUpRight, X, AlertTriangle } from 'lucide-react'
+import { ArrowUpRight, X, AlertTriangle, Plus } from 'lucide-react'
 import Link from 'next/link'
 import { useTranslations } from 'next-intl'
-import { getPlan, PLANS } from '@/lib/saas/plans'
-import type { PlanId } from '@/lib/saas/plans'
-import { useCurrency } from '@/lib/hooks/use-currency'
+import { getPlan } from '@/lib/saas/plans'
+import { openLimitReached } from '@/components/billing/limit-reached-dialog'
 
 interface PlanLimitAlertProps {
   currentPlan: string | null
@@ -20,14 +19,15 @@ interface PlanLimitAlertProps {
 
 export function PlanLimitAlert({ currentPlan, productCount, teamMemberCount, teamLimit, locale }: PlanLimitAlertProps) {
   const t = useTranslations('saas')
-  const { symbol } = useCurrency()
   const [dismissed, setDismissed] = useState(false)
   const [message, setMessage] = useState<string | null>(null)
   const [isWarning, setIsWarning] = useState(false) // warning = near limit, error = at limit
+  const [teamFull, setTeamFull] = useState(false)
 
   useEffect(() => {
     const plan = getPlan(currentPlan)
     const limits = plan.limits
+    setTeamFull(false)
 
     // Products limit
     if (limits.products !== -1) {
@@ -51,6 +51,7 @@ export function PlanLimitAlert({ currentPlan, productCount, teamMemberCount, tea
       if (teamMemberCount >= memberLimit) {
         setMessage(t('team_limit_reached', { limit: memberLimit, plan: plan.name }))
         setIsWarning(false)
+        setTeamFull(true)
         setDismissed(false)
         return
       } else if (teamMemberCount / memberLimit >= 0.8) {
@@ -62,13 +63,13 @@ export function PlanLimitAlert({ currentPlan, productCount, teamMemberCount, tea
     }
 
     setMessage(null)
+    setTeamFull(false)
   }, [currentPlan, productCount, teamMemberCount, teamLimit, t])
 
-  // Find next plan to recommend
-  const planOrder: PlanId[] = ['trial', 'starter', 'pro', 'business']
-  const currentIdx = planOrder.indexOf((currentPlan as PlanId) ?? 'trial')
-  const nextPlan = planOrder[Math.min(currentIdx + 1, planOrder.length - 1)]
-  const nextPlanData = PLANS[nextPlan]
+  // Prochaine action (4 nov. 2026) : à la limite d'équipe, ajouter une place (option, fenêtre « Limite atteinte ») ;
+  // toujours, voir les formules. Plus de prix affiché ici : l'ancien prix de référence en naira suivi du symbole de la
+  // boutique donnait un montant faux hors FCFA / Nigeria (les vrais prix sont sur la page Abonnement, par pays).
+  const atTeamLimit = teamFull && !isWarning
 
   if (!message || dismissed) return null
 
@@ -78,36 +79,34 @@ export function PlanLimitAlert({ currentPlan, productCount, teamMemberCount, tea
         initial={{ opacity: 0, y: -8 }}
         animate={{ opacity: 1, y: 0 }}
         exit={{ opacity: 0, y: -8 }}
-        className={`mx-4 mt-3 md:mx-6 rounded-xl border p-4 flex items-start gap-3 shadow-sm ${
-          isWarning
-            ? 'bg-amber-50 dark:bg-amber-950/40 border-amber-200 dark:border-amber-800/60'
-            : 'bg-red-50 dark:bg-red-950/40 border-red-200 dark:border-red-800/60'
-        }`}
+        className="mx-4 mt-3 md:mx-6 rounded-xl border p-4 flex items-start gap-3 shadow-sm bg-amber-50 dark:bg-amber-950/40 border-amber-200 dark:border-amber-800/60"
+        data-testid="plan-limit-alert"
       >
-        <AlertTriangle className={`h-4 w-4 mt-0.5 flex-shrink-0 ${isWarning ? 'text-amber-500' : 'text-red-500'}`} />
+        <AlertTriangle className="h-4 w-4 mt-0.5 flex-shrink-0 text-amber-500" />
 
         <div className="flex-1 min-w-0">
-          <p className={`text-sm font-medium ${isWarning ? 'text-amber-800 dark:text-amber-300' : 'text-red-800 dark:text-red-300'}`}>
+          <p className="text-sm font-medium text-amber-800 dark:text-amber-300">
             {message}
           </p>
-          {nextPlan !== currentPlan && (
-            <div className="mt-2 flex items-center gap-3">
-              <Link
-                href={`/${locale}/billing`}
-                className={`inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg transition-colors ${
-                  isWarning
-                    ? 'bg-amber-500 hover:bg-amber-600 text-white'
-                    : 'bg-red-500 hover:bg-red-600 text-white'
-                }`}
+          <div className="mt-2 flex flex-wrap items-center gap-3">
+            {atTeamLimit && (
+              <button
+                type="button"
+                onClick={() => openLimitReached({ kind: 'seats', returnTo: '/team?resume=invite' })}
+                className="inline-flex min-h-[36px] items-center gap-1.5 rounded-lg bg-stockshop-blue px-3 py-1.5 text-xs font-semibold text-white transition-colors hover:bg-stockshop-blue-light dark:bg-blue-600 dark:hover:bg-blue-500"
+                data-testid="plan-limit-add-seat"
               >
-                {t('upgrade_to_plan', { plan: nextPlanData.name, price: symbol.length > 2 ? `${nextPlanData.price_monthly.toLocaleString()} ${symbol}` : `${symbol}${nextPlanData.price_monthly.toLocaleString()}` })}
-                <ArrowUpRight className="h-3.5 w-3.5" />
-              </Link>
-              <span className="text-xs text-gray-500 dark:text-gray-400">
-                {nextPlanData.limits.products === -1 ? t('unlimited_products') : t('up_to_products', { count: nextPlanData.limits.products })}
-              </span>
-            </div>
-          )}
+                <Plus className="h-3.5 w-3.5" />{t('add_seat')}
+              </button>
+            )}
+            <Link
+              href={`/${locale}/billing`}
+              className="inline-flex min-h-[36px] items-center gap-1.5 text-xs font-semibold text-amber-800 underline-offset-2 hover:underline dark:text-amber-300"
+            >
+              {t('see_plans')}
+              <ArrowUpRight className="h-3.5 w-3.5" />
+            </Link>
+          </div>
         </div>
 
         <button

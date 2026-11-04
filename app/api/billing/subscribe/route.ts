@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createAdminClient, createClient } from '@/lib/supabase/server'
 import { checkShopRole } from '@/lib/api/shop-auth'
-import { getCountry, getPeriodPrice, getPeriodDays, getBillingCurrency, OFFERED_PERIODS, type BillingPeriod } from '@/lib/saas/countries'
+import { getPeriodDays, OFFERED_PERIODS, type BillingPeriod } from '@/lib/saas/countries'
 import { checkRateLimit } from '@/lib/rate-limit'
 import { validateBody, uuid, email as emailSchema, billingPeriodEnum, planEnum } from '@/lib/api/validate'
 import { getApiTranslator } from '@/lib/api/i18n'
@@ -9,11 +9,11 @@ import { writeAuditLog, getClientIp } from '@/lib/api/audit'
 import { enforceShopPlanLimits } from '@/lib/saas/enforce-limits'
 import { createPaymentIntent, newPaymentReference, type Gateway } from '@/lib/billing/payment-intents'
 import { startGatewayPayment } from '@/lib/billing/start-payment'
-import { applyRenewalAddons, getEntityAddons, periodPriceWithAddons, renewalAddons } from '@/lib/saas/addons'
+import { applyRenewalAddons } from '@/lib/saas/addons'
+import { computePlanCharge } from '@/lib/billing/plan-charge'
 import { previewWalletCredit, applyWalletCredit } from '@/lib/referrals/apply-credit'
 import { getAccountForShop, setAccountPlan } from '@/lib/saas/entity'
-import { getLegacyTerms, monthlyPriceFor } from '@/lib/saas/legacy-terms'
-import { getPricingCountry, resolvePricingCountry, requestCountry } from '@/lib/saas/pricing-country'
+import { requestCountry } from '@/lib/saas/pricing-country'
 import { z } from 'zod'
 
 const subscribeSchema = z.object({
@@ -62,30 +62,16 @@ export async function POST(request: Request) {
     // silencieusement du montant réellement facturé ici.
     // Pays de facturation de l'ENTREPRISE (migration 153), sinon celui de la boutique
     const account = await getAccountForShop(supabase, shop_id)
-    // Pays de TARIFICATION (migration 208) : fixé par l'administration, sinon l'activité réelle de la boutique s'il s'agit
-    // d'une zone plus chère, sinon le pays déclaré à l'inscription (lib/saas/pricing-country). Jamais choisi par l'appareil.
-    const pricing = account
-      ? await getPricingCountry(supabase, account)
-      : resolvePricingCountry({ declared: (shopData as any)?.billing_country || (shopData as any)?.country, activity: [] })
-    const country = getCountry(pricing.country)
-    // Devise de FACTURATION (jamais country.currency directement) : pour les
-    // 27 pays UE, StockShop facture toujours en EUR, quelle que soit la
-    // devise boutique du pays (PLN, SEK, CZK…) — voir getBillingCurrency.
-    const billingCurrency = getBillingCurrency(country)
-    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || `https://${process.env.VERCEL_URL}`
-    const tariffPrice = country.prices[plan_id as keyof typeof country.prices]
-    if (!tariffPrice) {
+    // Montant : RÈGLE UNIQUE avec le renouvellement automatique (lib/billing/plan-charge) — pays de TARIFICATION
+    // (migration 208, jamais choisi par l'appareil), ancien prix garanti s'il est moins cher (205), options reconduites
+    // (210), même remise de durée. Devise de FACTURATION (EUR pour l'UE), jamais country.currency.
+    const charge = await computePlanCharge(supabase, account, plan_id as 'starter' | 'pro' | 'business', period, (shopData as any)?.billing_country || (shopData as any)?.country)
+    if (!charge) {
       return NextResponse.json({ error: t('invalid_plan_for_country') }, { status: 400 })
     }
-    // Clients actuels : ancien prix garanti s'ils renouvellent la même formule sans interruption, et s'il est moins
-    // cher que le tarif (lib/saas/legacy-terms, migration 205)
-    const monthlyPrice = monthlyPriceFor(tariffPrice, plan_id, billingCurrency, await getLegacyTerms(supabase, account?.entityId), account).price
-
-    // Options reconduites (lib/saas/addons, migration 210) : retrait programmé appliqué, plafonds de la formule choisie,
-    // même remise de durée que la formule
-    const addons = await getEntityAddons(supabase, account?.entityId)
-    const renew = renewalAddons(addons, plan_id)
-    const amount = periodPriceWithAddons(monthlyPrice, country.addons, renew.seats, renew.shops, period)
+    const { country, pricing, renew, amount } = charge
+    const billingCurrency = charge.currency
+    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || `https://${process.env.VERCEL_URL}`
 
     // ── Crédit de parrainage ────────────────────────────────────────────────
     // Réduit ce qui est envoyé à la passerelle (jamais le prix affiché

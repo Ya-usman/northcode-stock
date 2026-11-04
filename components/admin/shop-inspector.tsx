@@ -13,6 +13,7 @@ import { useToast } from '@/components/ui/use-toast'
 import { Button } from '@/components/ui/button'
 import { ShopRestorePanel } from '@/components/admin/shop-restore-panel'
 import { EntityGrantsPanel } from '@/components/admin/entity-grants-panel'
+import { EntityAddonsPanel } from '@/components/admin/entity-addons-panel'
 import { withTimeout } from '@/lib/utils/with-timeout'
 import type { AdminTier } from '@/lib/api/require-admin'
 import {
@@ -480,6 +481,8 @@ export function ShopInspector({ shopId, locale, adminEmail, tier }: Props) {
 
           {/* Gestes commerciaux de l'entreprise (membres / boutiques offerts) */}
           <EntityGrantsPanel shopId={shopId} canWrite={canWrite} />
+          {/* Options payées par le client (migration 210) */}
+          <EntityAddonsPanel shopId={shopId} canWrite={canWrite} />
         </div>
       )}
 

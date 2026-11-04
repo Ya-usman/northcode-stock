@@ -24,6 +24,8 @@ import { validateShopIdentity } from '@/lib/saas/shop-identity'
 import { withTimeout } from '@/lib/utils/with-timeout'
 import type { CountryCode } from '@/lib/saas/countries'
 import type { Shop } from '@/lib/types/database'
+import { handleLimitRefusal } from '@/components/billing/limit-reached-dialog'
+import { takeDraft } from '@/lib/billing/resume-after-payment'
 
 const PhoneInput = dynamic(() => import('@/components/ui/phone-input').then(m => ({ default: m.PhoneInput })), {
   ssr: false,
@@ -63,7 +65,12 @@ export function ShopFormDrawer({ open, onOpenChange, shop, onSaved }: Props) {
   const [saving, setSaving] = useState(false)
   const [serverError, setServerError] = useState<string | null>(null)
 
-  useEffect(() => { if (open) { setValues(initial); setErrors({}); setServerError(null); setPhoneValid(true) } }, [open]) // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    if (!open) return
+    // Retour après l'achat d'une boutique en plus : nom et ville d'avant le blocage remis
+    const d = editing ? null : takeDraft('shop')
+    setValues(d ? { ...initial, name: d.name || '', city: d.city || '' } : initial); setErrors({}); setServerError(null); setPhoneValid(true)
+  }, [open]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const dirty = open && JSON.stringify(values) !== JSON.stringify(initial)
   const set = (k: keyof typeof values) => (v: string) => { setValues(x => ({ ...x, [k]: v })); if (errors[k as Field]) setErrors(e => ({ ...e, [k]: undefined })) }
@@ -94,6 +101,8 @@ export function ShopFormDrawer({ open, onOpenChange, shop, onSaved }: Props) {
       }))
       const json = await res.json().catch(() => ({}))
       if (!res.ok) {
+        // Plus de boutique possible : proposer l'option (ou l'offre sur mesure), la saisie est gardée
+        if (!editing && handleLimitRefusal(json, { returnTo: '/shops?resume=shop', draft: { kind: 'shop', name: values.name.trim(), city: values.city.trim() } })) { onOpenChange(false); return }
         if (json.field && ['code', 'address', 'phone', 'email', 'name', 'timezone'].includes(json.field)) setErrors({ [json.field]: json.error })
         else setServerError(json.error || t('errors.generic'))
         return

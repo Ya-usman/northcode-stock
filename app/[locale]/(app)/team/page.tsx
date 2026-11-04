@@ -33,6 +33,7 @@ import { useTeamQuota } from '@/lib/team/use-team-quota'
 import { PersonAvatar, PresenceText, RoleBadge } from '@/components/team/team-ui'
 import { MemberSheet } from '@/components/team/member-sheet'
 import { InviteDialog } from '@/components/team/invite-dialog'
+import { openLimitReached } from '@/components/billing/limit-reached-dialog'
 import { SegmentedTabs } from '@/components/ui/segmented-tabs'
 
 const supabase = createClient() as any
@@ -55,6 +56,14 @@ export default function TeamPage() {
   const { people, loading, refresh } = useTeamPeople(managedIds, contextShopId)
   const quota = useTeamQuota(contextShopId)
   const refreshAll = useCallback(() => { refresh(); quota.refresh() }, [refresh, quota])
+  // Toutes les places utilisées : « Inviter » propose tout de suite d'en ajouter une (jamais un formulaire rempli pour rien)
+  const teamFull = !!quota.data && quota.data.limit !== -1 && quota.data.used >= quota.data.limit
+  // Retour après l'achat d'une place (fenêtre « Limite atteinte ») : l'invitation se rouvre, saisie remise
+  useEffect(() => {
+    if (new URLSearchParams(window.location.search).get('resume') !== 'invite') return
+    window.history.replaceState(window.history.state, '', window.location.pathname)
+    setInviteOpen(true)
+  }, [])
 
   useRefetchOnVisible(refreshAll)
   useRefetchOnReconnect(refreshAll, isOnline)
@@ -219,7 +228,7 @@ export default function TeamPage() {
           )}
         </div>
         {inviteShops.length > 0 && (
-          <Button variant="stockshop" className="gap-2" onClick={() => setInviteOpen(true)} data-testid="team-invite">
+          <Button variant="stockshop" className="gap-2" onClick={() => (teamFull ? openLimitReached({ kind: 'seats', returnTo: '/team?resume=invite' }) : setInviteOpen(true))} data-testid="team-invite">
             <UserPlus className="h-4 w-4" />{t('team.invite_btn')}
           </Button>
         )}
@@ -404,6 +413,7 @@ export default function TeamPage() {
         defaultShopId={shopFilter !== 'all' ? shopFilter : contextShopId}
         roleByShop={roleByShop}
         onDone={refreshAll}
+        resumePath="/team?resume=invite"
       />
     </div>
   )

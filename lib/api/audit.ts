@@ -19,6 +19,8 @@ export type AuditAction =
   | 'billing.verify'
   | 'billing.limit_enforced'
   | 'billing.grant_expiry_reminder'
+  // Options payées (migration 210)
+  | 'billing.addon_purchase' | 'billing.addon_review' | 'billing.addon_renewal' | 'billing.addon_renewal_reminder'
   | 'account.register'
   | 'account.delete'
   | 'sale.cancel'
@@ -79,6 +81,7 @@ export type AuditAction =
   | 'admin.extend_access'
   | 'admin.grant_plan'
   | 'admin.grant_bonus'
+  | 'admin.addon_refund_remove'
   | 'admin.revoke_bonus'
   | 'admin.edit_shop'
   | 'admin.set_internal'

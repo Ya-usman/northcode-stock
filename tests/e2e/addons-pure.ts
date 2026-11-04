@@ -3,8 +3,9 @@
 import { readFileSync } from 'fs'
 import {
   maxShopAddons, parseAddons, activeAddons, renewalAddons, addonsMonthly, roundUpCurrency, prorataQuote, periodPriceWithAddons,
-  upgradeAdvice, addPurchasedAddons, applyRenewalAddons, MAX_ADDON_SEATS,
+  upgradeAdvice, addPurchasedAddons, applyRenewalAddons, MAX_ADDON_SEATS, addonReminderDue,
 } from '../../lib/saas/addons'
+import { computePlanCharge } from '../../lib/billing/plan-charge'
 import { getCountry } from '../../lib/saas/countries'
 import { settlePayment, type PaymentIntent } from '../../lib/billing/payment-intents'
 
@@ -121,11 +122,47 @@ const CI = getCountry('CI'), FR = getCountry('FR')
   const src = (p: string) => readFileSync(p, 'utf8')
   check('limites : équipe et boutiques comptent les options', src('lib/saas/team-quota.ts').includes('bonus.team_seats + purchased') && src('lib/saas/team-quota.ts').includes('bonus.shops + purchased'))
   check('remise en ordre : une option payée n\'est jamais mise en pause', src('lib/saas/enforce-limits.ts').includes('bonus.shops + paid.shops') && src('lib/saas/enforce-limits.ts').includes('bonus.team_seats + paid.seats'))
-  check('renouvellement : prix formule + options, quantités préparées', src('app/api/billing/subscribe/route.ts').includes('periodPriceWithAddons(monthlyPrice, country.addons, renew.seats, renew.shops, period)') && src('app/api/billing/subscribe/route.ts').includes("kind: 'plan', addon_seats: renew.seats, addon_shops: renew.shops"))
+  check('renouvellement : prix formule + options (règle commune lib/billing/plan-charge), quantités préparées', src('lib/billing/plan-charge.ts').includes('periodPriceWithAddons(monthlyPrice, country.addons, renew.seats, renew.shops, period)') && src('app/api/billing/subscribe/route.ts').includes('computePlanCharge(') && src('app/api/billing/subscribe/route.ts').includes("kind: 'plan', addon_seats: renew.seats, addon_shops: renew.shops"))
   check('confirmation : options du renouvellement appliquées', src('lib/billing/payment-intents.ts').includes('applyRenewalAddons(admin, account.entityId'))
   check('achat : propriétaire seulement, prix et prorata calculés par le serveur', src('app/api/billing/addons/route.ts').includes("account.ownerId === user.id || role === 'owner'") && src('app/api/billing/addons/route.ts').includes('prorataQuote({ prices: country.addons'))
   check('retrait : jamais plus que ce qui est payé', src('app/api/billing/addons/route.ts').includes('v.data.seats > addons.seats || v.data.shops > addons.shops'))
   void applyRenewalAddons
+  console.log('\n8. Rappel 7 jours avant le renouvellement')
+  const ent = (days: number, over: any = {}) => ({ id: 'e9', plan_expires_at: new Date(NOW.getTime() + days * DAY).toISOString(), addon_seats: 3, addon_shops: 1, addon_seats_renew: 1, addon_shops_renew: null, ...over })
+  let due = addonReminderDue(ent(5), new Set(), NOW)
+  check('5 jours avant, 3 employés dont 1 reconduit : rappel de 2 employés, boutiques « idem » non citées', due?.seats === 2 && due?.shops === 0, due)
+  check('clé : entreprise + date de fin', due?.key === `e9:${ent(5).plan_expires_at.slice(0, 10)}`)
+  check('déjà rappelé pour cette période : rien', addonReminderDue(ent(5), new Set([due!.key]), NOW) === null)
+  check('10 jours avant : trop tôt', addonReminderDue(ent(10), new Set(), NOW) === null)
+  check('abonnement déjà terminé : rien', addonReminderDue(ent(-1), new Set(), NOW) === null)
+  check('aucun retrait programmé : rien', addonReminderDue(ent(5, { addon_seats_renew: null }), new Set(), NOW) === null)
+  check('retrait de boutique : cité', addonReminderDue(ent(5, { addon_seats_renew: null, addon_shops_renew: 0 }), new Set(), NOW)?.shops === 1)
+
+  console.log('\n9. Montant commun : paiement manuel et renouvellement automatique')
+  const rows: Record<string, any> = {
+    entities: { id: 'e1', pricing_country: null, legacy_terms: null, addon_seats: 2, addon_shops: 1, addon_seats_renew: 1, addon_shops_renew: null },
+    entity_activity_countries: [],
+  }
+  const adm = { from: (tb: string) => { const q: any = { select: () => q, eq: () => q, gte: () => q, maybeSingle: async () => ({ data: rows[tb], error: null }), then: (r: any) => r({ data: rows[tb], error: null }) }; return q } }
+  const acc: any = { entityId: 'e1', ownerId: 'u', name: 'X', plan: 'starter', plan_expires_at: null, trial_ends_at: null, plan_grace_ends_at: null, is_internal: false, billing_country: 'CI' }
+  let c = await computePlanCharge(adm, acc, 'starter', 'monthly')
+  check('Starter mensuel en Côte d\'Ivoire, 1 employé reconduit (retrait programmé) + 1 boutique : 5 000 + 1 500 + 4 000 = 10 500 F', c?.amount === 10500 && c?.currency === 'XOF' && JSON.stringify(c?.renew) === '{"seats":1,"shops":1}', c)
+  c = await computePlanCharge(adm, acc, 'business', 'annual')
+  check('passage à Business 1 an : boutique en plus retirée (3 en tout), (15 000 + 1 500) × 10 = 165 000 F', c?.amount === 165000 && c?.renew.shops === 0, c)
+  const accFR: any = { ...acc, billing_country: 'FR' }
+  c = await computePlanCharge(adm, accFR, 'pro', 'monthly')
+  check('France : en euros (25 + 5 + 12 = 42 €)', c?.amount === 42 && c?.currency === 'EUR', c)
+
+  console.log('\n10. Branchements du lot 2 (sources)')
+  check('serveur : refus de boutique avec un code stable', src('app/api/shops/route.ts').includes("code: 'shop_limit'"))
+  check('invitation, affectation, réactivation, création de boutique : refus → fenêtre « Limite atteinte »',
+    ['components/team/invite-dialog.tsx', 'components/team/assign-dialog.tsx', 'components/team/member-sheet.tsx', 'components/shops/shop-form-drawer.tsx'].every(f => src(f).includes('handleLimitRefusal(')))
+  check('page Équipe : « Inviter » propose la place tout de suite quand tout est utilisé', src('app/[locale]/(app)/team/page.tsx').includes("teamFull ? openLimitReached({ kind: 'seats', returnTo: '/team?resume=invite' })"))
+  check('retour après paiement : page Abonnement → page de départ', src('app/[locale]/(app)/billing/page.tsx').includes('const back = takeReturn()'))
+  check('renouvellement automatique : montant commun + paiement préparé + confirmation commune',
+    src('app/api/cron/renewal-check/route.ts').includes('computePlanCharge(supabase, account, plan, period)') && src('app/api/cron/renewal-check/route.ts').includes('settlePayment(supabase, intent')
+    && !src('app/api/cron/renewal-check/route.ts').includes('Math.round(sub.amount * 100)'))
+  check('admin : retrait d\'option remboursée réservé au super_admin, motif obligatoire', src('app/api/admin/entity-addons/route.ts').includes("requireAdmin({ tier: 'super_admin' })") && src('app/api/admin/entity-addons/route.ts').includes('reason.length < 3'))
 
   console.log(`\n${ok} réussis, ${ko} échec(s)`)
   process.exit(ko ? 1 : 0)
