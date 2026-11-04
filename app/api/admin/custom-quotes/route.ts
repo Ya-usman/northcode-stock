@@ -87,8 +87,9 @@ async function sendQuoteEmail(admin: any, request: Request, q: any, c: Awaited<R
     { label: tm('pdf_line_plan'), detail: `${tm('pdf_line_plan_detail', { shops: q.limit_shops, seats: q.limit_seats })} - ${money(q.monthly_price)} x ${months}`, amount: money(gross) },
     ...(discount > 0 ? [{ label: tm('pdf_line_discount'), detail: tm(`pdf_gift_${period}` as any), amount: `- ${money(discount)}` }] : []),
   ]
-  let logo: string | null = null
-  try { const r = await fetch(new URL('/logo-icon.png', request.url)); if (r.ok) logo = Buffer.from(await r.arrayBuffer()).toString('base64') } catch {}
+  // Logo officiel blanc pour le bandeau (repli : icône seule)
+  const asset = async (path: string) => { try { const r = await fetch(new URL(path, request.url)); return r.ok ? Buffer.from(await r.arrayBuffer()).toString('base64') : null } catch { return null } }
+  const [wordmark, logo] = await Promise.all([asset('/brand/stockshop-wordmark-white.png'), asset('/logo-icon.png')])
   const { doc, fileName } = await buildCustomQuoteDoc({
     reference, dateStr: day(new Date().toISOString(), locale), validUntilStr: validStr,
     clientName: c.account?.name || '', clientCountry: c.country.name,
@@ -98,7 +99,7 @@ async function sendQuoteEmail(admin: any, request: Request, q: any, c: Awaited<R
       country: tm('pdf_country'), colItem: tm('pdf_col_item'), colDetail: tm('pdf_col_detail'), colAmount: tm('pdf_col_amount'),
       pay: tm('pdf_pay'), noteTitle: tm('pdf_note'), footer: tm('pdf_footer'),
     },
-  }, { logoBase64: logo })
+  }, { logoBase64: logo, wordmarkBase64: wordmark })
   const pdf = Buffer.from(doc.output('arraybuffer') as ArrayBuffer)
   const whatsapp = tm('whatsapp_text', { name: profile?.full_name || '', shops: q.limit_shops, seats: q.limit_seats, monthly: money(q.monthly_price), total: money(q.period_total), period: periodName, date: validStr, link })
   let email = 'skipped'

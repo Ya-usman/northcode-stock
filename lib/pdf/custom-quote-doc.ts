@@ -29,7 +29,7 @@ export interface CustomQuotePDFParams {
   }
 }
 
-export async function buildCustomQuoteDoc(p: CustomQuotePDFParams, opts: { logoBase64?: string | null } = {}) {
+export async function buildCustomQuoteDoc(p: CustomQuotePDFParams, opts: { logoBase64?: string | null; wordmarkBase64?: string | null } = {}) {
   const { jsPDF } = await import('jspdf')
   const autoTable = (await import('jspdf-autotable')).default
   const doc = new jsPDF({ unit: 'mm', format: 'a4' })
@@ -38,9 +38,24 @@ export async function buildCustomQuoteDoc(p: CustomQuotePDFParams, opts: { logoB
 
   // Bandeau
   doc.setFillColor(...BLUE); doc.rect(0, 0, W, 28, 'F')
-  if (opts.logoBase64) { try { doc.addImage(`data:image/png;base64,${opts.logoBase64}`, 'PNG', 14, 7, 14, 14) } catch {} }
-  else { doc.setFillColor(255, 255, 255); doc.roundedRect(14, 7, 14, 14, 3, 3, 'F'); doc.setTextColor(...BLUE); doc.setFont('helvetica', 'bold'); doc.setFontSize(11); doc.text('S', 19.2, 16.5) }
-  doc.setTextColor(255, 255, 255); doc.setFont('helvetica', 'bold'); doc.setFontSize(16); doc.text('StockShop', 32, 16.5)
+  // Logo officiel en blanc (cercle « S » + « StockShop » en Montserrat, public/brand/stockshop-wordmark-white.png) ;
+  // à défaut, l'icône et le nom en texte, puis le carré « S »
+  let drawn = false
+  if (opts.wordmarkBase64) {
+    try {
+      const data = `data:image/png;base64,${opts.wordmarkBase64}`
+      const { width, height } = doc.getImageProperties(data)
+      const h = 11, w = Math.min(70, h * (width / height))
+      doc.addImage(data, 'PNG', 14, 14 - h / 2, w, h)
+      drawn = true
+    } catch {}
+  }
+  if (!drawn) {
+    if (opts.logoBase64) { try { doc.addImage(`data:image/png;base64,${opts.logoBase64}`, 'PNG', 14, 7, 14, 14) } catch {} }
+    else { doc.setFillColor(255, 255, 255); doc.roundedRect(14, 7, 14, 14, 3, 3, 'F'); doc.setTextColor(...BLUE); doc.setFont('helvetica', 'bold'); doc.setFontSize(11); doc.text('S', 19.2, 16.5) }
+    doc.setTextColor(255, 255, 255); doc.setFont('helvetica', 'bold'); doc.setFontSize(16); doc.text('StockShop', 32, 16.5)
+  }
+  doc.setTextColor(255, 255, 255); doc.setFont('helvetica', 'bold')
   doc.setFontSize(11); doc.text(clean(p.labels.title), W - 14, 16.5, { align: 'right' })
 
   // Références et client
