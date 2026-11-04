@@ -41,8 +41,6 @@ export function handleLimitRefusal(r: { code?: string | null } | null | undefine
   return true
 }
 
-const SUPPORT = 'support@stockshop.tech'
-
 export function LimitReachedDialog() {
   const t = useTranslations('limit_reached')
   const locale = useLocale()
@@ -118,7 +116,8 @@ export function LimitReachedDialog() {
     switch (state) {
       case 'offer': return <PremiumDialogFooter onCancel={() => go('/billing')} cancelLabel={t('see_plans')} onConfirm={pay} confirmLoading={paying} confirmLabel={t('add_and_pay', { amount: money(quote!.amount) })} />
       case 'trial': case 'expired': case 'too_close': return <PremiumDialogFooter onCancel={close} cancelLabel={t('close')} onConfirm={() => go('/billing')} confirmLabel={t(state === 'trial' ? 'choose_plan' : state === 'expired' ? 'renew' : 'see_subscription')} />
-      case 'custom': return <PremiumDialogFooter onCancel={close} cancelLabel={t('close')} onConfirm={() => { window.location.href = `mailto:${SUPPORT}?subject=${encodeURIComponent(t('custom_mail_subject'))}` }} confirmLabel={t('contact_us')} />
+      // Offre sur mesure (étape 3) : formulaire de demande de devis sur la page Abonnement
+      case 'custom': return <PremiumDialogFooter onCancel={close} cancelLabel={t('close')} onConfirm={() => go('/billing?custom=1')} confirmLabel={t('request_quote')} />
       default: return <PremiumDialogFooter onCancel={close} cancelLabel={t('close')} />
     }
   }

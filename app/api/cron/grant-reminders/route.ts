@@ -11,6 +11,8 @@ import { reminderToSend, type ReminderStage } from '@/lib/saas/grants'
 import { getAccountForShop, getEntityShopIds } from '@/lib/saas/entity'
 import { countTeamSeats, getShopLimit } from '@/lib/saas/team-quota'
 import { addonReminderDue } from '@/lib/saas/addons'
+import { priceReviewDue, quoteExpiryReminderDue } from '@/lib/saas/custom-plan'
+import { formatCurrency } from '@/lib/utils/currency'
 
 // Rappel de fin des gestes commerciaux (migration 157) — chaque matin.
 //  • Au propriétaire de l'entreprise, dans sa langue : notification push
@@ -19,6 +21,8 @@ import { addonReminderDue } from '@/lib/saas/addons'
 // Un rappel n'est jamais envoyé deux fois (journal billing.grant_expiry_reminder).
 // Options payées (migration 210, 4 nov. 2026) : 7 jours avant le renouvellement, e-mail au propriétaire quand des
 // options ne seront pas renouvelées (retrait programmé) ; une fois par période (journal billing.addon_renewal_reminder).
+// Offre sur mesure (migration 211) : devis envoyés qui expirent dans 3 jours → e-mail au propriétaire ; devis dépassés →
+// « expiré » ; prix garanti qui finit dans 30 jours → alerte à l'équipe (journal billing.custom_quote_reminder).
 // ?dry=1 : calcule et renvoie ce qui serait envoyé, sans rien envoyer ni journaliser
 // (&now=<date ISO> pour simuler un autre jour).
 
@@ -221,6 +225,66 @@ export async function GET(request: Request) {
       }
     }
 
+    // ── Offre sur mesure : devis qui expirent, devis dépassés, prix garantis qui finissent ─────────────────────────
+    const quoteReminders: { quote_id: string; kind: 'expiry' | 'review'; entity: string; email: string }[] = []
+    let quotesExpired = 0
+    const { data: qLogs } = await admin.from('audit_logs').select('metadata')
+      .eq('action', 'billing.custom_quote_reminder').gte('created_at', new Date(now.getTime() - 60 * DAY).toISOString())
+    const qSent = new Set<string>((qLogs || []).map((l: any) => String(l.metadata?.key)))
+    const { data: liveQuotes } = await admin.from('custom_quotes')
+      .select('id, entity_id, shop_id, status, valid_until, price_until, monthly_price, currency, limit_shops, limit_seats, token, entities(name, owner_user_id)')
+      .in('status', ['quoted', 'paid'])
+    for (const q of (liveQuotes || []) as any[]) {
+      // Devis dépassé : « expiré » (écriture conditionnée à l'état lu)
+      if (q.status === 'quoted' && q.valid_until && new Date(q.valid_until).getTime() <= now.getTime()) {
+        if (!dry) await admin.from('custom_quotes').update({ status: 'expired', updated_at: now.toISOString() }).eq('id', q.id).eq('status', 'quoted')
+        quotesExpired++
+        continue
+      }
+      const expiryKey = quoteExpiryReminderDue(q, qSent, now)
+      const reviewKey = priceReviewDue(q, qSent, now)
+      if (!expiryKey && !reviewKey) continue
+      const ownerId = q.entities?.owner_user_id ?? null
+      let email = 'skipped'
+      if (expiryKey) {
+        const { data: owner } = ownerId ? await admin.from('profiles').select('full_name, locale').eq('id', ownerId).maybeSingle() : { data: null }
+        const { data: authUser } = ownerId ? await admin.auth.admin.getUserById(ownerId) : { data: null }
+        const locale = normalizeLocale(owner?.locale)
+        const t = getLocaleTranslator(locale, 'custom_quote')
+        const date = formatDate(q.valid_until, locale)
+        const to = authUser?.user?.email ?? null
+        if (!dry && to && process.env.RESEND_API_KEY) {
+          const { error: mailError } = await resend.emails.send({
+            from: EMAIL_FROM, to, subject: t('expiry_email_subject', { date }),
+            html: `
+              <p>${esc(t('greeting', { name: owner?.full_name || '' }))}</p>
+              <p>${esc(t('expiry_email_body', { shops: q.limit_shops, seats: q.limit_seats, monthly: formatCurrency(Number(q.monthly_price), q.currency), date }))}</p>
+              <p><a href="${appUrl}/${locale}/billing/quote/${q.token}" style="background:#073e8a;color:#fff;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:bold;">${esc(t('quote_email_cta'))}</a></p>
+              <p style="color:#666;font-size:12px;">${esc(t('email_footer'))}</p>`,
+          })
+          email = mailError ? `error: ${mailError.message}` : 'sent'
+        } else if (!to) email = 'no_owner_email'
+      }
+      const kind: 'expiry' | 'review' = expiryKey ? 'expiry' : 'review'
+      if (!dry) {
+        await writeAuditLog({
+          action: 'billing.custom_quote_reminder', shop_id: q.shop_id, target_id: q.id, target_type: 'custom_quote',
+          metadata: { key: expiryKey || reviewKey, kind, valid_until: q.valid_until, price_until: q.price_until, email },
+        })
+        qSent.add((expiryKey || reviewKey)!)
+      }
+      quoteReminders.push({ quote_id: q.id, kind, entity: q.entities?.name || '', email })
+    }
+    // Alerte à l'équipe : prix garantis qui finissent dans 30 jours (nouveau devis à préparer)
+    const reviews = quoteReminders.filter(r => r.kind === 'review')
+    const reviewAdmins = (process.env.SUPER_ADMIN_EMAILS || '').split(',').map(e => e.trim()).filter(Boolean)
+    if (!dry && reviews.length && reviewAdmins.length && process.env.RESEND_API_KEY) {
+      await resend.emails.send({
+        from: EMAIL_FROM, to: reviewAdmins, subject: `Offres sur mesure : ${reviews.length} prix garanti(s) à revoir`,
+        html: `<p>Prix garanti qui prend fin dans 30 jours ou moins :</p><ul>${reviews.map(r => `<li>${esc(r.entity)}</li>`).join('')}</ul><p><a href="${appUrl}/fr/admin/quotes">Préparer un nouveau devis</a></p>`,
+      }).catch(() => {})
+    }
+
     // Récapitulatif aux administrateurs (pour agir avant la fin : désactivation, formule…)
     const adminEmails = (process.env.SUPER_ADMIN_EMAILS || '').split(',').map(e => e.trim()).filter(Boolean)
     if (!dry && reminders.length && adminEmails.length && process.env.RESEND_API_KEY) {
@@ -233,7 +297,7 @@ export async function GET(request: Request) {
       }).catch(() => {})
     }
 
-    const summary = { dry, checked: (grants || []).length, reminders: reminders.map(({ title, body, ...r }) => r), addon_reminders: addonReminders }
+    const summary = { dry, checked: (grants || []).length, reminders: reminders.map(({ title, body, ...r }) => r), addon_reminders: addonReminders, quote_reminders: quoteReminders, quotes_expired: quotesExpired }
     if (!dry) await logCronRun('grant-reminders', 'success', summary)
     return NextResponse.json(dry ? { ...summary, preview: reminders.map(r => ({ grant_id: r.grant_id, title: r.title, body: r.body })) } : summary)
   } catch (err: any) {

@@ -95,7 +95,7 @@ const stateOf = async page => page.getByTestId('limit-reached-text').getAttribut
   await s.browser.close()
   s = await open({ addons: STATE({ addons: { seats: 20, shops: 0, seats_renew: 20, shops_renew: 0 } }), quotaFull: true }); page = s.page
   await page.getByTestId('team-invite').click(); await wait(1500)
-  ok(await stateOf(page) === 'custom' && norm(await dlg(page).innerText()).includes(m.limit_reached.contact_us), '20 employés en plus : offre sur mesure, « Nous écrire »')
+  ok(await stateOf(page) === 'custom' && norm(await dlg(page).innerText()).includes(m.limit_reached.request_quote), '20 employés en plus : offre sur mesure, « Demander un devis »')
   await page.screenshot({ path: OUT + '/limit-custom.png' })
   await s.browser.close()
   s = await open({ addons: STATE({ plan_expires_at: new Date(Date.now() + 2 * 86400000).toISOString() }), quotaFull: true }); page = s.page

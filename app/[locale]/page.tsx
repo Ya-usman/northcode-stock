@@ -423,6 +423,18 @@ export default function LandingPage({ params: { locale } }: { params: { locale: 
             ))}
           </div>
 
+          {/* Offre sur mesure (à partir de 4 boutiques) : essai d'abord, puis demande de devis dans l'application */}
+          <div className="mx-auto mt-6 flex max-w-5xl flex-col gap-3 rounded-2xl border-2 border-dashed border-stockshop-blue/30 bg-white p-5 text-left sm:flex-row sm:items-center sm:justify-between dark:border-blue-400/30 dark:bg-gray-900" data-testid="landing-custom">
+            <div>
+              <p className="font-semibold text-gray-900 dark:text-white">{t('pricing.custom_title')}</p>
+              <p className="text-sm text-gray-600 dark:text-gray-300">{t('pricing.custom_text')}</p>
+              <a href="mailto:support@stockshop.tech" className="mt-1 inline-block text-sm text-stockshop-blue hover:underline dark:text-blue-400">{t('pricing.custom_contact')}</a>
+            </div>
+            <Link href={`/${locale}/register?plan=business`} className="shrink-0">
+              <Button className="w-full bg-stockshop-blue text-white hover:bg-stockshop-blue-light sm:w-auto dark:bg-blue-600 dark:hover:bg-blue-500">{t('pricing.custom_cta')}</Button>
+            </Link>
+          </div>
+
           <p className="text-center text-sm text-muted-foreground mt-6">{t('pricing.note')}</p>
         </div>
       </section>

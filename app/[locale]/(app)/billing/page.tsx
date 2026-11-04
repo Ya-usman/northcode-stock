@@ -25,6 +25,7 @@ import { useRefetchOnReconnect } from '@/lib/hooks/use-refetch-on-reconnect'
 import { useRefetchOnVisible } from '@/lib/hooks/use-refetch-on-visible'
 import { SegmentedTabs } from '@/components/ui/segmented-tabs'
 import { takeReturn } from '@/lib/billing/resume-after-payment'
+import { CustomPlanSection } from '@/components/billing/custom-plan-section'
 import { AddonsCard, type AddonInfo } from '@/components/billing/addons-card'
 import { addonsMonthly, parseAddons, renewalAddons } from '@/lib/saas/addons'
 
@@ -41,7 +42,7 @@ export default function BillingPage({ params: { locale } }: { params: { locale: 
   const tAddons = useTranslations('addons')
   const tLimit = useTranslations('limit_reached')
   const tRoot = useTranslations()
-  const { shop, user, refreshShop } = useAuth()
+  const { shop, user, profile, refreshShop } = useAuth()
   const tCountries = useTranslations('countries')
   const { isOnline } = useOffline()
   const { toast } = useToast()
@@ -529,6 +530,9 @@ export default function BillingPage({ params: { locale } }: { params: { locale: 
             })}
           </div>
         </div>
+
+        {/* Offre sur mesure (à partir de 4 boutiques) : demande de devis, devis reçu, offre en cours */}
+        {shop && user?.email && <CustomPlanSection shopId={shop.id} phone={(profile as any)?.phone ?? null} />}
 
         {/* FAQ */}
         <div className="rounded-xl border bg-card p-5 shadow-sm">

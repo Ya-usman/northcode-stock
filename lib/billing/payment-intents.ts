@@ -21,6 +21,7 @@ import { applyWalletCredit } from '@/lib/referrals/apply-credit'
 import { writeAuditLog, getClientIp } from '@/lib/api/audit'
 import { priceZone } from '@/lib/saas/pricing-country'
 import { addPurchasedAddons, applyRenewalAddons } from '@/lib/saas/addons'
+import { applyCustomPlan, clearCustomPlan } from '@/lib/saas/custom-plan-server'
 
 export type Gateway = 'paystack' | 'notchpay' | 'flutterwave' | 'wave' | 'stripe'
 export type PaidPlan = 'starter' | 'pro' | 'business'
@@ -47,7 +48,9 @@ export interface PaymentIntent {
   pricing_country?: string | null
   /** Options (migration 210) : 'plan' = formule (addon_* = options du renouvellement) ; 'addon' = achat d'options en
    *  cours de période (addon_* = quantités ajoutées, period_end = fin de la période payée au prorata) */
-  kind?: 'plan' | 'addon'
+  kind?: 'plan' | 'addon' | 'custom'
+  /** Devis payé (kind = 'custom', migration 211) */
+  quote_id?: string | null
   addon_seats?: number
   addon_shops?: number
   period_end?: string | null
@@ -149,8 +152,14 @@ export async function settlePayment(admin: any, intent: PaymentIntent, paid: Con
   if (account) {
     const { error: planError } = await setAccountPlan(admin, account, { plan: intent.plan, plan_expires_at, trial_ends_at: null })
     if (planError) console.error('[billing/settle] plan non enregistré', intent.shop_id, planError)
-    // Options de la nouvelle période : celles comprises dans le prix préparé (retrait programmé appliqué)
-    else await applyRenewalAddons(admin, account.entityId, Number(intent.addon_seats ?? 0), Number(intent.addon_shops ?? 0))
+    // Devis sur mesure payé (migration 211) : limites du devis, devis payé, prix garanti 1 an
+    else if (intent.kind === 'custom' && intent.quote_id) await applyCustomPlan(admin, account.entityId, intent.quote_id, intent.reference)
+    else {
+      // Options de la nouvelle période : celles comprises dans le prix préparé (retrait programmé appliqué) ; une offre
+      // sur mesure éventuelle prend fin (formule normale payée)
+      await applyRenewalAddons(admin, account.entityId, Number(intent.addon_seats ?? 0), Number(intent.addon_shops ?? 0))
+      await clearCustomPlan(admin, account.entityId)
+    }
   } else console.error('[billing/settle] entreprise introuvable pour la boutique', intent.shop_id)
 
   const { data: shopRow } = await admin.from('shops').select('owner_id, agent_id, country').eq('id', intent.shop_id).maybeSingle()
@@ -192,7 +201,7 @@ export async function settlePayment(admin: any, intent: PaymentIntent, paid: Con
 
   await writeAuditLog({
     action: 'billing.verify', shop_id: intent.shop_id, actor_id: ownerId, target_id: intent.reference, target_type: `${intent.gateway}_payment`,
-    metadata: { plan_id: intent.plan, billing_period: intent.billing_period, amount: paidAmount, currency: intent.currency, credit_applied: intent.credit_applied, gateway_tx_id: paid.gatewayTxId ?? null, addon_seats: Number(intent.addon_seats ?? 0), addon_shops: Number(intent.addon_shops ?? 0) },
+    metadata: { plan_id: intent.plan, billing_period: intent.billing_period, amount: paidAmount, currency: intent.currency, credit_applied: intent.credit_applied, gateway_tx_id: paid.gatewayTxId ?? null, addon_seats: Number(intent.addon_seats ?? 0), addon_shops: Number(intent.addon_shops ?? 0), quote_id: intent.quote_id ?? null },
     ip: getClientIp(request),
   } as any)
 

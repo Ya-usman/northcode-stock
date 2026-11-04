@@ -11,6 +11,7 @@ import { createPaymentIntent, newPaymentReference, type Gateway } from '@/lib/bi
 import { startGatewayPayment } from '@/lib/billing/start-payment'
 import { applyRenewalAddons } from '@/lib/saas/addons'
 import { computePlanCharge } from '@/lib/billing/plan-charge'
+import { getEntityCustom } from '@/lib/saas/custom-plan'
 import { previewWalletCredit, applyWalletCredit } from '@/lib/referrals/apply-credit'
 import { getAccountForShop, setAccountPlan } from '@/lib/saas/entity'
 import { requestCountry } from '@/lib/saas/pricing-country'
@@ -53,6 +54,11 @@ export async function POST(request: Request) {
     if (!(callerAccount?.ownerId === user.id || callerRole === 'owner')) {
       return NextResponse.json({ error: t('permission_denied') }, { status: 403 })
     }
+    // Offre sur mesure en cours (migration 211) : pas de formule normale par-dessus (ses limites tomberaient et les
+    // boutiques au-delà de 3 seraient mises en pause) ; on passe par l'équipe pour la modifier
+    const callerCustom = callerAccount ? await getEntityCustom(supabase, callerAccount.entityId) : null
+    if (callerCustom?.quoteId && callerAccount?.plan_expires_at && new Date(callerAccount.plan_expires_at) > new Date())
+      return NextResponse.json({ error: t('custom_plan_active'), code: 'custom_plan_active' }, { status: 409 })
     const { data: shopData } = await supabase
       .from('shops').select('country, billing_country, currency, owner_id').eq('id', shop_id).single()
 

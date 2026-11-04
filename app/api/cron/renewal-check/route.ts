@@ -5,6 +5,7 @@ import { fetchWithTimeout } from '@/lib/api/fetch'
 import { logCronRun } from '@/lib/api/cron-log'
 import { getAccountForShop } from '@/lib/saas/entity'
 import { computePlanCharge } from '@/lib/billing/plan-charge'
+import { getEntityCustom } from '@/lib/saas/custom-plan'
 import { createPaymentIntent, newPaymentReference, findPaymentIntent, settlePayment, failPaymentIntent } from '@/lib/billing/payment-intents'
 import { Resend } from 'resend'
 import { EMAIL_FROM, appBaseUrl } from '@/lib/email/sender'
@@ -60,6 +61,8 @@ export async function GET(request: NextRequest) {
         const account = await getAccountForShop(supabase, sub.shop_id)
         const period = (sub.billing_period in BILLING_PERIODS ? sub.billing_period : 'monthly') as BillingPeriod
         const plan = (['starter', 'pro', 'business'].includes(sub.plan) ? sub.plan : null) as 'starter' | 'pro' | 'business' | null
+        // Offre sur mesure (migration 211) : jamais prélevée au prix d'une formule normale ; renouvellement par le devis
+        if (account && (await getEntityCustom(supabase, account.entityId))?.quoteId) throw new Error('offre sur mesure : renouvellement par le devis')
         const charge = account && plan ? await computePlanCharge(supabase, account, plan, period) : null
         if (!account || !plan || !charge) throw new Error('renouvellement impossible à calculer')
         reference = newPaymentReference(sub.shop_id)

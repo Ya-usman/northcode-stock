@@ -18,6 +18,7 @@ import { getAccountForShop, getEntityShopIds, type EntityAccount } from './entit
 import { getGrantBonus, effectiveLimit } from './grants'
 import { getLegacyTerms, planLimitWithLegacy } from './legacy-terms'
 import { activeAddons, getEntityAddons } from './addons'
+import { customLimit, getEntityCustom } from './custom-plan'
 
 export type { EntityAccount }
 
@@ -52,8 +53,9 @@ export function getAccountShopIds(admin: any, account: Pick<EntityAccount, 'enti
 /** Sièges utilisés par l'entreprise : personnes distinctes actives hors propriétaire */
 export async function countTeamSeats(admin: any, account: EntityAccount): Promise<TeamSeats> {
   const plan = getPlan(account.plan)
-  const [shopIds, bonus, legacy, addons] = await Promise.all([getEntityShopIds(admin, account), getGrantBonus(admin, account.entityId), getLegacyTerms(admin, account.entityId), getEntityAddons(admin, account.entityId)])
-  const planLimit = planLimitWithLegacy(plan.limits.team_members, plan.id, legacy, 'team_members')
+  const [shopIds, bonus, legacy, addons, custom] = await Promise.all([getEntityShopIds(admin, account), getGrantBonus(admin, account.entityId), getLegacyTerms(admin, account.entityId), getEntityAddons(admin, account.entityId), getEntityCustom(admin, account.entityId)])
+  // Offre sur mesure (migration 211) : limites du devis payé, Business seulement
+  const planLimit = customLimit(planLimitWithLegacy(plan.limits.team_members, plan.id, legacy, 'team_members'), plan.id, custom, 'team_members')
   const purchased = planLimit === -1 ? 0 : activeAddons(plan.id, addons).seats
   let personIds: string[] = []
   if (shopIds.length) {
@@ -82,8 +84,8 @@ export async function countTeamSeats(admin: any, account: EntityAccount): Promis
 /** Limite de boutiques de l'entreprise : formule + boutiques offertes + boutiques payées (options) ; -1 = illimité */
 export async function getShopLimit(admin: any, account: Pick<EntityAccount, 'entityId' | 'plan'>): Promise<{ limit: number; planLimit: number; offered: number; purchased: number }> {
   const plan = getPlan(account.plan)
-  const [bonus, legacy, addons] = await Promise.all([getGrantBonus(admin, account.entityId), getLegacyTerms(admin, account.entityId), getEntityAddons(admin, account.entityId)])
-  const planLimit = planLimitWithLegacy(plan.limits.shops, plan.id, legacy, 'shops')
+  const [bonus, legacy, addons, custom] = await Promise.all([getGrantBonus(admin, account.entityId), getLegacyTerms(admin, account.entityId), getEntityAddons(admin, account.entityId), getEntityCustom(admin, account.entityId)])
+  const planLimit = customLimit(planLimitWithLegacy(plan.limits.shops, plan.id, legacy, 'shops'), plan.id, custom, 'shops')
   const purchased = planLimit === -1 ? 0 : activeAddons(plan.id, addons).shops
   return { limit: effectiveLimit(planLimit, bonus.shops + purchased), planLimit, offered: planLimit === -1 ? 0 : bonus.shops, purchased }
 }
