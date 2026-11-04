@@ -27,6 +27,8 @@ export type AuditAction =
   | 'billing.plan_change_reminder'
   | 'billing.plan_switch'
   | 'account.register'
+  // Protection de l'essai (migration 213)
+  | 'account.trial_phone' | 'admin.trial_grant'
   | 'account.delete'
   | 'sale.cancel'
   | 'sale.validate_payment'

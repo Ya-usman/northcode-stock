@@ -5,7 +5,8 @@ import { getCountry, detectCountryFromIso, COUNTRIES } from '@/lib/saas/countrie
 import { timezoneForNewShop } from '@/lib/api/shop-timezone'
 import { countryOfTimeZone } from '@/lib/time/time-zones'
 import { getApiTranslator } from '@/lib/api/i18n'
-import { getAccountForShop, setAccountPlan } from '@/lib/saas/entity'
+import { getAccountForShop } from '@/lib/saas/entity'
+import { setTrialState } from '@/lib/saas/trial-claim-server'
 import { deleteShops } from '@/lib/api/delete-shops'
 
 const COOKIE_OPTS = {
@@ -97,8 +98,6 @@ export async function POST(request: Request) {
         }
       }
       if (!tz.ok) return tz.response
-      const trialEndsAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString()
-
       const { data: newShop, error: shopError } = await admin
         .from('shops')
         .insert({
@@ -124,9 +123,10 @@ export async function POST(request: Request) {
           country: countryConfig.code,
         })
         if (!profileError) {
-          // Essai sur l'ENTREPRISE (créée avec la boutique, migration 153), après le profil
+          // Essai EN ATTENTE DU TÉLÉPHONE (protection de l'essai, migration 213) : l'écran « Votre numéro » s'affiche à
+          // la première entrée, l'essai démarre après (POST /api/trial/phone : 1 numéro = 1 essai sur 12 mois)
           const account = await getAccountForShop(admin, newShop.id)
-          if (account) await setAccountPlan(admin, account, { plan: 'trial', trial_ends_at: trialEndsAt, plan_expires_at: null })
+          if (account) await setTrialState(admin, account.entityId, { trial_ends_at: null, trial_status: 'pending_phone' })
           const { error: memberError } = await admin.from('shop_members').insert({
             shop_id: newShop.id,
             user_id: user.id,

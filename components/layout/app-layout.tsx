@@ -21,6 +21,7 @@ import { AlertTriangle } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { TrialBanner } from '@/components/saas/trial-banner'
 import { UpgradeWall } from '@/components/saas/upgrade-wall'
+import { TrialPhoneGate } from '@/components/saas/trial-phone-gate'
 import { PlanLimitAlert } from '@/components/saas/plan-limit-alert'
 import { GracePeriodBanner } from '@/components/saas/grace-period-banner'
 import { WhatsNewPanel, LivePageAnnouncement } from '@/components/announcements/whats-new'
@@ -434,8 +435,12 @@ export function AppLayout({ children, locale }: { children: React.ReactNode; loc
     <ShopPickerProvider>
     <div className="min-h-screen bg-background">
       <NavigationProgress />
-      {!accessAllowed && !isBillingPage && (
-        <UpgradeWall locale={locale} shopName={shop?.name} />
+      {/* Compte Google / Apple : essai en attente du téléphone (migration 213) ; sinon mur de paiement (essai refusé :
+          numéro déjà utilisé, dit clairement) */}
+      {!accessAllowed && shop?.trial_status === 'pending_phone' && effectiveRole === 'owner' ? (
+        <TrialPhoneGate shopId={shop.id} country={shop.country} onDone={() => refreshShop().catch(() => window.location.reload())} onSignOut={handleSignOut} />
+      ) : !accessAllowed && !isBillingPage && (
+        <UpgradeWall locale={locale} shopName={shop?.name} trialRefused={shop?.trial_status === 'refused'} />
       )}
       {accessAllowed && !shopOpen && !isExemptFromHours && (
         <ShopClosedWall locale={locale} shopId={shop?.id} shopName={shop?.name} openingTime={shop?.opening_time ?? null} closingTime={shop?.closing_time ?? null}

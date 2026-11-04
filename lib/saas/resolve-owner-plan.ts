@@ -9,20 +9,19 @@ import { NEXT_COLUMNS, effectivePlan } from './plan-change'
 // propriétaire (copie retirée par la migration 154).
 export async function attachOwnerPlan(
   supabase: any,
-  shops: Array<{ owner_id?: string | null; entity_id?: string | null; entity_name?: string | null; plan?: any; plan_expires_at?: any; trial_ends_at?: any }>,
+  shops: Array<{ owner_id?: string | null; entity_id?: string | null; entity_name?: string | null; plan?: any; plan_expires_at?: any; trial_ends_at?: any; trial_status?: any }>,
 ): Promise<void> {
   if (!shops.length) return
 
   const entityIds = Array.from(new Set(shops.map(s => s.entity_id).filter(Boolean))) as string[]
   const byEntity = new Map<string, any>()
   if (entityIds.length) {
-    // Avec le changement programmé (migration 212) : une descente arrivée à sa date est vue tout de suite ; colonnes
-    // absentes : lecture d'avant
-    let { data: entities, error } = await supabase
-      .from('entities')
-      .select(`id, name, plan, plan_expires_at, trial_ends_at, ${NEXT_COLUMNS}`)
-      .in('id', entityIds)
-    if (error) ({ data: entities, error } = await supabase.from('entities').select('id, name, plan, plan_expires_at, trial_ends_at').in('id', entityIds))
+    // Avec le changement programmé (migration 212) : une descente arrivée à sa date est vue tout de suite ; avec l'état
+    // de l'essai (migration 213 : refusé, en attente du téléphone) ; colonnes absentes : lecture d'avant
+    const BASE = 'id, name, plan, plan_expires_at, trial_ends_at'
+    let { data: entities, error } = await supabase.from('entities').select(`${BASE}, ${NEXT_COLUMNS}, trial_status`).in('id', entityIds)
+    if (error) ({ data: entities, error } = await supabase.from('entities').select(`${BASE}, ${NEXT_COLUMNS}`).in('id', entityIds))
+    if (error) ({ data: entities, error } = await supabase.from('entities').select(BASE).in('id', entityIds))
     if (!error) for (const e of entities ?? []) byEntity.set(e.id, effectivePlan(e))
   }
 
@@ -31,6 +30,7 @@ export async function attachOwnerPlan(
     shop.plan = source?.plan ?? 'trial'
     shop.plan_expires_at = source?.plan_expires_at ?? null
     shop.trial_ends_at = source?.trial_ends_at ?? null
+    shop.trial_status = source?.trial_status ?? null
     if (shop.entity_id && byEntity.has(shop.entity_id)) shop.entity_name = byEntity.get(shop.entity_id).name
   }
 }

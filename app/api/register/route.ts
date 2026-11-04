@@ -7,7 +7,9 @@ import { writeAuditLog, getClientIp } from '@/lib/api/audit'
 import { notifyReferral } from '@/lib/referrals/notify'
 import { getReferralConfig } from '@/lib/referrals/config'
 import { assessReferralRisk } from '@/lib/referrals/fraud'
-import { getAccountForShop, setAccountPlan } from '@/lib/saas/entity'
+import { getAccountForShop } from '@/lib/saas/entity'
+import { normalizePhone, cleanDeviceId } from '@/lib/saas/trial-claim'
+import { claimTrial } from '@/lib/saas/trial-claim-server'
 import { z } from 'zod'
 import { getApiTranslator } from '@/lib/api/i18n'
 import { deleteShops } from '@/lib/api/delete-shops'
@@ -19,7 +21,9 @@ const registerSchema = z.object({
   email: emailSchema,
   shop_name: shortText,
   city: shortText,
-  phone: z.string().max(20).optional().nullable(),
+  // Téléphone OBLIGATOIRE (protection de l'essai, migration 213) : contrôlé selon le pays, enregistré en E.164
+  phone: z.string().min(4).max(32),
+  device_id: z.string().max(80).optional().nullable(),
   country: z.string().length(2).optional(),
   referral_code: z.string().max(20).optional().nullable(),
   // Fuseau IANA de la boutique (migration 178) : obligatoire pour un pays à plusieurs fuseaux
@@ -34,11 +38,16 @@ export async function POST(request: Request) {
     const body = await request.json()
     const validated = validateBody(registerSchema, body)
     if ('error' in validated) return validated.error
-    const { password, full_name, email, shop_name, city, phone, country, referral_code, timezone } = validated.data
+    const { password, full_name, email, shop_name, city, country, referral_code, timezone } = validated.data
 
     const supabase = await createAdminClient() as any
 
     const countryConfig = getCountry(country || 'NG')
+
+    // Numéro contrôlé AVANT la création du compte (format réel du pays) ; 1 numéro = 1 essai sur 12 mois (plus bas)
+    const phone = normalizePhone(validated.data.phone, countryConfig.code)
+    if (!phone) return NextResponse.json({ error: getApiTranslator(request)('phone_invalid'), code: 'phone_invalid' }, { status: 400 })
+    const deviceId = cleanDeviceId(validated.data.device_id)
 
     // Fuseau vérifié AVANT la création du compte : jamais de compte sans boutique (migration 178)
     const tz = await timezoneForNewShop(supabase, getApiTranslator(request), countryConfig.code, timezone)
@@ -92,7 +101,7 @@ export async function POST(request: Request) {
         owner_id: user_id,
         city,
         state: city,
-        whatsapp: phone || null,
+        whatsapp: phone,
         currency: countryConfig.currency, // code ISO (V3) — jamais le symbole
         country: countryConfig.code,
         billing_country: countryConfig.code,
@@ -115,7 +124,6 @@ export async function POST(request: Request) {
     // Profil = la PERSONNE (pays, langue…). L'abonnement d'essai est écrit sur
     // l'ENTREPRISE (créée par le trigger de la migration 153 avec la boutique),
     // juste après le profil — voir plus bas.
-    const trialEndsAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString()
     const { error: profileError } = await supabase
       .from('profiles')
       .upsert({
@@ -125,6 +133,7 @@ export async function POST(request: Request) {
         role: 'owner',
         is_active: true,
         country: countryConfig.code,
+        phone,
       } as any)
 
     if (profileError) {
@@ -132,9 +141,12 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: profileError.message }, { status: 500 })
     }
 
-    // Essai de 30 jours sur l'entreprise (après le profil : sa création ne doit pas l'écraser)
+    // Essai de 30 jours sur l'entreprise (après le profil : sa création ne doit pas l'écraser), SAUF numéro déjà
+    // utilisé pour un essai il y a moins de 12 mois : compte créé sans essai (lib/saas/trial-claim, migration 213)
     const account = await getAccountForShop(supabase, shop.id)
-    if (account) await setAccountPlan(supabase, account, { plan: 'trial', trial_ends_at: trialEndsAt, plan_expires_at: null })
+    const trial = account
+      ? await claimTrial(supabase, { entityId: account.entityId, ownerId: user_id, phone, deviceId, name: full_name, city, country: countryConfig.code, source: 'register' })
+      : null
 
     // Create shop_members entry so RLS lets the owner read their own shop
     const { error: memberError } = await supabase
@@ -158,7 +170,7 @@ export async function POST(request: Request) {
       actor_email: email,
       target_id: shop.id,
       target_type: 'shop',
-      metadata: { shop_name, country, city, referral_code: referral_code ?? null, agent_id: agentId },
+      metadata: { shop_name, country, city, referral_code: referral_code ?? null, agent_id: agentId, trial: trial ? (trial.granted ? 'granted' : 'refused') : null, trial_flags: trial?.flags ?? [] },
       ip: getClientIp(request),
     })
 
@@ -177,7 +189,7 @@ export async function POST(request: Request) {
               referrerUserId: referrerCodeRow.owner_user_id,
               referredUserId: user_id,
               referredEmail: email,
-              referredPhone: phone ?? null,
+              referredPhone: phone,
               referredIp: getClientIp(request),
               maxPerDay: config.max_referrals_per_day,
             })
@@ -211,7 +223,7 @@ export async function POST(request: Request) {
       }
     }
 
-    return NextResponse.json({ success: true, shop_id: shop.id })
+    return NextResponse.json({ success: true, shop_id: shop.id, trial: trial && !trial.granted ? 'refused' : 'granted' })
   } catch (err: any) {
     return NextResponse.json({ error: err.message }, { status: 500 })
   }

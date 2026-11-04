@@ -53,6 +53,8 @@ export interface Shop {
   // boutiques (lib/saas/resolve-owner-plan.ts) ; jamais écrit sur `shops`.
   plan: string | null
   trial_ends_at: string | null
+  /** État de l'essai (migration 213) : refusé (numéro déjà utilisé), en attente du téléphone (Google) ; null avant */
+  trial_status?: 'granted' | 'refused' | 'pending_phone' | null
   plan_expires_at: string | null
   country: string | null
   /** Fuseau IANA de la boutique (migration 178) — SEULE source de la date métier ; absent avant la 178 */

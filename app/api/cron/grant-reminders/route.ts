@@ -13,6 +13,8 @@ import { countTeamSeats, getShopLimit } from '@/lib/saas/team-quota'
 import { addonReminderDue } from '@/lib/saas/addons'
 import { priceReviewDue, quoteExpiryReminderDue } from '@/lib/saas/custom-plan'
 import { applyScheduledPlan } from '@/lib/saas/entity'
+import { backfillTrialClaims } from '@/lib/saas/trial-claim-server'
+import { normalizePhone } from '@/lib/saas/trial-claim'
 import { isDowngrade } from '@/lib/saas/plan-change'
 import { enforceShopPlanLimits } from '@/lib/saas/enforce-limits'
 import { getGrantBonus } from '@/lib/saas/grants'
@@ -364,6 +366,10 @@ export async function GET(request: Request) {
       }
     }
 
+    // ── Registre des essais (migration 213) : numéros des comptes d'avant versés au registre, une fois ──────────────
+    // (un compte supprimé puis recréé avec le même numéro est ainsi reconnu ; sans effet quand tout est fait)
+    const trialBackfill = dry ? 0 : await backfillTrialClaims(admin, normalizePhone).catch(() => 0)
+
     // Récapitulatif aux administrateurs (pour agir avant la fin : désactivation, formule…)
     const adminEmails = (process.env.SUPER_ADMIN_EMAILS || '').split(',').map(e => e.trim()).filter(Boolean)
     if (!dry && reminders.length && adminEmails.length && process.env.RESEND_API_KEY) {
@@ -376,7 +382,7 @@ export async function GET(request: Request) {
       }).catch(() => {})
     }
 
-    const summary = { dry, checked: (grants || []).length, reminders: reminders.map(({ title, body, ...r }) => r), addon_reminders: addonReminders, quote_reminders: quoteReminders, quotes_expired: quotesExpired, plan_switches: planSwitches, change_reminders: changeReminders }
+    const summary = { dry, checked: (grants || []).length, reminders: reminders.map(({ title, body, ...r }) => r), addon_reminders: addonReminders, quote_reminders: quoteReminders, quotes_expired: quotesExpired, plan_switches: planSwitches, change_reminders: changeReminders, trial_backfill: trialBackfill }
     if (!dry) await logCronRun('grant-reminders', 'success', summary)
     return NextResponse.json(dry ? { ...summary, preview: reminders.map(r => ({ grant_id: r.grant_id, title: r.title, body: r.body })) } : summary)
   } catch (err: any) {

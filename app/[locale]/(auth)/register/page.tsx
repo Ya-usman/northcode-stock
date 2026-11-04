@@ -22,6 +22,11 @@ import { useTheme } from '@/lib/hooks/use-theme'
 import { withTimeout } from '@/lib/utils/with-timeout'
 import { BrandLogo } from '@/components/brand/brand-logo'
 import { cn } from '@/lib/utils/cn'
+import dynamic from 'next/dynamic'
+import { getDeviceId, DEVICE_ID_KEY } from '@/lib/device-id'
+
+// Champ téléphone international (indicatif + validation du pays) : chargé à l'usage (métadonnées de numérotation)
+const PhoneInput = dynamic(() => import('@/components/ui/phone-input').then(m => m.PhoneInput), { ssr: false })
 
 type FormData = {
   full_name: string
@@ -30,7 +35,6 @@ type FormData = {
   confirm_password: string
   shop_name: string
   city: string
-  phone?: string
   referral_code?: string
 }
 
@@ -71,6 +75,11 @@ export default function RegisterPage({ params: { locale } }: { params: { locale:
   const [resendLoading, setResendLoading] = useState(false)
   const [resendSuccess, setResendSuccess] = useState(false)
   const [referralCode, setReferralCode] = useState('')
+  // Téléphone OBLIGATOIRE (protection de l'essai, migration 213) : E.164 émis par PhoneInput, contrôlé aussi par le serveur
+  const [phone, setPhone] = useState('')
+  const [phoneValid, setPhoneValid] = useState(false)
+  const [phoneErr, setPhoneErr] = useState<string | null>(null)
+  const [trialRefused, setTrialRefused] = useState(false)
   const [referralMatch, setReferralMatch] = useState<{ kind: 'agent' | 'referrer'; name: string | null } | null>(null)
   const [referralChecking, setReferralChecking] = useState(false)
   const referralTimeout = useRef<NodeJS.Timeout | null>(null)
@@ -97,7 +106,6 @@ export default function RegisterPage({ params: { locale } }: { params: { locale:
     confirm_password: z.string().min(1, t('confirm_password_required')),
     shop_name: z.string().min(2, t('shop_name_required')),
     city: z.string().min(2, t('city_required')),
-    phone: z.string().optional(),
     referral_code: z.string().optional(),
   }).refine(d => d.password === d.confirm_password, {
     message: t('password_mismatch'),
@@ -187,6 +195,7 @@ export default function RegisterPage({ params: { locale } }: { params: { locale:
     if (!country) return
     const tzErr = timeZoneError(country, timezone)
     if (tzErr) { setTimezoneErr(tTz(tzErr === 'required' ? 'required' : 'invalid')); return }
+    if (!phone || !phoneValid) { setPhoneErr(t(phone ? 'phone_invalid' : 'phone_required')); return }
     setError('')
     setCountdown(0)
     try {
@@ -199,8 +208,11 @@ export default function RegisterPage({ params: { locale } }: { params: { locale:
       // this is required for registration to succeed, so failures are swallowed.
       await withTimeout(supabase.auth.signOut(), 5_000).catch(() => {})
       const drafts = localStorage.getItem('nc_sale_drafts')
+      const deviceId = getDeviceId()
       localStorage.clear()
       if (drafts) localStorage.setItem('nc_sale_drafts', drafts)
+      // Identifiant d'appareil gardé (signalement d'un essai répété probable, jamais un blocage)
+      if (deviceId) localStorage.setItem(DEVICE_ID_KEY, deviceId)
       if ('caches' in window) {
         await withTimeout(
           caches.keys().then(keys => Promise.all(keys.map(k => caches.delete(k)))),
@@ -224,16 +236,20 @@ export default function RegisterPage({ params: { locale } }: { params: { locale:
           email: data.email,
           shop_name: data.shop_name,
           city: data.city,
-          phone: data.phone || null,
+          phone,
+          device_id: deviceId,
           country,
           timezone,
           referral_code: referralCode.trim() || null,
         }),
       }), 20_000, t('account_error_timeout'))
+      const created = await res.json().catch(() => ({}))
       if (!res.ok) {
-        const err = await res.json()
-        throw new Error(err.error || t('account_error'))
+        if (created.code === 'phone_invalid') { setPhoneErr(created.error || t('phone_invalid')); return }
+        throw new Error(created.error || t('account_error'))
       }
+      // Numéro déjà utilisé pour un essai : compte créé sans essai (dit clairement, ici et dans l'application)
+      setTrialRefused(created.trial === 'refused')
 
       // Everything succeeded — now trigger the confirmation email.
       await withTimeout(supabase.auth.resend({
@@ -304,6 +320,11 @@ export default function RegisterPage({ params: { locale } }: { params: { locale:
               </p>
             </div>
             <p className="text-xs text-muted-foreground">{t('email_sent_note')}</p>
+            {trialRefused && (
+              <p className="rounded-lg bg-amber-50 px-3 py-2 text-left text-sm text-amber-900 dark:bg-amber-950/40 dark:text-amber-200" data-testid="register-trial-refused">
+                {t('trial_refused_note')}
+              </p>
+            )}
             <div className="space-y-2 pt-2">
               <Button
                 onClick={handleResend}
@@ -488,12 +509,12 @@ export default function RegisterPage({ params: { locale } }: { params: { locale:
                   )}
 
                   <div className="space-y-1.5">
-                    <Label>{t('phone')} <span className="text-muted-foreground text-xs">({t('optional')})</span></Label>
-                    <div className="relative">
-                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground font-medium">{selectedCountry.phonePrefix}</span>
-                      <Input {...register('phone')} placeholder="XXXXXXXXXX"
-                        className="pl-14 dark:bg-[#060e1c] dark:border-[#1b2e48] dark:text-[#d8e8ff] dark:placeholder:text-[#2e4460]" />
-                    </div>
+                    <Label htmlFor="register-phone">{t('phone')}</Label>
+                    <PhoneInput id="register-phone" value={phone} defaultCountry={country} preferredCountries={[country]} invalid={!!phoneErr}
+                      onChange={(v, valid) => { setPhone(v); setPhoneValid(!!v && valid); setPhoneErr(null) }} />
+                    {phoneErr
+                      ? <p className="text-xs text-destructive" data-testid="register-phone-error">{phoneErr}</p>
+                      : <p className="text-xs text-muted-foreground">{t('phone_hint')}</p>}
                   </div>
 
                   <div className="space-y-1.5">

@@ -9,6 +9,7 @@ import Link from 'next/link'
 import { useLocale, useTranslations } from 'next-intl'
 import { CheckCircle2, Clock, Mail, Package, PenLine, Phone, RefreshCw, ShoppingCart, UserPlus } from 'lucide-react'
 import { SupportContactDrawer } from '@/components/admin/support-contact-drawer'
+import { TrialReviewPanel } from '@/components/admin/trial-review-panel'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import { AdminPageHeader } from '@/components/admin/ui/admin-page-header'
@@ -144,6 +145,9 @@ export function ActivationAdmin() {
         />
         </div>
       </section>
+
+      {/* Essais refusés ou signalés (protection de l'essai, migration 213) */}
+      <TrialReviewPanel />
 
       {/* Entonnoir par semaine */}
       <section className="min-w-0 space-y-2" aria-labelledby="act-funnel">

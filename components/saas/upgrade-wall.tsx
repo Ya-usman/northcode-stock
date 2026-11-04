@@ -9,9 +9,11 @@ import { Button } from '@/components/ui/button'
 interface UpgradeWallProps {
   locale: string
   shopName?: string
+  /** Essai refusé (numéro déjà utilisé pour un essai, migration 213) : le dire au lieu de « essai terminé » */
+  trialRefused?: boolean
 }
 
-export function UpgradeWall({ locale, shopName }: UpgradeWallProps) {
+export function UpgradeWall({ locale, shopName, trialRefused }: UpgradeWallProps) {
   const t = useTranslations('saas')
 
   const features = [
@@ -33,11 +35,11 @@ export function UpgradeWall({ locale, shopName }: UpgradeWallProps) {
           <div className="inline-flex h-14 w-14 items-center justify-center rounded-full bg-white/20 mb-4">
             <Lock className="h-7 w-7 text-white" />
           </div>
-          <h2 className="text-xl font-bold text-white mb-1">
-            {t('trial_ended_title')}
+          <h2 className="text-xl font-bold text-white mb-1" data-testid={trialRefused ? 'upgrade-wall-trial-refused' : undefined}>
+            {trialRefused ? t('trial_refused_title') : t('trial_ended_title')}
           </h2>
           <p className="text-blue-200 text-sm">
-            {shopName ? t('trial_ended_subtitle_shop', { shopName }) : t('trial_ended_subtitle')}
+            {trialRefused ? t('trial_refused_subtitle') : shopName ? t('trial_ended_subtitle_shop', { shopName }) : t('trial_ended_subtitle')}
           </p>
         </div>
 
