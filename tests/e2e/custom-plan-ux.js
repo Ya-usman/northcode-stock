@@ -70,6 +70,7 @@ async function open({ email = 'ghislainx123@gmail.com', mocks = {}, path = '/bil
   await st.scrollIntoViewIfNeeded()
   ok(norm(await st.innerText()).includes('Devis reçu : 29 000 F CFA par mois, valable jusqu'), `état : « ${norm(await st.innerText())} »`)
   await page.screenshot({ path: OUT + '/custom-status.png' })
+  ok(await page.getByTestId('custom-request-open').count() === 0, 'devis en cours : pas de bouton « Demander un devis » (une seule demande à la fois)')
   await s.browser.close()
   s = await open({ path: `/billing/quote/${TOKEN}`, mocks: { 'GET /api/billing/custom/quote': QUOTE_PAGE(), 'POST /api/billing/custom/quote': { authorization_url: `${BASE}/fr/billing?paiement=simule` } } }); page = s.page
   const card = page.getByTestId('quote-card')

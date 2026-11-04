@@ -95,7 +95,8 @@ export function CustomPlanSection({ shopId, phone }: { shopId: string; phone?: s
             </ul>
           </div>
         </div>
-        {!current && (
+        {/* Une seule demande ouverte à la fois : pas de bouton pendant une demande ou un devis en cours */}
+        {!current && !(latest && (latest.state === 'requested' || latest.state === 'quoted')) && (
           <Button variant="stockshop" className="h-11 gap-2" onClick={() => { setSent(false); setError(null); setOpen(true) }} data-testid="custom-request-open">
             <Sparkles className="h-4 w-4" />{t('card_cta')}
           </Button>
