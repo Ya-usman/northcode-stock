@@ -14,14 +14,14 @@
 
 import { randomBytes } from 'crypto'
 import { BILLING_PERIODS, getPeriodDays, type BillingPeriod } from '@/lib/saas/countries'
-import { getAccountForShop, setAccountPlan } from '@/lib/saas/entity'
+import { getAccountForShop } from '@/lib/saas/entity'
 import { enforceShopPlanLimits } from '@/lib/saas/enforce-limits'
 import { processReferralReward } from '@/lib/referrals/process-reward'
 import { applyWalletCredit } from '@/lib/referrals/apply-credit'
 import { writeAuditLog, getClientIp } from '@/lib/api/audit'
 import { priceZone } from '@/lib/saas/pricing-country'
-import { addPurchasedAddons, applyRenewalAddons } from '@/lib/saas/addons'
-import { applyCustomPlan, clearCustomPlan } from '@/lib/saas/custom-plan-server'
+import { addPurchasedAddons } from '@/lib/saas/addons'
+import { applyPlanPayment } from '@/lib/saas/plan-change-server'
 
 export type Gateway = 'paystack' | 'notchpay' | 'flutterwave' | 'wave' | 'stripe'
 export type PaidPlan = 'starter' | 'pro' | 'business'
@@ -51,6 +51,9 @@ export interface PaymentIntent {
   kind?: 'plan' | 'addon' | 'custom'
   /** Devis payé (kind = 'custom', migration 211) */
   quote_id?: string | null
+  /** Manière d'appliquer (migration 212) : now / stack / next ; crédit de montée déduit du montant dû */
+  schedule?: 'now' | 'stack' | 'next'
+  prorata_credit?: number
   addon_seats?: number
   addon_shops?: number
   period_end?: string | null
@@ -82,7 +85,7 @@ export async function findPaymentIntent(admin: any, gateway: Gateway, refs: { re
   for (const [col, val] of [['reference', refs.reference], ['gateway_reference', refs.gatewayReference]] as const) {
     if (!val) continue
     const { data } = await admin.from('payment_intents').select('*').eq('gateway', gateway).eq(col, String(val)).maybeSingle()
-    if (data) return { ...data, amount: Number(data.amount), credit_applied: Number(data.credit_applied), amount_due: Number(data.amount_due), addon_seats: Number(data.addon_seats ?? 0), addon_shops: Number(data.addon_shops ?? 0) }
+    if (data) return { ...data, amount: Number(data.amount), credit_applied: Number(data.credit_applied), amount_due: Number(data.amount_due), addon_seats: Number(data.addon_seats ?? 0), addon_shops: Number(data.addon_shops ?? 0), prorata_credit: Number(data.prorata_credit ?? 0) }
   }
   return null
 }
@@ -143,31 +146,29 @@ export async function settlePayment(admin: any, intent: PaymentIntent, paid: Con
   // Achat d'options en cours de période : ni formule ni nouvelle période, seulement les quantités ajoutées
   if (intent.kind === 'addon') return settleAddonPurchase(admin, intent, paidAmount, paidCurrency, paid, request)
 
-  const days = getPeriodDays(intent.billing_period)
   const now = new Date()
-  const plan_expires_at = new Date(now.getTime() + days * 24 * 60 * 60 * 1000).toISOString()
+  let period = { start: now, end: new Date(now.getTime() + getPeriodDays(intent.billing_period) * 24 * 60 * 60 * 1000) }
 
-  // Abonnement de l'ENTREPRISE de la boutique payée (source de vérité depuis la migration 153)
+  // Abonnement de l'ENTREPRISE de la boutique payée (source de vérité depuis la migration 153), appliqué selon la manière
+  // décidée au paiement préparé (migration 212 : tout de suite, à la suite de la période en cours, ou à sa fin)
   const account = await getAccountForShop(admin, intent.shop_id)
   if (account) {
-    const { error: planError } = await setAccountPlan(admin, account, { plan: intent.plan, plan_expires_at, trial_ends_at: null })
-    if (planError) console.error('[billing/settle] plan non enregistré', intent.shop_id, planError)
-    // Devis sur mesure payé (migration 211) : limites du devis, devis payé, prix garanti 1 an
-    else if (intent.kind === 'custom' && intent.quote_id) await applyCustomPlan(admin, account.entityId, intent.quote_id, intent.reference)
-    else {
-      // Options de la nouvelle période : celles comprises dans le prix préparé (retrait programmé appliqué) ; une offre
-      // sur mesure éventuelle prend fin (formule normale payée)
-      await applyRenewalAddons(admin, account.entityId, Number(intent.addon_seats ?? 0), Number(intent.addon_shops ?? 0))
-      await clearCustomPlan(admin, account.entityId)
-    }
+    // Situation d'avant, gardée pour un éventuel remboursement d'erreur (48 h, par l'administration)
+    await admin.from('payment_intents').update({ prev_plan: account.plan, prev_plan_expires_at: account.plan_expires_at, prev_trial_ends_at: account.trial_ends_at }).eq('id', intent.id)
+    period = await applyPlanPayment(admin, account, {
+      plan: intent.plan, period: intent.billing_period, schedule: intent.schedule ?? 'now',
+      addonSeats: Number(intent.addon_seats ?? 0), addonShops: Number(intent.addon_shops ?? 0),
+      kind: intent.kind === 'custom' ? 'custom' : 'plan', quoteId: intent.quote_id ?? null, reference: intent.reference,
+    }, now)
   } else console.error('[billing/settle] entreprise introuvable pour la boutique', intent.shop_id)
+  const plan_expires_at = period.end.toISOString()
 
   const { data: shopRow } = await admin.from('shops').select('owner_id, agent_id, country').eq('id', intent.shop_id).maybeSingle()
   const ownerId = intent.owner_id ?? (shopRow as any)?.owner_id ?? null
 
   const { data: newSub } = await admin.from('subscriptions').insert({
     shop_id: intent.shop_id, plan: intent.plan, amount: paidAmount, billing_period: intent.billing_period,
-    paystack_reference: intent.reference, starts_at: now.toISOString(), expires_at: plan_expires_at, status: 'active',
+    paystack_reference: intent.reference, starts_at: period.start.toISOString(), expires_at: plan_expires_at, status: 'active',
     auto_renew: intent.auto_renew, gateway: intent.gateway,
     gateway_authorization: intent.auto_renew && paid.authorization ? paid.authorization : null,
     gateway_email: paid.email ?? null, gateway_last4: paid.last4 ?? null,
@@ -201,7 +202,7 @@ export async function settlePayment(admin: any, intent: PaymentIntent, paid: Con
 
   await writeAuditLog({
     action: 'billing.verify', shop_id: intent.shop_id, actor_id: ownerId, target_id: intent.reference, target_type: `${intent.gateway}_payment`,
-    metadata: { plan_id: intent.plan, billing_period: intent.billing_period, amount: paidAmount, currency: intent.currency, credit_applied: intent.credit_applied, gateway_tx_id: paid.gatewayTxId ?? null, addon_seats: Number(intent.addon_seats ?? 0), addon_shops: Number(intent.addon_shops ?? 0), quote_id: intent.quote_id ?? null },
+    metadata: { plan_id: intent.plan, billing_period: intent.billing_period, amount: paidAmount, currency: intent.currency, credit_applied: intent.credit_applied, gateway_tx_id: paid.gatewayTxId ?? null, addon_seats: Number(intent.addon_seats ?? 0), addon_shops: Number(intent.addon_shops ?? 0), quote_id: intent.quote_id ?? null, schedule: intent.schedule ?? 'now', prorata_credit: Number(intent.prorata_credit ?? 0), starts_at: period.start.toISOString() },
     ip: getClientIp(request),
   } as any)
 

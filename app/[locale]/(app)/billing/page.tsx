@@ -70,6 +70,8 @@ export default function BillingPage({ params: { locale } }: { params: { locale: 
     limits: { plan: string; shops: number; team_members: number; until: string } | null
     /** Pays de tarification (migration 208) : celui dont les prix s'appliquent, et pourquoi */
     pricing?: { country: string; reason: 'declared' | 'activity' | 'override'; declared: string; activity_share: number } | null
+    /** Changement de formule programmé (migration 212) */
+    pending?: { plan: string; from: string } | null
   } | null>(null)
   useEffect(() => {
     if (!shop?.id) return
@@ -79,6 +81,13 @@ export default function BillingPage({ params: { locale } }: { params: { locale: 
     }).catch(() => {})
     return () => { alive = false }
   }, [shop?.id])
+
+  // Aperçu du changement (lib/saas/plan-change, migration 212) : crédit d'une montée, début de la période, descente
+  // programmée et ce qui sera mis en pause ; même calcul que le paiement (/api/billing/change-preview)
+  const [change, setChange] = useState<{
+    schedule: 'now' | 'stack' | 'next'; amount: number; credit: number; amount_due: number; starts_at: string; ends_at: string
+    blocked: string | null; pending: { plan: string; from: string } | null; paused: { shops: number; seats: number }; current_plan: string
+  } | null>(null)
 
   // Options payantes (lib/saas/addons) : état, prix et renouvellement calculés par le serveur ; propriétaire seulement
   const [addonInfo, setAddonInfo] = useState<AddonInfo | null>(null)
@@ -234,6 +243,17 @@ export default function BillingPage({ params: { locale } }: { params: { locale: 
     m => m.type !== 'cash' && m.type !== 'credit'
   )
 
+  useEffect(() => {
+    if (!checkoutPlan || !shop?.id) { setChange(null); return }
+    let alive = true
+    setChange(null)
+    withTimeout(fetch(`/api/billing/change-preview?shop_id=${shop.id}&plan=${checkoutPlan}&period=${period}`))
+      .then(async res => { if (alive && res.ok) setChange(await res.json()) }).catch(() => {})
+    return () => { alive = false }
+  }, [checkoutPlan, period, shop?.id])
+  const dayLong = (iso: string) => new Date(iso).toLocaleDateString(dateLocaleTag(locale), { day: 'numeric', month: 'long', year: 'numeric' })
+  const planLabel = (id: string) => (id === 'business' ? 'Business' : id === 'pro' ? 'Pro' : 'Starter')
+
   const openCheckout = (planId: PlanId) => {
     setCheckoutPlan(planId)
     setSelectedMethod(subscriptionMethods[0]?.id || '')
@@ -266,7 +286,7 @@ export default function BillingPage({ params: { locale } }: { params: { locale: 
   const walletMatchesCountry = !!rewardWallet && rewardWallet.currency === billingCurrency && rewardWallet.available_balance > 0
   const creditPreview = (planId: PlanId) => {
     if (!walletMatchesCountry || !useCredit) return null
-    const price = totalOf(planId)
+    const price = change && checkoutPlan === planId ? change.amount_due : totalOf(planId)
     const applied = Math.min(rewardWallet!.available_balance, price)
     const due = Math.round((price - applied) * 100) / 100
     return { price, applied, due, remaining: rewardWallet!.available_balance - applied }
@@ -380,6 +400,11 @@ export default function BillingPage({ params: { locale } }: { params: { locale: 
             {isSubscribed && shop?.plan_expires_at && (
               <p className="text-sm text-muted-foreground">
                 {t('renewal_date', { date: new Date(shop.plan_expires_at).toLocaleDateString(locale, { day: 'numeric', month: 'long', year: 'numeric' }) })}
+              </p>
+            )}
+            {terms?.pending && (
+              <p className="mt-1 text-sm font-medium text-stockshop-blue dark:text-blue-400" data-testid="billing-pending-change">
+                {t('pending_change', { plan: planLabel(terms.pending.plan), date: dayLong(terms.pending.from) })}
               </p>
             )}
             {!isSubscribed && !isTrialActive && (
@@ -507,8 +532,9 @@ export default function BillingPage({ params: { locale } }: { params: { locale: 
                   </ul>
 
                   {isCurrent ? (
-                    <Button disabled className="w-full" variant="outline">
-                      {t('current_plan_btn')}
+                    // Renouvellement anticipé (migration 212) : la nouvelle période commence à la fin de l'actuelle
+                    <Button onClick={() => openCheckout(id)} data-testid={`billing-renew-${id}`} className="w-full" variant="outline">
+                      {t('renew_current_btn')}
                     </Button>
                   ) : (
                     <Button
@@ -574,6 +600,12 @@ export default function BillingPage({ params: { locale } }: { params: { locale: 
                   const detail = [r.seats ? tA('seats_count', r.seats) : '', r.shops ? tA('shops_count', r.shops) : ''].filter(Boolean).join(', ')
                   return <p className="text-xs text-muted-foreground" data-testid="checkout-addons">{tAddons('checkout_included', { detail })}</p>
                 })()}
+                {change && change.credit > 0 && (
+                  <div className="space-y-0.5 pt-1 text-sm" data-testid="checkout-prorata">
+                    <div className="flex justify-between text-green-700 dark:text-green-400"><span>{t('change_credit')}</span><span className="tabular-nums">- {formatAmount(change.credit)}</span></div>
+                    <div className="flex justify-between font-semibold"><span>{t('change_due_today')}</span><span className="tabular-nums" data-testid="checkout-due">{formatAmount(change.amount_due)}</span></div>
+                  </div>
+                )}
                 {period !== 'monthly' && (() => {
                   const monthly = totalOf(checkoutPlan, 'monthly')
                   const total   = totalOf(checkoutPlan)
@@ -633,6 +665,24 @@ export default function BillingPage({ params: { locale } }: { params: { locale: 
                   </div>
                 )
               })()}
+
+              {/* Manière d'appliquer le paiement (immédiat, à la suite, ou à la fin de la période payée) */}
+              {change && (change.blocked ? (
+                <p className="rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-800 dark:bg-amber-950/40 dark:text-amber-300" data-testid="checkout-blocked">
+                  {change.blocked === 'plan_change_pending' && change.pending ? t('change_pending_block', { plan: planLabel(change.pending.plan), date: dayLong(change.pending.from) }) : t('change_choose_longer')}
+                </p>
+              ) : change.schedule === 'stack' ? (
+                <p className="rounded-lg bg-muted/50 px-3 py-2 text-sm" data-testid="checkout-schedule" data-schedule="stack">{t('change_stack', { date: dayLong(change.starts_at), end: dayLong(change.ends_at) })}</p>
+              ) : change.schedule === 'next' ? (
+                <div className="space-y-1 rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-900 dark:bg-amber-950/40 dark:text-amber-200" data-testid="checkout-schedule" data-schedule="next">
+                  <p>{t('change_next', { current: planLabel(change.current_plan), date: dayLong(change.starts_at), plan: planLabel(checkoutPlan) })}</p>
+                  {change.paused.shops > 0 && <p className="font-medium" data-testid="checkout-paused-shops">{t('change_paused_shops', { count: change.paused.shops })}</p>}
+                  {change.paused.seats > 0 && <p className="font-medium" data-testid="checkout-paused-seats">{t('change_paused_seats', { count: change.paused.seats })}</p>}
+                  {(change.paused.shops > 0 || change.paused.seats > 0) && <p className="text-xs">{t('change_paused_hint')}</p>}
+                </div>
+              ) : change.credit > 0 ? (
+                <p className="rounded-lg bg-muted/50 px-3 py-2 text-sm" data-testid="checkout-schedule" data-schedule="now">{t('change_upgrade_now', { plan: planLabel(checkoutPlan), end: dayLong(change.ends_at) })}</p>
+              ) : null)}
 
               {/* Key features (top 3) */}
               <div className="grid grid-cols-1 gap-1.5">
@@ -774,7 +824,7 @@ export default function BillingPage({ params: { locale } }: { params: { locale: 
                 <Button
                   onClick={handlePay}
                   loading={loading}
-                  disabled={!selectedMethod || loading}
+                  disabled={!selectedMethod || loading || !!change?.blocked}
                   variant="stockshop"
                   className="flex-1 h-11 rounded-lg font-semibold"
                 >
@@ -782,7 +832,7 @@ export default function BillingPage({ params: { locale } }: { params: { locale: 
                     const preview = creditPreview(checkoutPlan)
                     if (preview && preview.due === 0) return t('checkout_confirm_free')
                     if (preview) return `${t('checkout_pay')} ${formatAmount(preview.due)}`
-                    return `${t('checkout_pay')} ${formatAmount(totalOf(checkoutPlan))}`
+                    return `${t('checkout_pay')} ${formatAmount(change ? change.amount_due : totalOf(checkoutPlan))}`
                   })()}
                 </Button>
               )}

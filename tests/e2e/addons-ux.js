@@ -31,6 +31,18 @@ async function open({ email = 'ghislainx123@gmail.com', state, width = 1366, hei
     if (!state) { const res = await route.fetch(); real.push({ status: res.status(), body: await res.json().catch(() => null) }); return route.fulfill({ response: res }) }
     return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(state) })
   })
+  // Aperçu du paiement (migration 212) : même état simulé que les options (sinon le serveur réel, sans l'option
+  // simulée, annoncerait la formule seule). Formule mensuelle du pays + options reconduites.
+  if (state) await s.page.route(/\/api\/billing\/change-preview/, route => {
+    const q = Object.fromEntries(new URL(route.request().url()).searchParams)
+    const base = { starter: 5000, pro: 10000, business: 15000 }[q.plan] || 0
+    const amount = base + (q.plan === state.plan ? state.renewal.monthly_addons : 0)
+    return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({
+      plan: q.plan, period: q.period, current_plan: state.plan, schedule: q.plan === state.plan ? 'stack' : 'now', currency: 'XAF',
+      amount, credit: 0, amount_due: amount, starts_at: state.plan_expires_at, ends_at: state.plan_expires_at, blocked: null, pending: null,
+      paused: { shops: 0, seats: 0 }, renew: { seats: state.addons.seats_renew, shops: state.addons.shops_renew },
+    }) })
+  })
   await s.page.route(/\/(api|rest\/v1)\//, async route => {
     const r = route.request()
     if (['GET', 'HEAD', 'OPTIONS'].includes(r.method())) return route.fallback()

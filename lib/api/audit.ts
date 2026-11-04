@@ -23,6 +23,9 @@ export type AuditAction =
   | 'billing.addon_purchase' | 'billing.addon_review' | 'billing.addon_renewal' | 'billing.addon_renewal_reminder'
   // Offre sur mesure (migration 211)
   | 'billing.custom_request' | 'billing.custom_quote_reminder'
+  // Changements de formule (migration 212)
+  | 'billing.plan_change_reminder'
+  | 'billing.plan_switch'
   | 'account.register'
   | 'account.delete'
   | 'sale.cancel'
@@ -85,6 +88,7 @@ export type AuditAction =
   | 'admin.grant_bonus'
   | 'admin.addon_refund_remove'
   | 'admin.custom_quote_send' | 'admin.custom_quote_extend' | 'admin.custom_quote_decline'
+  | 'admin.payment_refund'
   | 'admin.revoke_bonus'
   | 'admin.edit_shop'
   | 'admin.set_internal'

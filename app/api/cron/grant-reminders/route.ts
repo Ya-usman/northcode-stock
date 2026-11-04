@@ -12,6 +12,11 @@ import { getAccountForShop, getEntityShopIds } from '@/lib/saas/entity'
 import { countTeamSeats, getShopLimit } from '@/lib/saas/team-quota'
 import { addonReminderDue } from '@/lib/saas/addons'
 import { priceReviewDue, quoteExpiryReminderDue } from '@/lib/saas/custom-plan'
+import { applyScheduledPlan } from '@/lib/saas/entity'
+import { isDowngrade } from '@/lib/saas/plan-change'
+import { enforceShopPlanLimits } from '@/lib/saas/enforce-limits'
+import { getGrantBonus } from '@/lib/saas/grants'
+import { PLANS, type PlanId } from '@/lib/saas/plans'
 import { formatCurrency } from '@/lib/utils/currency'
 
 // Rappel de fin des gestes commerciaux (migration 157) — chaque matin.
@@ -23,6 +28,8 @@ import { formatCurrency } from '@/lib/utils/currency'
 // options ne seront pas renouvelées (retrait programmé) ; une fois par période (journal billing.addon_renewal_reminder).
 // Offre sur mesure (migration 211) : devis envoyés qui expirent dans 3 jours → e-mail au propriétaire ; devis dépassés →
 // « expiré » ; prix garanti qui finit dans 30 jours → alerte à l'équipe (journal billing.custom_quote_reminder).
+// Changements de formule (migration 212) : bascules arrivées à leur date appliquées (limites remises en ordre) ;
+// descente dans 7 jours → e-mail au propriétaire avec ce qui sera mis en pause (journal billing.plan_change_reminder).
 // ?dry=1 : calcule et renvoie ce qui serait envoyé, sans rien envoyer ni journaliser
 // (&now=<date ISO> pour simuler un autre jour).
 
@@ -285,6 +292,78 @@ export async function GET(request: Request) {
       }).catch(() => {})
     }
 
+    // ── Changements de formule programmés : bascules dues, puis rappel 7 jours avant une descente ─────────────────
+    let planSwitches = 0
+    const changeReminders: { entity: string; plan: string; from: string; email: string; paused: { shops: number; seats: number } }[] = []
+    const { data: dueRows } = await admin.from('entities').select('id, next_plan, next_plan_from, next_plan_until, next_addon_seats, next_addon_shops')
+      .not('next_plan', 'is', null).lte('next_plan_from', now.toISOString())
+    for (const e of (dueRows || []) as any[]) {
+      if (dry) { planSwitches++; continue }
+      if (await applyScheduledPlan(admin, e)) planSwitches++
+    }
+    // Limites remises en ordre pour TOUTES les bascules des dernières 26 h (ici, ou à la lecture de l'abonnement)
+    if (!dry) {
+      const { data: sw } = await admin.from('audit_logs').select('target_id').eq('action', 'billing.plan_switch').gte('created_at', new Date(now.getTime() - 26 * 3_600_000).toISOString())
+      for (const id of Array.from(new Set<string>((sw || []).map((l: any) => String(l.target_id))))) {
+        const { data: s1 } = await admin.from('shops').select('id').eq('entity_id', id).is('deleted_at', null).limit(1)
+        if (s1?.[0]) await enforceShopPlanLimits(admin, s1[0].id).catch(() => {})
+      }
+    }
+    const { data: soonRows } = await admin.from('entities').select('id, name, plan, owner_user_id, next_plan, next_plan_from, next_addon_seats, next_addon_shops')
+      .not('next_plan', 'is', null).gt('next_plan_from', now.toISOString()).lte('next_plan_from', new Date(now.getTime() + 7 * DAY).toISOString())
+    if (soonRows?.length) {
+      const { data: cLogs } = await admin.from('audit_logs').select('metadata')
+        .eq('action', 'billing.plan_change_reminder').gte('created_at', new Date(now.getTime() - 14 * DAY).toISOString())
+      const cSent = new Set<string>((cLogs || []).map((l: any) => String(l.metadata?.key)))
+      for (const e of soonRows as any[]) {
+        if (!isDowngrade(e.plan, e.next_plan)) continue
+        const key = `${e.id}:${String(e.next_plan_from).slice(0, 10)}`
+        if (cSent.has(key)) continue
+        const { data: shops } = await admin.from('shops').select('id').eq('entity_id', e.id).is('deleted_at', null).order('created_at', { ascending: true })
+        if (!shops?.length) continue
+        const account = await getAccountForShop(admin, shops[0].id)
+        if (!account) continue
+        // Ce qui dépassera les limites de la formule suivante (formule + gestes + options reconduites)
+        const limits = PLANS[e.next_plan as PlanId].limits
+        const [seatsNow, shopIdsNow, bonus] = await Promise.all([countTeamSeats(admin, account), getEntityShopIds(admin, account, { includeSuspended: true }), getGrantBonus(admin, e.id)])
+        const paused = {
+          shops: Math.max(0, shopIdsNow.length - (limits.shops + bonus.shops + Number(e.next_addon_shops ?? 0))),
+          seats: Math.max(0, seatsNow.used - (limits.team_members + bonus.team_seats + Number(e.next_addon_seats ?? 0))),
+        }
+        const { data: owner } = e.owner_user_id ? await admin.from('profiles').select('full_name, locale').eq('id', e.owner_user_id).maybeSingle() : { data: null }
+        const { data: authUser } = e.owner_user_id ? await admin.auth.admin.getUserById(e.owner_user_id) : { data: null }
+        const locale = normalizeLocale(owner?.locale)
+        const t = getLocaleTranslator(locale, 'plan_change_reminder')
+        const date = formatDate(e.next_plan_from, locale)
+        const name = (id: string) => (id === 'business' ? 'Business' : id === 'pro' ? 'Pro' : 'Starter')
+        const body = [
+          t('body', { current: name(e.plan), plan: name(e.next_plan), date }),
+          paused.shops || paused.seats ? t('over', { shops: paused.shops, seats: paused.seats }) : t('within_limit'),
+        ].join(' ')
+        let email = 'skipped'
+        const to = authUser?.user?.email ?? null
+        if (!dry) {
+          if (to && process.env.RESEND_API_KEY) {
+            const { error: mailError } = await resend.emails.send({
+              from: EMAIL_FROM, to, subject: t('email_subject', { plan: name(e.next_plan), date }),
+              html: `
+              <p>${esc(t('greeting', { name: owner?.full_name || '' }))}</p>
+              <p>${esc(body)}</p>
+              <p><a href="${appUrl}/${locale}/billing" style="background:#073e8a;color:#fff;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:bold;">${esc(t('cta'))}</a></p>
+              <p style="color:#666;font-size:12px;">${esc(t('footer'))}</p>`,
+            })
+            email = mailError ? `error: ${mailError.message}` : 'sent'
+          } else if (!to) email = 'no_owner_email'
+          await writeAuditLog({
+            action: 'billing.plan_change_reminder', shop_id: shops[0].id, target_id: e.id, target_type: 'entity',
+            metadata: { key, plan: e.plan, next_plan: e.next_plan, from: e.next_plan_from, paused, email },
+          })
+          cSent.add(key)
+        }
+        changeReminders.push({ entity: account.name || '', plan: e.next_plan, from: e.next_plan_from, email, paused })
+      }
+    }
+
     // Récapitulatif aux administrateurs (pour agir avant la fin : désactivation, formule…)
     const adminEmails = (process.env.SUPER_ADMIN_EMAILS || '').split(',').map(e => e.trim()).filter(Boolean)
     if (!dry && reminders.length && adminEmails.length && process.env.RESEND_API_KEY) {
@@ -297,7 +376,7 @@ export async function GET(request: Request) {
       }).catch(() => {})
     }
 
-    const summary = { dry, checked: (grants || []).length, reminders: reminders.map(({ title, body, ...r }) => r), addon_reminders: addonReminders, quote_reminders: quoteReminders, quotes_expired: quotesExpired }
+    const summary = { dry, checked: (grants || []).length, reminders: reminders.map(({ title, body, ...r }) => r), addon_reminders: addonReminders, quote_reminders: quoteReminders, quotes_expired: quotesExpired, plan_switches: planSwitches, change_reminders: changeReminders }
     if (!dry) await logCronRun('grant-reminders', 'success', summary)
     return NextResponse.json(dry ? { ...summary, preview: reminders.map(r => ({ grant_id: r.grant_id, title: r.title, body: r.body })) } : summary)
   } catch (err: any) {

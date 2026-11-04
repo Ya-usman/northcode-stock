@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createAdminClient, createClient } from '@/lib/supabase/server'
 import { checkShopRole } from '@/lib/api/shop-auth'
-import { getPeriodDays, OFFERED_PERIODS, type BillingPeriod } from '@/lib/saas/countries'
+import { OFFERED_PERIODS, type BillingPeriod } from '@/lib/saas/countries'
 import { checkRateLimit } from '@/lib/rate-limit'
 import { validateBody, uuid, email as emailSchema, billingPeriodEnum, planEnum } from '@/lib/api/validate'
 import { getApiTranslator } from '@/lib/api/i18n'
@@ -9,11 +9,11 @@ import { writeAuditLog, getClientIp } from '@/lib/api/audit'
 import { enforceShopPlanLimits } from '@/lib/saas/enforce-limits'
 import { createPaymentIntent, newPaymentReference, type Gateway } from '@/lib/billing/payment-intents'
 import { startGatewayPayment } from '@/lib/billing/start-payment'
-import { applyRenewalAddons } from '@/lib/saas/addons'
+import { applyPlanPayment, prepareChange } from '@/lib/saas/plan-change-server'
 import { computePlanCharge } from '@/lib/billing/plan-charge'
 import { getEntityCustom } from '@/lib/saas/custom-plan'
 import { previewWalletCredit, applyWalletCredit } from '@/lib/referrals/apply-credit'
-import { getAccountForShop, setAccountPlan } from '@/lib/saas/entity'
+import { getAccountForShop } from '@/lib/saas/entity'
 import { requestCountry } from '@/lib/saas/pricing-country'
 import { z } from 'zod'
 
@@ -79,19 +79,25 @@ export async function POST(request: Request) {
     const billingCurrency = charge.currency
     const baseUrl = process.env.NEXT_PUBLIC_APP_URL || `https://${process.env.VERCEL_URL}`
 
+    // Changement de formule sans perte (migration 212, lib/saas/plan-change) : même formule en cours → à la suite ;
+    // montée → immédiate avec crédit des jours payés non utilisés ; descente → à la fin de la période payée
+    const change = await prepareChange(supabase, account, plan_id, period, amount, billingCurrency)
+    if (change.blocked) return NextResponse.json({ error: t(change.blocked), code: change.blocked }, { status: 409 })
+    const afterProrata = Math.round((amount - change.credit) * 100) / 100
+
     // ── Crédit de parrainage ────────────────────────────────────────────────
     // Réduit ce qui est envoyé à la passerelle (jamais le prix affiché
     // avant) — voir lib/referrals/apply-credit.ts. Le débit réel du wallet
     // n'a lieu qu'à la confirmation du paiement (ou immédiatement ici si le
     // crédit couvre 100% du prix, auquel cas aucune passerelle n'est appelée).
-    let amountDue = amount
+    let amountDue = afterProrata
     let creditApplied = 0
     if (use_credit) {
       const { data: ownerMember } = await supabase
         .from('shop_members').select('user_id').eq('shop_id', shop_id).eq('role', 'owner').eq('is_active', true).maybeSingle()
       const owner_id = ownerMember?.user_id ?? (shopData as any)?.owner_id
       if (owner_id) {
-        const preview = await previewWalletCredit(supabase, owner_id, amount, billingCurrency)
+        const preview = await previewWalletCredit(supabase, owner_id, afterProrata, billingCurrency)
         creditApplied = preview.creditApplied
         amountDue = preview.amountDue
 
@@ -99,19 +105,16 @@ export async function POST(request: Request) {
           // 100% couvert par le crédit — aucune passerelle de paiement n'est
           // jamais appelée. Réplique ce que fait normalement chaque route
           // billing/*/verify après confirmation d'un paiement.
-          const days = getPeriodDays(period)
-          const plan_expires_at = new Date(Date.now() + days * 24 * 60 * 60 * 1000).toISOString()
-
-          // Abonnement de l'entreprise (source de vérité, migration 153)
-          if (account) {
-            await setAccountPlan(supabase, account, { plan: plan_id, plan_expires_at, trial_ends_at: null })
-            await applyRenewalAddons(supabase, account.entityId, renew.seats, renew.shops)
-          }
+          // Abonnement de l'entreprise (source de vérité, migration 153), appliqué comme un paiement confirmé
+          const period2 = account
+            ? await applyPlanPayment(supabase, account, { plan: plan_id as any, period, schedule: change.schedule, addonSeats: renew.seats, addonShops: renew.shops, kind: 'plan', reference: `CREDIT-${shop_id.slice(0, 8)}` })
+            : { start: change.start, end: change.end }
+          const plan_expires_at = period2.end.toISOString()
 
           const { data: newSub } = await supabase.from('subscriptions').insert({
             shop_id, plan: plan_id, amount: 0, billing_period: period,
             paystack_reference: `CREDIT-${shop_id.slice(0, 8)}-${Date.now()}`,
-            starts_at: new Date().toISOString(), expires_at: plan_expires_at,
+            starts_at: period2.start.toISOString(), expires_at: plan_expires_at,
             status: 'active', auto_renew: false, gateway: 'wallet_credit',
           } as any).select('id').single()
 
@@ -148,7 +151,7 @@ export async function POST(request: Request) {
         plan: plan_id as any, billing_period: period, currency: billingCurrency, amount, credit_applied: creditApplied, amount_due: amountDue,
         auto_renew: !!auto_renew,
         request_country: requestCountry(request), pricing_reason: pricing.reason, pricing_country: pricing.country,
-        kind: 'plan', addon_seats: renew.seats, addon_shops: renew.shops,
+        kind: 'plan', addon_seats: renew.seats, addon_shops: renew.shops, schedule: change.schedule, prorata_credit: change.credit,
       })
       if (!prepared.ok) {
         console.error('[billing/subscribe] préparation du paiement impossible', prepared.error)

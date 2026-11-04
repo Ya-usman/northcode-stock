@@ -1,3 +1,4 @@
+import { NEXT_COLUMNS, effectivePlan } from './plan-change'
 // Abonnement d'une boutique = celui de son ENTREPRISE (migration 153, 5 oct.
 // 2026). Avant : celui du profil personnel de son propriétaire (migrations 047
 // et 106). Chaque consommateur de `Shop` (contexte, admin, exports) reçoit
@@ -15,11 +16,14 @@ export async function attachOwnerPlan(
   const entityIds = Array.from(new Set(shops.map(s => s.entity_id).filter(Boolean))) as string[]
   const byEntity = new Map<string, any>()
   if (entityIds.length) {
-    const { data: entities, error } = await supabase
+    // Avec le changement programmé (migration 212) : une descente arrivée à sa date est vue tout de suite ; colonnes
+    // absentes : lecture d'avant
+    let { data: entities, error } = await supabase
       .from('entities')
-      .select('id, name, plan, plan_expires_at, trial_ends_at')
+      .select(`id, name, plan, plan_expires_at, trial_ends_at, ${NEXT_COLUMNS}`)
       .in('id', entityIds)
-    if (!error) for (const e of entities ?? []) byEntity.set(e.id, e)
+    if (error) ({ data: entities, error } = await supabase.from('entities').select('id, name, plan, plan_expires_at, trial_ends_at').in('id', entityIds))
+    if (!error) for (const e of entities ?? []) byEntity.set(e.id, effectivePlan(e))
   }
 
   for (const shop of shops) {

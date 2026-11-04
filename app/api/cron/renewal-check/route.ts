@@ -5,6 +5,7 @@ import { fetchWithTimeout } from '@/lib/api/fetch'
 import { logCronRun } from '@/lib/api/cron-log'
 import { getAccountForShop } from '@/lib/saas/entity'
 import { computePlanCharge } from '@/lib/billing/plan-charge'
+import { classifyChange, pendingChange } from '@/lib/saas/plan-change'
 import { getEntityCustom } from '@/lib/saas/custom-plan'
 import { createPaymentIntent, newPaymentReference, findPaymentIntent, settlePayment, failPaymentIntent } from '@/lib/billing/payment-intents'
 import { Resend } from 'resend'
@@ -30,7 +31,7 @@ export async function GET(request: NextRequest) {
   // Find active auto-renew subscriptions expiring within 3 days
   const { data: subs } = await supabase
     .from('subscriptions')
-    .select('id, shop_id, plan, billing_period, amount, gateway, gateway_authorization, gateway_email, renewal_failures')
+    .select('id, shop_id, plan, billing_period, amount, expires_at, gateway, gateway_authorization, gateway_email, renewal_failures')
     .eq('auto_renew', true)
     .eq('status', 'active')
     .lt('expires_at', in3Days)
@@ -43,12 +44,22 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ processed: 0 })
   }
 
-  let charged = 0, reminded = 0, failed = 0
+  let charged = 0, reminded = 0, failed = 0, alreadyPaid = 0
 
   for (const sub of subs as any[]) {
     await supabase.from('subscriptions').update({
       last_renewal_attempt_at: now.toISOString(),
     }).eq('id', sub.id)
+
+    // Période suivante DÉJÀ payée (renouvellement anticipé, descente programmée : migration 212) : rien à prélever ni à
+    // rappeler ; cet abonnement ne se renouvelle plus (celui de la période payée porte le renouvellement). Sans ce
+    // contrôle, la carte serait prélevée une seconde fois.
+    const account = await getAccountForShop(supabase, sub.shop_id).catch(() => null)
+    if (account && (pendingChange(account, now) || (account.plan_expires_at && new Date(account.plan_expires_at).getTime() > new Date(sub.expires_at).getTime() + 24 * 60 * 60 * 1000))) {
+      await supabase.from('subscriptions').update({ auto_renew: false }).eq('id', sub.id)
+      alreadyPaid++
+      continue
+    }
 
     // ── Prélèvement automatique Paystack (carte enregistrée) ────────────────
     // Même règle que le paiement manuel (4 nov. 2026) : montant = formule + options reconduites, calculé par
@@ -58,7 +69,6 @@ export async function GET(request: NextRequest) {
     if (sub.gateway === 'paystack' && sub.gateway_authorization && sub.gateway_email) {
       let reference: string | null = null
       try {
-        const account = await getAccountForShop(supabase, sub.shop_id)
         const period = (sub.billing_period in BILLING_PERIODS ? sub.billing_period : 'monthly') as BillingPeriod
         const plan = (['starter', 'pro', 'business'].includes(sub.plan) ? sub.plan : null) as 'starter' | 'pro' | 'business' | null
         // Offre sur mesure (migration 211) : jamais prélevée au prix d'une formule normale ; renouvellement par le devis
@@ -71,6 +81,8 @@ export async function GET(request: NextRequest) {
           plan, billing_period: period, currency: charge.currency, amount: charge.amount, credit_applied: 0, amount_due: charge.amount,
           auto_renew: true, request_country: null, pricing_reason: charge.pricing.reason, pricing_country: charge.pricing.country,
           kind: 'plan', addon_seats: charge.renew.seats, addon_shops: charge.renew.shops,
+          // Même formule encore en cours : la nouvelle période commence à la fin de l'actuelle (migration 212)
+          schedule: classifyChange({ plan: account.plan, plan_expires_at: account.plan_expires_at }, plan),
         })
         if (!prepared.ok) throw new Error(prepared.error)
         const secret = process.env.PAYSTACK_SECRET_KEY!
@@ -131,7 +143,7 @@ export async function GET(request: NextRequest) {
     }
   }
 
-  const summary = { processed: subs.length, charged, reminded, failed }
+  const summary = { processed: subs.length, charged, reminded, failed, already_paid: alreadyPaid }
   await logCronRun('renewal-check', 'success', summary)
   return NextResponse.json(summary)
   } catch (err: any) {

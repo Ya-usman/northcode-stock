@@ -17,6 +17,7 @@ import { Suspense } from 'react'
 import { PaymentsRevenuePanel, GatewayRevenueAmount } from '@/components/admin/payments-revenue-panel'
 import { ReportingCurrencyProvider } from '@/components/admin/reporting-currency-context'
 import { PricingCountriesPanel } from '@/components/admin/pricing-countries-panel'
+import { PaymentRefundsPanel } from '@/components/admin/payment-refunds-panel'
 
 const PLAN_COLORS: Record<string, string> = {
   starter: 'text-blue-400 bg-blue-400/10',
@@ -170,6 +171,9 @@ export default async function AdminPaymentsPage({
 
         {/* Écarts de pays (migration 208) : pays déclaré, activité réelle et paiements */}
         <PricingCountriesPanel />
+
+        {/* Remboursement d'un paiement fait par erreur (48 h, motif obligatoire) */}
+        <PaymentRefundsPanel />
 
         {/* Répartition par fournisseur */}
         {gatewayRows.length > 0 && (

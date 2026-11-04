@@ -74,6 +74,8 @@ export async function POST(request: Request) {
     currency: q.currency!, amount, credit_applied: 0, amount_due: amount, auto_renew: false,
     request_country: requestCountry(request), pricing_reason: 'override', pricing_country: q.pricing_country || null,
     kind: 'custom', quote_id: q.id, addon_seats: 0, addon_shops: 0,
+    // Renouvellement de l'offre en cours : la nouvelle période commence à la fin de l'actuelle (migration 212)
+    schedule: payable === 'renewal' ? 'stack' : 'now',
   })
   if (!prepared.ok) {
     console.error('[billing/custom/quote] préparation du paiement impossible', prepared.error)

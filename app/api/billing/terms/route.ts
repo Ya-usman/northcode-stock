@@ -6,6 +6,7 @@ import { getAccountForShop } from '@/lib/saas/entity'
 import { getCountry, getBillingCurrency } from '@/lib/saas/countries'
 import { getLegacyTerms, monthlyPriceFor } from '@/lib/saas/legacy-terms'
 import { getPricingCountry } from '@/lib/saas/pricing-country'
+import { pendingChange } from '@/lib/saas/plan-change'
 
 // Conditions des clients actuels pour la page Abonnement (tarification du 3 nov. 2026) : prix garanti par formule
 // (le même calcul que /api/billing/subscribe, lib/saas/legacy-terms) et anciennes limites tant qu'elles valent.
@@ -26,7 +27,9 @@ export async function GET(request: Request) {
   const p = account ? await getPricingCountry(admin, account) : null
   const pricing = p ? { country: p.country, reason: p.reason, declared: p.declared, activity_share: Math.round(p.activityShare * 100) } : null
   const terms = await getLegacyTerms(admin, account?.entityId)
-  if (!terms) return NextResponse.json({ locked: {}, limits: null, pricing })
+  // Changement de formule programmé (migration 212), affiché dans « Votre formule »
+  const pending = account ? pendingChange(account) : null
+  if (!terms) return NextResponse.json({ locked: {}, limits: null, pricing, pending })
   const country = getCountry(pricing?.country ?? account?.billing_country)
   const currency = getBillingCurrency(country)
   const locked: Record<string, number> = {}
@@ -36,6 +39,7 @@ export async function GET(request: Request) {
   }
   const limitsValid = new Date(terms.limits_until) > new Date() && account?.plan === terms.plan
   return NextResponse.json({
+    pending,
     locked,
     limits: limitsValid ? { plan: terms.plan, shops: terms.shops, team_members: terms.team_members, until: terms.limits_until } : null,
     pricing,
