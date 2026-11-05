@@ -131,7 +131,9 @@ const text = async (page, id) => norm(await page.getByTestId(id).first().innerTe
   const body = await res.json().catch(() => null)
   ok(res.status === 200 && body && Object.keys(body).join() === 'country', 'réponse : le pays seulement', body)
   ok(/no-store/.test(res.headers.get('cache-control') || ''), 'jamais mis en cache', res.headers.get('cache-control'))
-  ok(body.country === null, 'serveur local : pays inconnu (pas d\'hébergeur)', body)
+  // En local, pas d'hébergeur donc pas de pays ; en ligne, Vercel donne le pays du visiteur (2 lettres)
+  if (/localhost|127\.0\.0\.1/.test(BASE)) ok(body.country === null, 'serveur local : pays inconnu (pas d\'hébergeur)', body)
+  else ok(/^[A-Z]{2}$/.test(body.country || ''), `en ligne : pays donné par l'hébergeur (${body.country})`, body)
 
   console.log('\n7. Page Abonnement (formule Pro payée simulée, rien n\'est envoyé)')
   const until = new Date(Date.now() + 20 * DAY).toISOString()
