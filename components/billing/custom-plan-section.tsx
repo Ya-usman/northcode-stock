@@ -31,7 +31,7 @@ interface Quote {
 
 export function CustomPlanSection({ shopId, phone }: { shopId: string; phone?: string | null }) {
   const t = useTranslations('custom_quote')
-  const tP = useTranslations('billing_page')
+  const tP = useTranslations('plan_offer')
   const locale = useLocale()
   const { toast } = useToast()
   const [data, setData] = React.useState<{ quotes: Quote[]; current: string | null } | null>(null)

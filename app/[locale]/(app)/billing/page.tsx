@@ -28,6 +28,8 @@ import { takeReturn } from '@/lib/billing/resume-after-payment'
 import { CustomPlanSection } from '@/components/billing/custom-plan-section'
 import { AddonsCard, type AddonInfo } from '@/components/billing/addons-card'
 import { addonsMonthly, parseAddons, renewalAddons } from '@/lib/saas/addons'
+import { PLAN_LINE_KEYS, POPULAR_PLAN } from '@/lib/saas/plan-offer'
+import { isDowngrade } from '@/lib/saas/plan-change'
 
 type PlanId = 'starter' | 'pro' | 'business'
 
@@ -39,6 +41,8 @@ const PLAN_ICONS: Record<PlanId, React.ReactNode> = {
 
 export default function BillingPage({ params: { locale } }: { params: { locale: string } }) {
   const t = useTranslations('billing_page')
+  // Lignes des formules et durées : textes communs avec la page d'accueil (lib/saas/plan-offer)
+  const tOffer = useTranslations('plan_offer')
   const tAddons = useTranslations('addons')
   const tLimit = useTranslations('limit_reached')
   const tRoot = useTranslations()
@@ -108,23 +112,11 @@ export default function BillingPage({ params: { locale } }: { params: { locale: 
     }).catch(() => {})
   }, [])
 
-  const PLAN_DETAILS = [
-    {
-      id: 'starter' as PlanId,
-      popular: false,
-      features: [t('starter_f1'), t('starter_f2'), t('starter_f3'), t('starter_f4'), t('starter_f5'), t('starter_f6')],
-    },
-    {
-      id: 'pro' as PlanId,
-      popular: true,
-      features: [t('pro_f1'), t('pro_f2'), t('pro_f3'), t('pro_f4'), t('pro_f5'), t('pro_f6')],
-    },
-    {
-      id: 'business' as PlanId,
-      popular: false,
-      features: [t('business_f1'), t('business_f2'), t('business_f3'), t('business_f4'), t('business_f5'), t('business_f6')],
-    },
-  ]
+  const PLAN_DETAILS = (['starter', 'pro', 'business'] as PlanId[]).map(id => ({
+    id,
+    popular: id === POPULAR_PLAN,
+    features: PLAN_LINE_KEYS[id].map(k => tOffer(k as any)),
+  }))
 
   useEffect(() => {
     const success = searchParams.get('success')
@@ -346,8 +338,8 @@ export default function BillingPage({ params: { locale } }: { params: { locale: 
     { q: t('faq_2_q'), a: t('faq_2_a') },
     // Passerelle et moyens RÉELS du pays de tarification (mêmes que la fenêtre de paiement) ; Stripe pas encore ouvert
     { q: t('faq_3_q'), a: isStripe
-      ? t('faq_3_unavailable', { country: country.name })
-      : t('faq_3_gateway', { gateway: gatewayLabel, country: country.name, methods: subscriptionMethods.map(m => m.label).join(', ') }) },
+      ? t('faq_3_unavailable', { country: tCountries(country.code as any) })
+      : t('faq_3_gateway', { gateway: gatewayLabel, country: tCountries(country.code as any), methods: subscriptionMethods.map(m => m.label).join(', ') }) },
     { q: t('faq_4_q'), a: t('faq_4_a') },
   ]
 
@@ -366,10 +358,10 @@ export default function BillingPage({ params: { locale } }: { params: { locale: 
   }[period]
 
   const periodSuffix = {
-    monthly:    t('per_month'),
-    semiannual: t('per_6months'),
-    quarterly:  t('per_3months'),
-    annual:     t('per_year'),
+    monthly:    tOffer('per_month'),
+    semiannual: tOffer('per_6months'),
+    quarterly:  tOffer('per_3months'),
+    annual:     tOffer('per_year'),
   }[period]
 
   const checkoutPlanDetails = checkoutPlan ? PLAN_DETAILS.find(p => p.id === checkoutPlan) : null
@@ -384,7 +376,7 @@ export default function BillingPage({ params: { locale } }: { params: { locale: 
           <div className="flex items-center justify-between flex-wrap gap-3">
             <div className="flex items-center gap-2 text-sm text-muted-foreground">
               <span className="text-xl">{country.flag}</span>
-              <span>{country.name} · {currencySymbol(billingCurrency)}</span>
+              <span>{tCountries(country.code as any)} · {currencySymbol(billingCurrency)}</span>
             </div>
           </div>
           <div className="mt-4">
@@ -458,9 +450,9 @@ export default function BillingPage({ params: { locale } }: { params: { locale: 
             {/* Durées : mensuel, 6 mois (2 semaines offertes), 1 an (2 mois offerts) */}
             <SegmentedTabs className="self-start sm:self-auto" value={period} onChange={v => setPeriod(v as BillingPeriod)} testId="billing-period" items={OFFERED_PERIODS.map(p => ({
               key: p,
-              label: <>{t(`period_${p}` as any)}{p !== 'monthly' && <span className={cn('rounded-full px-1.5 py-0.5 text-xs font-bold', p === 'annual'
+              label: <>{tOffer(`period_${p}` as any)}{p !== 'monthly' && <span className={cn('rounded-full px-1.5 py-0.5 text-xs font-bold', p === 'annual'
                 ? 'bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-400'
-                : 'bg-stockshop-blue-muted text-stockshop-blue dark:bg-blue-900/40 dark:text-blue-400')}>{t(`badge_${p}` as any)}</span>}</>,
+                : 'bg-stockshop-blue-muted text-stockshop-blue dark:bg-blue-900/40 dark:text-blue-400')}>{tOffer(`badge_${p}` as any)}</span>}</>,
             }))} />
           </div>
 
@@ -476,10 +468,16 @@ export default function BillingPage({ params: { locale } }: { params: { locale: 
               {t('legacy_limits', { date: new Date(terms.limits.until).toLocaleDateString(dateLocaleTag(locale), { day: 'numeric', month: 'long', year: 'numeric' }), shops: terms.limits.shops, members: terms.limits.team_members })}
             </p>
           )}
+          {isStripe && (
+            <p className="mb-4 rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-800 dark:bg-amber-950/40 dark:text-amber-300" data-testid="billing-pay-soon">
+              {t('faq_3_unavailable', { country: tCountries(country.code as any) })}
+            </p>
+          )}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             {PLAN_DETAILS.map(({ id, popular, features }) => {
               const isCurrent = shop?.plan === id && isSubscribed
               const planName = id.charAt(0).toUpperCase() + id.slice(1)
+              const switchFrom = isSubscribed && isDowngrade(shop?.plan, id) ? (shop as any)?.plan_expires_at as string | null : null
 
               return (
                 <div
@@ -515,9 +513,9 @@ export default function BillingPage({ params: { locale } }: { params: { locale: 
                     {/* 6 mois / 1 an : ce qui est offert, puis l'équivalent mensuel, lisibles d'un coup d'œil */}
                     {period !== 'monthly' && (
                       <p className="mt-1 text-sm" data-testid="billing-period-note">
-                        <span className="font-semibold text-green-700 dark:text-green-400">{t(`badge_${period}` as any)}</span>
+                        <span className="font-semibold text-green-700 dark:text-green-400">{tOffer(`badge_${period}` as any)}</span>
                         <span className="text-muted-foreground"> · </span>
-                        <span className="font-medium text-foreground">{t('per_month_equiv', { price: formatAmount(Math.round(getPeriodPrice(monthlyPriceOf(id), period) / BILLING_PERIODS[period].months)) })}</span>
+                        <span className="font-medium text-foreground">{tOffer('per_month_equiv', { price: formatAmount(Math.round(getPeriodPrice(monthlyPriceOf(id), period) / BILLING_PERIODS[period].months)) })}</span>
                       </p>
                     )}
                     {terms?.locked?.[id] !== undefined && (
@@ -551,7 +549,7 @@ export default function BillingPage({ params: { locale } }: { params: { locale: 
                           : 'border border-stockshop-blue dark:border-blue-400 text-stockshop-blue dark:text-blue-400 hover:bg-stockshop-blue-muted dark:hover:bg-blue-950/40 bg-transparent'
                       )}
                     >
-                      {isSubscribed ? `${t('upgrade_to')} ${planName}` : `${t('choose_plan_btn')} ${planName}`}
+                      {switchFrom ? t('switch_on', { plan: planName, date: dayLong(switchFrom) }) : isSubscribed ? `${t('upgrade_to')} ${planName}` : `${t('choose_plan_btn')} ${planName}`}
                     </Button>
                   )}
                 </div>
@@ -712,7 +710,7 @@ export default function BillingPage({ params: { locale } }: { params: { locale: 
                     <div>
                       <p className="font-semibold text-sm">{t('online_payment_soon_title')}</p>
                       <p className="text-xs text-muted-foreground mt-1">
-                        {t('online_payment_soon_desc', { country: country.name })}
+                        {t('online_payment_soon_desc', { country: tCountries(country.code as any) })}
                       </p>
                     </div>
                     <div className="rounded-xl bg-card border p-3 text-left space-y-1">

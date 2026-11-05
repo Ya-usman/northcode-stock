@@ -26,7 +26,8 @@ export function generateStaticParams() {
 // provider from (app)/layout.tsx is guaranteed NOT to have mounted — so it can
 // only ever render with whatever this outer provider supplies.
 // country_picker + countries : choix du pays des tarifs sur la page d'accueil (avant le 3 nov. 2026 : clés brutes affichées)
-const PUBLIC_NAMESPACES = ['landing', 'auth', 'register', 'error_page', 'reset_password', 'offline', 'country_picker', 'countries'] as const
+// plan_offer : lignes des formules, durées et tableau de comparaison, communs avec la page Abonnement (lot 4B, 5 nov. 2026)
+const PUBLIC_NAMESPACES = ['landing', 'auth', 'register', 'error_page', 'reset_password', 'offline', 'country_picker', 'countries', 'plan_offer'] as const
 
 export default async function LocaleLayout({ children, params: { locale } }: LocaleLayoutProps) {
   if (!locales.includes(locale as Locale)) notFound()

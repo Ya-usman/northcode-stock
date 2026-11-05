@@ -27,7 +27,7 @@ interface Data {
 
 export default function QuotePage({ params: { token } }: { params: { token: string } }) {
   const t = useTranslations('custom_quote')
-  const tP = useTranslations('billing_page')
+  const tP = useTranslations('plan_offer')
   const locale = useLocale()
   const { toast } = useToast()
   const { user } = useAuth()

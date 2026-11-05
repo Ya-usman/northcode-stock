@@ -16,20 +16,10 @@
 import { getAccountForShop } from './entity'
 import { getLegacyTerms, parseLegacyTerms, type LegacyTerms } from './legacy-terms'
 
-// long_reports = historique au-delà de 3 mois (nom gardé) ; unlimited_history = historique sans limite
-export type PlanFeature = 'transfers' | 'po_email' | 'exports' | 'long_reports' | 'unlimited_history' | 'priority_support'
-export const PLAN_FEATURES: PlanFeature[] = ['transfers', 'po_email', 'exports', 'long_reports', 'unlimited_history', 'priority_support']
-export type FeatureMap = Record<PlanFeature, boolean>
-
-/** Formule minimale de chaque fonction */
-export const FEATURE_MIN_PLAN: Record<PlanFeature, 'pro' | 'business'> = {
-  transfers: 'pro', po_email: 'pro', exports: 'pro', long_reports: 'pro', unlimited_history: 'business', priority_support: 'business',
-}
-
-/** Starter : 3 derniers mois (92 jours couvrent « Ce trimestre » et « Mois dernier ») ; Pro : 1 an (366 jours couvrent
- *  « Cette année » et les 12 mois du tableau de bord) ; +1 jour de marge pour les fuseaux horaires */
-export const REPORT_FREE_DAYS = 92
-export const PRO_HISTORY_DAYS = 366
+// Constantes de la règle (fonctions, formule minimale, durées d'historique, rang) : lib/saas/plan-feature-rules, sans
+// import serveur, pour que la page d'accueil (tableau des formules) lise la même règle
+import { PLAN_FEATURES, FEATURE_MIN_PLAN, REPORT_FREE_DAYS, PRO_HISTORY_DAYS, PLAN_RANK, type PlanFeature, type FeatureMap } from './plan-feature-rules'
+export { PLAN_FEATURES, FEATURE_MIN_PLAN, REPORT_FREE_DAYS, PRO_HISTORY_DAYS, type PlanFeature, type FeatureMap }
 const DAY = 86_400_000
 
 /** Durée d'historique consultable en jours ; -1 = sans limite */
@@ -60,7 +50,7 @@ export function reportStartAllowed(start: Date | string, allowLong: boolean, now
   return historyStartAllowed(start, allowLong ? -1 : REPORT_FREE_DAYS, now)
 }
 
-const RANK: Record<string, number> = { starter: 1, trial: 2, pro: 2, business: 3 }
+const RANK = PLAN_RANK
 
 /** Anciennes conditions encore valables (même formule, avant la date) */
 export function legacyActive(terms: LegacyTerms | null, planId: string | null | undefined, now = new Date()): boolean {
