@@ -2668,7 +2668,8 @@
         },
         "done": {
           "title": "Vous avez les repères",
-          "body": "Prochaine étape : ajouter votre premier produit."
+          "body": "Prochaine étape : ajouter votre premier produit.",
+          "body_alone": "Vous retrouverez ce tour à tout moment dans la page Aide."
         }
       },
       "add_product": {
@@ -2702,7 +2703,8 @@
         },
         "done": {
           "title": "Votre premier produit est en stock",
-          "body": "Ajoutez les autres de la même façon, ou importez-les d’un coup. Prochaine étape : votre première vente."
+          "body": "Ajoutez les autres de la même façon, ou importez-les d’un coup. Prochaine étape : votre première vente.",
+          "body_alone": "Ajoutez les autres de la même façon, ou importez-les d’un coup."
         }
       },
       "first_sale": {

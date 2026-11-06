@@ -2708,7 +2708,8 @@
         },
         "done": {
           "title": "Ka san hanyoyin",
-          "body": "Mataki na gaba: ƙara kayanka na farko."
+          "body": "Mataki na gaba: ƙara kayanka na farko.",
+          "body_alone": "Za ku iya sake yin wannan zagaye a kowane lokaci a shafin Taimako."
         }
       },
       "add_product": {
@@ -2742,7 +2743,8 @@
         },
         "done": {
           "title": "Kayanka na farko yana nan",
-          "body": "Ƙara sauran haka nan, ko shigo da su gaba ɗaya. Mataki na gaba: sayarwarka ta farko."
+          "body": "Ƙara sauran haka nan, ko shigo da su gaba ɗaya. Mataki na gaba: sayarwarka ta farko.",
+          "body_alone": "Ƙara sauran haka nan, ko shigo da su gaba ɗaya."
         }
       },
       "first_sale": {

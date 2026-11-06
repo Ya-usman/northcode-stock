@@ -1,11 +1,16 @@
-// Migrations 184 puis 214 (dernière version de la règle) — les constantes de la règle SQL (role_can_view_feature) sont-elles
+// Dernière migration qui définit la règle (184, 214, 215…, trouvée toute seule) — les constantes de la règle SQL (role_can_view_feature) sont-elles
 // EXACTEMENT celles de lib/permissions ? Échoue dès qu'une valeur par défaut, une fonction, READ_ONLY_ROLES, READ_ONLY_LOCKED
 // ou GENERAL_EXEMPT change d'un côté
 // sans l'autre (toute évolution = nouvelle migration). Test PUR, sans base.
 // Usage : node tests/e2e/rls-feature-pure.mjs
-import { readFileSync } from 'node:fs'
+import { readFileSync, readdirSync } from 'node:fs'
 const P = await import(new URL('../../lib/permissions/index.ts', import.meta.url).href)
-const sql = readFileSync(new URL('../../supabase/migrations/214_accountant_role.sql', import.meta.url), 'utf8')
+// Toujours la DERNIÈRE version de role_can_view_feature (plus de numéro écrit en dur à mettre à jour)
+const DIR = new URL('../../supabase/migrations/', import.meta.url)
+const file = readdirSync(DIR).filter(f => /^\d{3}_.*\.sql$/.test(f)).sort()
+  .filter(f => /FUNCTION public\.role_can_view_feature\(/.test(readFileSync(new URL(f, DIR), 'utf8'))).pop()
+const sql = readFileSync(new URL(file, DIR), 'utf8')
+console.log(`règle lue dans ${file}`)
 let pass = 0, fail = 0
 const ok = (c, m) => { c ? pass++ : fail++; console.log((c ? 'ok    ' : 'ÉCHEC ') + m) }
 const arr = name => {

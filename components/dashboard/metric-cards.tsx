@@ -1,6 +1,7 @@
 'use client'
 
 import { motion } from 'framer-motion'
+import { isReadOnlyRole } from '@/lib/permissions'
 import { TrendingUp, ShoppingCart, AlertTriangle, CreditCard, Receipt, CalendarDays, BarChart2 } from 'lucide-react'
 import { Card, CardContent } from '@/components/ui/card'
 import { useTranslations, useLocale } from 'next-intl'
@@ -101,7 +102,8 @@ export function MetricCards({ todayRevenue, todaySalesCount, lowStockCount, outs
       icon: CalendarDays,
       color: 'text-violet-600 dark:text-violet-400',
       bg: 'bg-violet-50 dark:bg-violet-950/30',
-      show: canAccess('widget_net_result'),
+      // Ce que la personne a ELLE-MÊME encaissé : sans objet pour un rôle en lecture seule (toujours 0)
+      show: canAccess('widget_net_result') && !isReadOnlyRole(role),
     },
     {
       title: t('global_month_sales'),

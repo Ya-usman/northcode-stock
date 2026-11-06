@@ -142,10 +142,12 @@ export const DEFAULT_PERMISSIONS: AllPerms = {
   // Comptable (6 nov. 2026) : consulte les chiffres pour tenir les comptes, sans rien modifier. Ventes, encaissements
   // et crédits, clients, dépenses, rapports, fournisseurs, stock et sa valeur, prix d'achat et marges. Ni vente, ni
   // caisse, ni inventaire, ni équipe, ni réglages. Lecture seule forcée par resolvePermission (READ_ONLY_ROLES).
+  // revenue_chart (« Chiffre d'affaires de la boutique », migration 215) : OUI, encaissements du mois de toute la
+  // boutique et graphique revenus / dépenses / résultat du tableau de bord.
   accountant: {
     new_sale: false, discount: false, sales_history: true, payments: true, customers: true,
     stock: true, movements: true, expiry_list: true, categories: true, suppliers: true, transfers: true,
-    reports: true, revenue_chart: false, notes: false, expenses: true,
+    reports: true, revenue_chart: true, notes: false, expenses: true,
     delete_products: false, delete_expenses: false, caisse: false, inventory_count: false, extend_hours: false, view_purchase_cost: true,
     ...ALL_WIDGETS_ON,
     widget_dashboard_revenue_chart: false, widget_top_products_chart: false,

@@ -96,8 +96,36 @@ async function asUser(admin, email) {
   ok(!/Nouvelle vente|Contrôle de caisse|Équipe|Paramètres|Abonnement|Notes/.test(nav), 'menu : ni vente, ni caisse, ni équipe, ni réglages, ni abonnement, ni notes', nav)
   const main = norm(await s.page.locator('main').innerText().catch(() => ''))
   ok(/F CFA|FCFA|XAF|\d[\d\s ]*F\b/.test(main), 'tableau de bord : montants affichés (pas de tirets comme pour l\'Observateur)', main.slice(0, 300))
-  if (/Bienvenue dans l’équipe/.test(main)) ok(/Votre accès est en lecture seule/.test(main) && !/la caisse, le stock/.test(main), 'carte d\'accueil : texte « lecture seule », sans la caisse', main.slice(0, 300))
+  // Chiffre de la boutique (215) : oui par défaut, mais le réglage RÉEL d'Alpha décide (un « non » dans l'onglet Général
+  // l'emporte pour tout le monde). L'écran et le serveur doivent suivre la même règle, dans un sens comme dans l'autre.
+  const P = await import(path.join(ROOT, 'lib/permissions/index.ts').replace(/\\/g, '/').replace(/^([A-Z]):/, 'file:///$1:'))
+  const stored = (await admin.from('shops').select('role_permissions').eq('id', ALPHA).single()).data?.role_permissions
+  const expectCa = P.canView(stored, 'accountant', 'revenue_chart')
+  console.log(`  (réglage d'Alpha : chiffre de la boutique ${expectCa ? 'ouvert' : 'masqué'} pour le Comptable${stored?.general?.revenue_chart === false ? ', masqué pour tous dans « Général »' : ''})`)
+  ok(/Encaissements du mois/.test(main) === expectCa, `tableau de bord : encaissements du mois de la boutique ${expectCa ? 'affichés' : 'masqués'}, comme le réglage`, main.slice(0, 400))
+  const now = new Date(), from = new Date(now.getFullYear(), now.getMonth() - 2, 1).toISOString()
+  const er = await call(s, 'GET', `/api/dashboard/expense-revenue?shop_ids=${ALPHA}&from=${encodeURIComponent(from)}&to=${encodeURIComponent(now.toISOString())}`)
+  ok(er.status === (expectCa ? 200 : 403), `graphique revenus / dépenses / résultat : ${er.status}, comme le réglage`, er.t.slice(0, 200))
+  ok(!/Mes encaissements du mois/.test(main),'tableau de bord : pas de « Mes encaissements du mois » (il n\'encaisse pas)', main.slice(0, 400))
   await s.page.screenshot({ path: OUT + '/accountant-dashboard.png' })
+  if (/Bienvenue dans l’équipe/.test(main)) {
+    ok(/Votre accès est en lecture seule/.test(main) && !/la caisse, le stock/.test(main), 'carte d\'accueil : texte « lecture seule », sans la caisse', main.slice(0, 300))
+    // Visite express jusqu'au bout : ni étape « Vendre », ni « Prochaine étape : ajouter un produit » (enregistrement bloqué, rien n'est écrit)
+    await s.page.getByTestId('tw-start').click(); await wait(1200)
+    const bubble = () => s.page.getByTestId('tour-bubble').innerText().then(norm).catch(() => '')
+    const seen = []
+    for (let i = 0; i < 10; i++) {
+      const b = await bubble(); seen.push(b)
+      if (!(await s.page.getByTestId('tour-next').count())) break
+      await s.page.getByTestId('tour-next').click(); await wait(700)
+    }
+    const last = seen[seen.length - 1] || ''
+    ok(seen.length === 6 && /6\/6/.test(last), `visite express : 6 étapes au lieu de 7 (${seen.length})`, seen.map(x => x.slice(0, 40)))
+    ok(!seen.some(x => /Vendre|La caisse/.test(x)), 'visite express : pas d\'étape « Vendre »', seen.map(x => x.slice(0, 60)))
+    ok(/page Aide/.test(last) && !/Prochaine étape/.test(last) && !(await s.page.getByTestId('tour-chain').count()), 'visite express : fin sans « ajouter votre premier produit »', last)
+    await s.page.screenshot({ path: OUT + '/accountant-tour-end.png' })
+    await s.page.getByTestId('tour-finish').click().catch(() => {}); await wait(500)
+  } else console.log('  (carte d\'accueil déjà masquée pour ce compte : visite non rejouée)')
   for (const [p, re] of [['/fr/sales/history', /Historique/], ['/fr/expenses', /Dépenses/], ['/fr/reports', /Rapports|Marge|Bénéfice/]]) {
     await s.page.goto(BASE + p, { waitUntil: 'domcontentloaded', timeout: 120000 }); await wait(7000)
     const txt = norm(await s.page.locator('main').innerText().catch(() => ''))

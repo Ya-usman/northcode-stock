@@ -13,7 +13,8 @@ import { ArrowRight, X } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils/cn'
-import { TOURS, onAppPage, type TourId } from '@/lib/onboarding/tours'
+import { TOURS, onAppPage, tourSteps, type TourId } from '@/lib/onboarding/tours'
+import { useAvailableTours } from '@/components/onboarding/use-available-tours'
 import { onOnboarding } from '@/lib/onboarding/events'
 import { appPath } from '@/lib/announcements/use-announcements'
 
@@ -87,6 +88,9 @@ export function OnboardingProvider({ userId, children }: { userId: string | null
     if (next) setState(next)
   }, [])
 
+  // Tours accessibles (rôle, droits) : étapes « requires » et enchaînements filtrés
+  const available = useAvailableTours()
+
   const startTour = useCallback((id: TourId) => {
     setActive({ id, step: 0 })
     setState(s => ({ ...s, tours: { ...s.tours, [id]: { ...s.tours[id], status: s.tours[id]?.status === 'completed' ? 'completed' : 'started' } } }))
@@ -99,8 +103,8 @@ export function OnboardingProvider({ userId, children }: { userId: string | null
     setActive(null)
     setState(s => ({ ...s, tours: { ...s.tours, [id]: { ...s.tours[id], status } } }))
     // Abandon : l'étape où la personne s'est arrêtée (Admin → Activation)
-    record({ action: 'tour', tour: id, status, ...(status === 'skipped' ? { step: TOURS[id][active.step]?.id } : {}) })
-  }, [active, record])
+    record({ action: 'tour', tour: id, status, ...(status === 'skipped' ? { step: tourSteps(id, available)[active.step]?.id } : {}) })
+  }, [active, record, available])
 
   // Lien d'une relance e-mail (?tour=add_product…) : le tour démarre seul, puis
   // le paramètre est retiré de l'adresse (un rechargement ne le relance pas)
@@ -130,6 +134,7 @@ export function OnboardingProvider({ userId, children }: { userId: string | null
           key={`${active.id}-${active.step}`}
           tour={active.id}
           step={active.step}
+          available={available}
           onStep={step => setActive({ id: active.id, step })}
           onEnd={endTour}
           onChain={next => { endTour('completed'); setTimeout(() => startTour(next), 0) }}
@@ -139,15 +144,15 @@ export function OnboardingProvider({ userId, children }: { userId: string | null
   )
 }
 
-function TourOverlay({ tour, step, onStep, onEnd, onChain }: {
-  tour: TourId; step: number
+function TourOverlay({ tour, step, available, onStep, onEnd, onChain }: {
+  tour: TourId; step: number; available: TourId[]
   onStep: (n: number) => void
   onEnd: (status: 'completed' | 'skipped') => void
   onChain: (next: TourId) => void
 }) {
   const t = useTranslations('onboarding')
   const pathname = usePathname()
-  const steps = TOURS[tour]
+  const steps = tourSteps(tour, available)
   const s = steps[step]
   const isLast = step === steps.length - 1
   const [rect, setRect] = useState<DOMRect | null>(null)
@@ -268,7 +273,9 @@ function TourOverlay({ tour, step, onStep, onEnd, onChain }: {
   }
 
   const k = `tours.${tour}.${s.id}`
-  const nextTour = isLast ? s.next : undefined
+  const nextTour = isLast && s.next && available.includes(s.next) ? s.next : undefined
+  // Fin sans enchaînement possible : texte sans « Prochaine étape »
+  const bodyKey = isLast && s.next && !nextTour ? 'body_alone' : 'body'
   const awaiting = !!s.waitFor && onPage
 
   return (
@@ -297,7 +304,7 @@ function TourOverlay({ tour, step, onStep, onEnd, onChain }: {
         </div>
         <h2 id="tour-title" className="mt-1 text-base font-semibold">{t(`${k}.title` as any)}</h2>
         <p className="mt-1 text-sm leading-relaxed text-muted-foreground">
-          {t(`${k}.body` as any)}
+          {t(`${k}.${bodyKey}` as any)}
         </p>
         <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
           <div className="flex gap-1" aria-hidden>

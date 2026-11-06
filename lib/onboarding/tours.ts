@@ -14,7 +14,10 @@
 //    l'étape `leaveTo` (le chemin) au lieu de la ramener de force ;
 //  - backTo : si les éléments éclairés disparaissent sur la page (formulaire
 //    fermé…), retour à cette étape ;
-//  - next : étape finale, propose d'enchaîner sur un autre tour.
+//  - next : étape finale, propose d'enchaîner sur un autre tour (seulement s'il
+//    est accessible à la personne ; sinon le texte « body_alone » remplace « body ») ;
+//  - requires : étape montrée seulement si ce tour est accessible (ex. « Vendre »
+//    seulement à qui peut vendre : ni Observateur, ni Comptable, ni Magasinier).
 // Textes : messages/*.json, « onboarding.tours.<tour>.<étape> ».
 
 import type { OnboardingEvent } from './events'
@@ -31,15 +34,21 @@ export interface TourStep {
   leaveTo?: number
   backTo?: number
   next?: TourId
+  requires?: TourId
 }
 
 const nav = (slug: string) => `[data-tour="nav-${slug}"]`
 const MORE = nav('more') // téléphone : entrée rangée dans « Plus »
 
+/** Étapes réellement montrées à la personne (selon les tours qui lui sont accessibles) */
+export function tourSteps(tour: TourId, available: readonly TourId[]): TourStep[] {
+  return TOURS[tour].filter(s => !s.requires || available.includes(s.requires))
+}
+
 export const TOURS: Record<TourId, TourStep[]> = {
   quick_tour: [
     { id: 'intro' },
-    { id: 'sell', targets: [nav('sales-new')] },
+    { id: 'sell', targets: [nav('sales-new')], requires: 'first_sale' },
     { id: 'stock', targets: [nav('stock')] },
     { id: 'history', targets: [nav('sales-history'), MORE] },
     { id: 'reports', targets: [nav('reports'), MORE] },

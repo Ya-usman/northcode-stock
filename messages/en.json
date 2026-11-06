@@ -2668,7 +2668,8 @@
         },
         "done": {
           "title": "You know your way around",
-          "body": "Next step: add your first product."
+          "body": "Next step: add your first product.",
+          "body_alone": "You can replay this tour at any time from the Help page."
         }
       },
       "add_product": {
@@ -2702,7 +2703,8 @@
         },
         "done": {
           "title": "Your first product is in stock",
-          "body": "Add the others the same way, or import them in one go. Next step: your first sale."
+          "body": "Add the others the same way, or import them in one go. Next step: your first sale.",
+          "body_alone": "Add the others the same way, or import them in one go."
         }
       },
       "first_sale": {

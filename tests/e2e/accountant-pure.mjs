@@ -33,6 +33,9 @@ ok(!P.canViewCost({ accountant: { view_purchase_cost: false } }, 'accountant'), 
 ok(['new_sale', 'caisse', 'inventory_count', 'notes', 'discount'].every(f => !P.canView(null, 'accountant', f)), 'ni vente, ni caisse, ni inventaire, ni notes')
 ok(['widget_today_revenue', 'widget_outstanding_debt', 'widget_net_result', 'widget_rep_marge_brute'].every(f => P.canView(null, 'accountant', f)), 'tableau de bord et rapports : encaissé, crédits, résultat, marge')
 ok(!P.canView({ general: { reports: false } }, 'accountant', 'reports'), 'onglet « Général » respecté')
+ok(P.canView(null, 'accountant', 'revenue_chart') && !P.canView({ accountant: { revenue_chart: false } }, 'accountant', 'revenue_chart'),
+  'chiffre d\'affaires de la boutique (encaissements du mois, graphique) : oui par défaut, retirable (215)')
+ok(['manager', 'shop_manager', 'cashier', 'stock_manager', 'viewer'].every(r => !P.canView(null, r, 'revenue_chart')), 'autres rôles : chiffre de la boutique inchangé (non par défaut)')
 ok(!P.isManagerial('accountant'), 'aucune action de direction (annuler un paiement, passer une dette en perte…)')
 
 console.log('\n3. Observateur inchangé')
@@ -73,6 +76,19 @@ for (const l of ['fr', 'en', 'ha']) {
   ok(w.read_only && !/caisse|till|asusu/i.test(w.read_only), `${l} : accueil des rôles en lecture seule sans la caisse`, w.read_only)
 }
 ok(/isReadOnlyRole\(role\) \? 'read_only'/.test(read('components/onboarding/team-welcome.tsx')), 'carte d\'accueil : texte « lecture seule » pour l\'Observateur et le Comptable')
+
+console.log('\n6. Visite express et tableau de bord')
+const TO = await import(new URL('../../lib/onboarding/tours.ts', import.meta.url).href)
+const ids = list => TO.tourSteps('quick_tour', list).map(s => s.id)
+ok(!ids(['quick_tour']).includes('sell') && ids(['quick_tour']).length === TO.TOURS.quick_tour.length - 1, 'sans droit de vendre : pas d\'étape « Vendre »', ids(['quick_tour']))
+ok(ids(['quick_tour', 'first_sale']).includes('sell'), 'avec le droit de vendre : étape « Vendre » gardée')
+const prov = read('components/onboarding/onboarding-provider.tsx')
+ok(/available\.includes\(s\.next\)/.test(prov) && /'body_alone'/.test(prov), 'fin de visite : suite proposée seulement si accessible, sinon texte sans suite')
+for (const l of ['fr', 'en', 'ha']) {
+  const tt = JSON.parse(read(`messages/${l}.json`)).onboarding.tours
+  ok(tt.quick_tour.done.body_alone && tt.add_product.done.body_alone && tt.add_product.done.body_alone.length < tt.add_product.done.body.length, `${l} : fins sans suite (visite express, ajout de produit)`)
+}
+ok(/canAccess\('widget_net_result'\) && !isReadOnlyRole\(role\)/.test(read('components/dashboard/metric-cards.tsx')), 'tableau de bord : « Mes encaissements du mois » masqué aux rôles en lecture seule')
 
 console.log(`\n${pass} réussis, ${fail} échec(s)`)
 process.exit(fail ? 1 : 0)
