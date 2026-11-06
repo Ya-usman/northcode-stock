@@ -51,8 +51,22 @@ let MEASURED = null
   const { data: prods } = await db.from('products').select('id, name, quantity, low_stock_threshold').eq('shop_id', ALPHA).eq('is_active', true).eq('track_serials', false).gt('quantity', 30).order('name').limit(5)
   MEASURED = prods[0].id
   const today = new Date().toISOString().slice(0, 10)
-  const { data: exp } = await db.from('product_batches').select('product_id, products!inner(name, is_active)').eq('shop_id', ALPHA).gt('quantity', 0).lt('expiry_date', today).eq('products.is_active', true).limit(1)
-  const expiredName = exp?.[0]?.products?.name?.trim()
+  // Repère : un produit dont une part est VRAIMENT non vendable (règle de lib/stock/sellable : un lot périmé couvert par
+  // des lots frais au-delà du stock physique ne compte pas). Avant (6 nov.) : premier lot périmé venu, sans ordre, qui
+  // pouvait tomber sur « Banane » (1 468 en stock, 1 472 en lots frais, donc 0 périmé affiché, à raison).
+  const { data: exp } = await db.from('product_batches').select('product_id, products!inner(name, is_active, quantity)').eq('shop_id', ALPHA).gt('quantity', 0).lt('expiry_date', today).eq('products.is_active', true)
+  const candidates = []
+  for (const id of Array.from(new Set((exp || []).map(e => e.product_id)))) {
+    const { data: lots } = await db.from('product_batches').select('quantity, expiry_date').eq('product_id', id).gt('quantity', 0)
+    let fresh = 0, expired = 0
+    for (const l of lots || []) { if (l.expiry_date && l.expiry_date < today) expired += Number(l.quantity); else fresh += Number(l.quantity) }
+    const p = (exp.find(e => e.product_id === id)).products
+    const physical = Math.max(0, Math.floor(Number(p.quantity) || 0))
+    const nonSellable = physical - Math.min(physical, fresh + Math.max(physical - fresh - expired, 0))
+    if (nonSellable > 0) candidates.push({ name: p.name.trim(), nonSellable })
+  }
+  candidates.sort((a, b) => b.nonSellable - a.nonSellable || a.name.localeCompare(b.name))
+  const expiredName = candidates[0]?.name
   console.log(`Repères : mesures simulées sur « ${prods[0].name.trim()} » ; lot périmé : « ${expiredName || 'aucun'} »`)
 
   console.log('\n1. Téléphone')
