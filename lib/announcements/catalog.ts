@@ -34,8 +34,9 @@ const PAGE_SET = new Set(ANNOUNCEMENT_PAGES.map(p => p.path))
 
 export const ANNOUNCEMENT_ROLES: { role: string; label: string }[] = [
   { role: 'owner', label: 'Propriétaire' },
-  { role: 'shop_manager', label: 'Manager' },
-  { role: 'manager', label: 'Responsable' },
+  { role: 'shop_manager', label: 'Administrateur' },
+  { role: 'manager', label: 'Responsable de boutique' },
+  { role: 'accountant', label: 'Comptable' },
   { role: 'stock_manager', label: 'Gestionnaire de stock' },
   { role: 'cashier', label: 'Caissier' },
   { role: 'viewer', label: 'Observateur' },

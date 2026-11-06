@@ -13,10 +13,10 @@
 //
 // Règles fixes, indépendantes des réglages :
 //   - super_admin : tout ; propriétaire : tout ce qui n'est pas masqué en général
-//   - Observateur (viewer) : JAMAIS de modification, quel que soit le réglage
+//   - rôles en lecture seule (Observateur, Comptable) : JAMAIS de modification, quel que soit le réglage
 //   - rôle inconnu : rien
 
-export type ConfigurableRole = 'manager' | 'shop_manager' | 'cashier' | 'viewer' | 'stock_manager'
+export type ConfigurableRole = 'manager' | 'shop_manager' | 'cashier' | 'viewer' | 'stock_manager' | 'accountant'
 
 /** Fonctions à trois niveaux : masqué · lecture · modification */
 export const LEVEL_FEATURES = [
@@ -52,7 +52,17 @@ export type AllPerms = Record<ConfigurableRole, RolePerms>
 export type StoredPermissions = Partial<Record<ConfigurableRole, Partial<RolePerms>>> & { general?: Partial<Record<PermFeature, boolean>> }
 export type Level = 'hidden' | 'read' | 'write'
 
-export const CONFIGURABLE_ROLES: ConfigurableRole[] = ['shop_manager', 'manager', 'cashier', 'viewer', 'stock_manager']
+export const CONFIGURABLE_ROLES: ConfigurableRole[] = ['shop_manager', 'manager', 'accountant', 'cashier', 'stock_manager', 'viewer']
+
+/**
+ * Rôles en LECTURE SEULE (lot Rôles, partie B, 6 nov. 2026) : Observateur et Comptable. Aucune modification, aucune
+ * action d'écriture (READ_ONLY_LOCKED), quel que soit le réglage de la boutique. Seule règle à utiliser : jamais de
+ * test sur le nom d'un de ces rôles ailleurs. Miroir SQL : role_can_view_feature (migration 214).
+ */
+export const READ_ONLY_ROLES = ['viewer', 'accountant'] as const
+export function isReadOnlyRole(role: string | null | undefined): boolean {
+  return !!role && (READ_ONLY_ROLES as readonly string[]).includes(role)
+}
 
 /** Rôles de direction : actions financières sensibles (annuler un paiement, passer une dette en perte, modifier une vente, fusionner des clients) */
 export const MANAGERIAL_ROLES = ['owner', 'super_admin', 'shop_manager', 'manager'] as const
@@ -64,10 +74,14 @@ export function isLevelFeature(f: string): f is LevelFeature {
   return (LEVEL_FEATURES as readonly string[]).includes(f)
 }
 
-/** Actions d'écriture à interrupteur : jamais ouvertes à l'Observateur, quel que soit le réglage */
-export const VIEWER_LOCKED: readonly SwitchFeature[] = ['new_sale', 'discount', 'delete_products', 'delete_expenses', 'inventory_count', 'extend_hours', 'caisse']
-export function isViewerLocked(f: string): boolean {
-  return (VIEWER_LOCKED as readonly string[]).includes(f)
+/** Actions d'écriture à interrupteur : jamais ouvertes à un rôle en lecture seule, quel que soit le réglage */
+export const READ_ONLY_LOCKED: readonly SwitchFeature[] = ['new_sale', 'discount', 'delete_products', 'delete_expenses', 'inventory_count', 'extend_hours', 'caisse']
+export function isReadOnlyLocked(f: string): boolean {
+  return (READ_ONLY_LOCKED as readonly string[]).includes(f)
+}
+/** Cette fonction est-elle verrouillée pour ce rôle (rôle en lecture seule + action d'écriture) ? */
+export function isLockedFor(role: string | null | undefined, f: string): boolean {
+  return isReadOnlyRole(role) && isReadOnlyLocked(f)
 }
 export const writeKey = (f: LevelFeature): WriteKey => `${f}_write`
 
@@ -82,7 +96,7 @@ const W = (on: LevelFeature[]): Record<WriteKey, boolean> =>
 const ALL_WIDGETS_ON = Object.fromEntries(WIDGET_FEATURES.map(k => [k, true])) as Record<WidgetFeature, boolean>
 
 // view_purchase_cost (« Voir les prix d'achat et les coûts », décision D1 du 25 oct. 2026) : OUI par défaut pour
-// Responsable et Manager, NON pour Magasinier, Caissier et Observateur ; le propriétaire l'a toujours (canViewCost).
+// Responsable et Manager (et Comptable, 6 nov.), NON pour Magasinier, Caissier et Observateur ; le propriétaire l'a toujours (canViewCost).
 const MANAGER_BASE: RolePerms = {
   new_sale: true, discount: true, sales_history: true, payments: true, customers: true,
   stock: true, movements: true, expiry_list: true, categories: true, suppliers: true, transfers: true,
@@ -125,6 +139,18 @@ export const DEFAULT_PERMISSIONS: AllPerms = {
     widget_dashboard_revenue_chart: false, widget_top_products_chart: false,
     ...W(['stock', 'movements', 'categories', 'suppliers', 'transfers']),
   },
+  // Comptable (6 nov. 2026) : consulte les chiffres pour tenir les comptes, sans rien modifier. Ventes, encaissements
+  // et crédits, clients, dépenses, rapports, fournisseurs, stock et sa valeur, prix d'achat et marges. Ni vente, ni
+  // caisse, ni inventaire, ni équipe, ni réglages. Lecture seule forcée par resolvePermission (READ_ONLY_ROLES).
+  accountant: {
+    new_sale: false, discount: false, sales_history: true, payments: true, customers: true,
+    stock: true, movements: true, expiry_list: true, categories: true, suppliers: true, transfers: true,
+    reports: true, revenue_chart: false, notes: false, expenses: true,
+    delete_products: false, delete_expenses: false, caisse: false, inventory_count: false, extend_hours: false, view_purchase_cost: true,
+    ...ALL_WIDGETS_ON,
+    widget_dashboard_revenue_chart: false, widget_top_products_chart: false,
+    ...W([]),
+  },
 }
 
 /** Interrupteur général : une fonction à « non » est masquée pour tout le monde, propriétaire compris */
@@ -151,9 +177,9 @@ export function resolvePermission(stored: StoredPermissions | null | undefined, 
   if (!defaults) return { view: false, write: false }
   const own = stored?.[role as ConfigurableRole]
   const view = own && feature in own ? !!own[feature] : defaults[feature]
-  if (role === 'viewer' && isViewerLocked(feature)) return { view: false, write: false }
+  if (isLockedFor(role, feature)) return { view: false, write: false }
   if (!isLevelFeature(feature)) return { view, write: view }
-  if (!view || role === 'viewer') return { view, write: false }
+  if (!view || isReadOnlyRole(role)) return { view, write: false }
   const wk = writeKey(feature)
   const write = own && wk in own ? !!own[wk] : (isLegacyGrant(own, feature) || defaults[wk])
   return { view, write }
@@ -181,7 +207,7 @@ export const canWrite = (stored: StoredPermissions | null | undefined, role: str
  * Décision du 25 oct. 2026 (remplace la déduction « Stock ou Fournisseurs en modification » du 13 oct.) :
  *   propriétaire (et super_admin) : TOUJOURS, quel que soit le réglage — il ne peut pas se le retirer ;
  *   autres rôles : UNIQUEMENT la permission explicite `view_purchase_cost` (réglage du rôle dans la boutique,
- *   sinon valeur par défaut : Responsable et Manager oui ; Magasinier, Caissier, Observateur non).
+ *   sinon valeur par défaut : Responsable, Manager et Comptable oui ; Magasinier, Caissier, Observateur non).
  * Gérer le stock, l'inventaire, les lots, les transferts ou les fournisseurs ne donne plus le coût.
  * Sans rôle connu : non — jamais de coût affiché « par défaut ».
  * Permission MÉTIER, jamais un droit SQL : le navigateur ne lit buying_price nulle part (migration C2) ; le coût
@@ -208,7 +234,7 @@ export function mergeRolePerms(role: ConfigurableRole, stored: StoredPermissions
   const own = stored?.[role]
   const merged = { ...DEFAULT_PERMISSIONS[role], ...(own ?? {}) } as RolePerms
   // Même lecture des anciens « oui » que resolvePermission (niveau affiché = niveau appliqué)
-  if (role !== 'viewer') for (const f of LEVEL_FEATURES) if (isLegacyGrant(own, f)) merged[writeKey(f)] = true
+  if (!isReadOnlyRole(role)) for (const f of LEVEL_FEATURES) if (isLegacyGrant(own, f)) merged[writeKey(f)] = true
   return merged
 }
 
@@ -237,7 +263,7 @@ export function permissionChanges(before: StoredPermissions | null | undefined, 
 
 export function levelOf(perms: RolePerms, role: ConfigurableRole, feature: LevelFeature): Level {
   if (!perms[feature]) return 'hidden'
-  if (role === 'viewer') return 'read'
+  if (isReadOnlyRole(role)) return 'read'
   return perms[writeKey(feature)] ? 'write' : 'read'
 }
 

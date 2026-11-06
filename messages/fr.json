@@ -241,7 +241,8 @@
     "manager": "Responsable de boutique",
     "cashier": "Caissier",
     "stock_manager": "Gestionnaire de stock",
-    "viewer": "Observateur"
+    "viewer": "Observateur",
+    "accountant": "Comptable"
   },
   "roles_desc": {
     "owner": "Tout le compte : boutiques, équipe, permissions et abonnement.",
@@ -251,6 +252,7 @@
     "stock_manager": "Produits, réceptions, inventaires et transferts. Ne vend pas et ne voit pas les prix d’achat.",
     "cashier": "Vend, encaisse et gère les clients et leurs crédits. Ne voit ni le stock ni les prix d’achat.",
     "viewer": "Consulte les ventes, le stock et les rapports, sans rien modifier.",
+    "accountant": "Consulte les ventes, les crédits, les dépenses, les rapports et les prix d’achat, sans rien modifier. Ne vend pas.",
     "adjust": "Accès par défaut : le propriétaire peut les ajuster dans Paramètres, Accès par rôle."
   },
   "products": {
@@ -1687,6 +1689,7 @@
     "perm_level_write": "Modification",
     "perm_levels_hint": "Lecture : consulter la page. Modification : créer, modifier et supprimer.",
     "perm_viewer_readonly": "L’Observateur est toujours en lecture seule : il consulte, il ne modifie rien.",
+    "perm_accountant_readonly": "Le Comptable est toujours en lecture seule : il consulte les chiffres, il ne modifie rien.",
     "perm_general_tab": "Général",
     "perm_general_warning": "Ces réglages s'appliquent à tout le monde, y compris vous (propriétaire).",
     "perm_section_dashboard": "Cartes du tableau de bord",
@@ -2475,7 +2478,8 @@
       "body": {
         "cashier": "Vous êtes à la caisse. Voyez en une minute comment encaisser une vente, du produit au reçu.",
         "stock_manager": "Vous gérez le stock. Voyez en une minute comment ajouter un produit avec son prix et sa quantité.",
-        "other": "Une minute pour repérer l’essentiel : la caisse, le stock, l’historique et les rapports."
+        "other": "Une minute pour repérer l’essentiel : la caisse, le stock, l’historique et les rapports.",
+        "read_only": "Une minute pour repérer l’essentiel : le tableau de bord, l’historique des ventes, le stock et les rapports. Votre accès est en lecture seule."
       },
       "later": "Masquer"
     },

@@ -15,7 +15,7 @@ let pass = 0, fail = 0
 const ok = (c, msg, x) => { c ? pass++ : fail++; console.log(`  ${c ? 'ok   ' : 'ÉCHEC'} ${msg}${!c && x !== undefined ? ' → ' + JSON.stringify(x).slice(0, 300) : ''}`) }
 const wait = ms => new Promise(r => setTimeout(r, ms))
 const norm = s => String(s || '').replace(/\s+/g, ' ').trim()
-const ROLES = ['owner', 'shop_manager', 'manager', 'stock_manager', 'cashier', 'viewer']
+const ROLES = ['owner', 'shop_manager', 'manager', 'accountant', 'stock_manager', 'cashier', 'viewer']
 
 async function open(locale, width = 1366, height = 900) {
   const s = await session({ width, height, scale: 1, locale })

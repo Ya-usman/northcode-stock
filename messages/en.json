@@ -241,7 +241,8 @@
     "manager": "Store manager",
     "cashier": "Cashier",
     "stock_manager": "Inventory manager",
-    "viewer": "Viewer"
+    "viewer": "Viewer",
+    "accountant": "Accountant"
   },
   "roles_desc": {
     "owner": "The whole account: shops, team, permissions and subscription.",
@@ -251,6 +252,7 @@
     "stock_manager": "Products, receiving, stock counts and transfers. Cannot sell and does not see purchase prices.",
     "cashier": "Sells, takes payments and manages customers and their credit. Does not see stock or purchase prices.",
     "viewer": "Views sales, stock and reports without changing anything.",
+    "accountant": "Views sales, credit, expenses, reports and purchase prices without changing anything. Does not sell.",
     "adjust": "Default access: the owner can adjust it in Settings, Role Permissions."
   },
   "products": {
@@ -1687,6 +1689,7 @@
     "perm_level_write": "Edit",
     "perm_levels_hint": "View: open the page. Edit: create, change and delete.",
     "perm_viewer_readonly": "The Viewer is always read-only: they can look, never change anything.",
+    "perm_accountant_readonly": "The Accountant is always read-only: they can review the figures, never change anything.",
     "perm_general_tab": "General",
     "perm_general_warning": "These settings apply to everyone, including you (owner).",
     "perm_section_dashboard": "Dashboard cards",
@@ -2475,7 +2478,8 @@
       "body": {
         "cashier": "You are on the till. See in one minute how to ring up a sale, from product to receipt.",
         "stock_manager": "You manage the stock. See in one minute how to add a product with its price and quantity.",
-        "other": "One minute to find your way: the till, stock, sales history and reports."
+        "other": "One minute to find your way: the till, stock, sales history and reports.",
+        "read_only": "One minute to find your way: the dashboard, sales history, stock and reports. Your access is read-only."
       },
       "later": "Hide"
     },

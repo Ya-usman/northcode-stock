@@ -39,7 +39,7 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { useRouter, usePathname } from 'next/navigation'
 import type { Shop } from '@/lib/types/database'
 import { DEFAULT_PERMISSIONS, DEFAULT_GENERAL, type AllPerms, type ConfigurableRole, type PermFeature, type RolePerms } from '@/lib/hooks/use-role-permissions'
-import { isLevelFeature, isViewerLocked, levelOf, mergeRolePerms, withLevel, type Level, type LevelFeature, type StoredPermissions } from '@/lib/permissions'
+import { CONFIGURABLE_ROLES, isLevelFeature, isLockedFor, isReadOnlyRole, levelOf, mergeRolePerms, withLevel, type Level, type LevelFeature, type StoredPermissions } from '@/lib/permissions'
 import { cn } from '@/lib/utils/cn'
 import { CompanyCard } from '@/components/settings/company-card'
 import { withTimeout } from '@/lib/utils/with-timeout'
@@ -264,6 +264,7 @@ export default function SettingsPage({ params: { locale } }: { params: { locale:
     cashier:       t('roles.cashier'),
     viewer:        t('roles.viewer'),
     stock_manager: t('roles.stock_manager'),
+    accountant:    t('roles.accountant'),
   }
 
   // Formulaire initialisé une fois PAR BOUTIQUE (pas à chaque rendu : une saisie en cours n'est pas
@@ -315,6 +316,7 @@ export default function SettingsPage({ params: { locale } }: { params: { locale:
         cashier:       mergeRolePerms('cashier', stored),
         viewer:        mergeRolePerms('viewer', stored),
         stock_manager: mergeRolePerms('stock_manager', stored),
+        accountant:    mergeRolePerms('accountant', stored),
       })
       setGeneralPerms({ ...DEFAULT_GENERAL, ...(stored?.general ?? {}) })
     }
@@ -513,10 +515,10 @@ export default function SettingsPage({ params: { locale } }: { params: { locale:
     void savePermissions(updated, generalPerms, () => setPermissions(prev))
   }
 
-  // Pages à trois niveaux (masqué · lecture · modification). L'Observateur
-  // n'a jamais « modification » : la règle unique l'ignorerait de toute façon.
+  // Pages à trois niveaux (masqué · lecture · modification). Un rôle en lecture
+  // seule (Observateur, Comptable) n'a jamais « modification » : la règle unique l'ignorerait de toute façon.
   const setPermLevel = (role: ConfigurableRole, feature: LevelFeature, level: Level) => {
-    if (level === 'write' && role === 'viewer') return
+    if (level === 'write' && isReadOnlyRole(role)) return
     const prev = permissions
     const updated: AllPerms = { ...permissions, [role]: withLevel(permissions[role], feature, level) }
     setPermissions(updated)
@@ -1138,7 +1140,7 @@ export default function SettingsPage({ params: { locale } }: { params: { locale:
                 {t('settings.perm_general_tab')}
               </button>
               <div className="w-px h-5 bg-border mx-1" />
-              {(['shop_manager', 'manager', 'cashier', 'viewer', 'stock_manager'] as ConfigurableRole[]).map(r => (
+              {CONFIGURABLE_ROLES.map(r => (
                 <button
                   key={r}
                   onClick={() => setActivePermRole(r)}
@@ -1165,9 +1167,9 @@ export default function SettingsPage({ params: { locale } }: { params: { locale:
             {activePermRole !== 'general' && (
               <p className="px-3 text-xs text-muted-foreground">{t('settings.perm_levels_hint')}</p>
             )}
-            {activePermRole === 'viewer' && (
+            {isReadOnlyRole(activePermRole) && (
               <div className="rounded-lg bg-muted px-3 py-2 text-xs text-muted-foreground" data-testid="perm-viewer-readonly">
-                {t('settings.perm_viewer_readonly')}
+                {t(activePermRole === 'accountant' ? 'settings.perm_accountant_readonly' : 'settings.perm_viewer_readonly')}
               </div>
             )}
             <div className="space-y-1">
@@ -1184,7 +1186,7 @@ export default function SettingsPage({ params: { locale } }: { params: { locale:
                     <div className="flex w-full overflow-hidden rounded-lg border border-border text-xs sm:w-auto sm:flex-shrink-0" role="radiogroup" data-testid={`perm-level-${key}`}>
                       {(['hidden', 'read', 'write'] as Level[]).map(lvl => {
                         const current = levelOf(permissions[activePermRole], activePermRole, key)
-                        const disabled = lvl === 'write' && activePermRole === 'viewer'
+                        const disabled = lvl === 'write' && isReadOnlyRole(activePermRole)
                         return (
                           <button
                             key={lvl} type="button" role="radio" aria-checked={current === lvl} disabled={disabled}
@@ -1202,8 +1204,8 @@ export default function SettingsPage({ params: { locale } }: { params: { locale:
                     </div>
                   ) : (
                     <Switch
-                      checked={activePermRole === 'viewer' && isViewerLocked(key) ? false : isPermChecked(key)}
-                      disabled={activePermRole === 'viewer' && isViewerLocked(key)}
+                      checked={isLockedFor(activePermRole, key) ? false : isPermChecked(key)}
+                      disabled={isLockedFor(activePermRole, key)}
                       onCheckedChange={val => onPermToggle(key, val)}
                     />
                   )}

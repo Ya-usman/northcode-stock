@@ -241,7 +241,8 @@
     "manager": "Wakilin Shago",
     "cashier": "Mai Sayarwa",
     "stock_manager": "Mai Kaya",
-    "viewer": "Mai Kallo"
+    "viewer": "Mai Kallo",
+    "accountant": "Akanta"
   },
   "roles_desc": {
     "owner": "Dukkan asusu: shaguna, ma'aikata, izini da biyan kuɗi.",
@@ -251,6 +252,7 @@
     "stock_manager": "Kaya, karɓar kaya, ƙidaya da tura kaya. Ba ya sayarwa kuma ba ya ganin farashin saye.",
     "cashier": "Yana sayarwa, yana karɓar kuɗi kuma yana kula da abokan ciniki da bashinsu. Ba ya ganin kaya ko farashin saye.",
     "viewer": "Yana duba tallace-tallace, kaya da rahotanni ba tare da canza komai ba.",
+    "accountant": "Yana duba tallace-tallace, bashi, kashe kuɗi, rahotanni da farashin sayayya ba tare da canza komai ba. Ba ya sayarwa.",
     "adjust": "Izini na asali: maigida zai iya canza su a Saiti, Izinin Rawa."
   },
   "products": {
@@ -1687,6 +1689,7 @@
     "perm_level_write": "Gyara",
     "perm_levels_hint": "Kallo: buɗe shafin. Gyara: ƙirƙira, canza da goge.",
     "perm_viewer_readonly": "Mai Kallo koyaushe kallo kawai yake yi: yana gani, ba ya canza komai.",
+    "perm_accountant_readonly": "Akanta koyaushe kallo kawai yake yi: yana duba lissafi, ba ya canza komai.",
     "perm_general_tab": "Gaba Ɗaya",
     "perm_general_warning": "Wadannan saitunan suna shafar kowa, har da kai (Maigida).",
     "perm_section_dashboard": "Katunan Taswirar Aiki",
@@ -2515,7 +2518,8 @@
       "body": {
         "cashier": "Kai ne a asusu. Duba cikin minti ɗaya yadda ake karɓar kuɗin sayarwa, daga kaya har rasidi.",
         "stock_manager": "Kai ne ke kula da kaya. Duba cikin minti ɗaya yadda ake ƙara kaya da farashinsa da adadinsa.",
-        "other": "Minti ɗaya don gane muhimman wurare: asusu, kaya, tarihin sayarwa da rahotanni."
+        "other": "Minti ɗaya don gane muhimman wurare: asusu, kaya, tarihin sayarwa da rahotanni.",
+        "read_only": "Minti ɗaya don gane muhimman wurare: Taswirar Aiki, tarihin sayarwa, kaya da rahotanni. Kallo kawai za ku iya yi."
       },
       "later": "Ɓoye"
     },

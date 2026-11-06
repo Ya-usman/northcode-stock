@@ -30,7 +30,7 @@ interface SidebarProps {
   newNavPaths?: Set<string>
 }
 
-const ALL_NON_OWNER = ['owner', 'super_admin', 'manager', 'shop_manager', 'cashier', 'viewer', 'stock_manager']
+const ALL_NON_OWNER = ['owner', 'super_admin', 'manager', 'shop_manager', 'cashier', 'viewer', 'stock_manager', 'accountant']
 
 export function Sidebar({ locale, role, profile, onSignOut, signingOut = false, userEmail = '', newNavPaths }: SidebarProps) {
   const t = useTranslations('nav')
@@ -44,7 +44,7 @@ export function Sidebar({ locale, role, profile, onSignOut, signingOut = false, 
     {
       section: null,
       items: [
-        { href: `/${locale}/dashboard`, icon: LayoutDashboard, label: t('dashboard'), roles: ['super_admin', 'owner', 'manager', 'shop_manager', 'viewer', 'cashier', 'stock_manager'] },
+        { href: `/${locale}/dashboard`, icon: LayoutDashboard, label: t('dashboard'), roles: ['super_admin', 'owner', 'manager', 'shop_manager', 'viewer', 'cashier', 'stock_manager', 'accountant'] },
       ],
     },
     {

@@ -33,7 +33,7 @@ interface BottomNavProps {
   onOpenChat?: () => void
 }
 
-const ALL_NON_OWNER = ['super_admin', 'owner', 'manager', 'shop_manager', 'cashier', 'viewer', 'stock_manager']
+const ALL_NON_OWNER = ['super_admin', 'owner', 'manager', 'shop_manager', 'cashier', 'viewer', 'stock_manager', 'accountant']
 
 export function BottomNav({ locale, role, onSignOut, signingOut = false, userEmail = '', newNavPaths, crispUnread = 0, onOpenChat }: BottomNavProps) {
   const t = useTranslations('nav')
@@ -68,7 +68,7 @@ export function BottomNav({ locale, role, onSignOut, signingOut = false, userEma
   const { isOffline, isAvailable } = useOfflineRoutes(isOnline)
 
   const allItems = [
-    { href: `/${locale}/dashboard`,       icon: LayoutDashboard, label: t('dashboard'),    roles: ['super_admin', 'owner', 'manager', 'shop_manager', 'viewer', 'cashier', 'stock_manager'], primary: true },
+    { href: `/${locale}/dashboard`,       icon: LayoutDashboard, label: t('dashboard'),    roles: ['super_admin', 'owner', 'manager', 'shop_manager', 'viewer', 'cashier', 'stock_manager', 'accountant'], primary: true },
     { href: `/${locale}/sales/new`,       icon: ShoppingCart,    label: t('new_sale'),      roles: ALL_NON_OWNER, feature: 'new_sale' as PermFeature,       primary: true },
     { href: `/${locale}/stock`,           icon: Package,         label: t('stock'),         roles: ALL_NON_OWNER, feature: 'stock' as PermFeature,           primary: true },
     { href: `/${locale}/reports`,         icon: BarChart2,       label: t('reports'),       roles: ALL_NON_OWNER, feature: 'reports' as PermFeature,         primary: true },

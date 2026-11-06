@@ -19,6 +19,7 @@ export const ROLE_COLORS: Record<string, string> = {
   cashier:       'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400',
   stock_manager: 'bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400',
   viewer:        'bg-muted text-muted-foreground',
+  accountant:    'bg-cyan-100 dark:bg-cyan-900/30 text-cyan-800 dark:text-cyan-300',
   super_admin:   'bg-purple-100 dark:bg-purple-900/40 text-purple-700 dark:text-purple-300',
 }
 
@@ -29,6 +30,7 @@ const ROLE_AVATAR_COLORS: Record<string, string> = {
   cashier:       'bg-green-600 dark:bg-green-500',
   stock_manager: 'bg-amber-600 dark:bg-amber-500',
   viewer:        'bg-gray-500',
+  accountant:    'bg-cyan-700 dark:bg-cyan-600',
   super_admin:   'bg-purple-600',
 }
 

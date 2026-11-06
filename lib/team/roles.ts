@@ -2,8 +2,8 @@
 // les routes /api/team/* (refonte Boutiques / Équipe du 5 oct. 2026).
 //
 // Libellés affichés (messages/*.json → roles) :
-//   owner = Propriétaire · shop_manager = « Manager » · manager = « Responsable »
-//   cashier = Caissier · stock_manager = Gestionnaire de stock · viewer = Observateur
+//   owner = Propriétaire · shop_manager = Administrateur · manager = Responsable de boutique
+//   accountant = Comptable · cashier = Caissier · stock_manager = Gestionnaire de stock · viewer = Observateur
 //
 // Décisions de l'utilisateur :
 //   - Propriétaire : tout le compte (boutiques, abonnement, permissions).
@@ -12,6 +12,9 @@
 //     modifie jamais les permissions.
 //   - Responsable : gestion opérationnelle de SES boutiques et de l'équipe
 //     locale (caissiers, gestionnaires de stock, observateurs).
+//   - Comptable (6 nov. 2026) : lecture seule des chiffres (ventes, crédits,
+//     dépenses, rapports, prix d'achat) ; attribué par le propriétaire ou
+//     l'Administrateur, jamais par le Responsable de boutique.
 //   - Les droits fonctionnels (stock, caisse, ventes…) restent ceux de
 //     shops.role_permissions (lib/hooks/use-role-permissions.ts et
 //     lib/api/role-permissions.ts) : aucun second système.
@@ -22,10 +25,10 @@ import type { UserRole } from '@/lib/types/database'
 export const TEAM_MANAGER_ROLES: UserRole[] = ['super_admin', 'owner', 'shop_manager', 'manager']
 
 /** Rôles qu'un membre peut recevoir (jamais « owner » ni « super_admin » par l'équipe) */
-export const ASSIGNABLE_ROLES: UserRole[] = ['shop_manager', 'manager', 'cashier', 'stock_manager', 'viewer']
+export const ASSIGNABLE_ROLES: UserRole[] = ['shop_manager', 'manager', 'accountant', 'cashier', 'stock_manager', 'viewer']
 
 /** Ordre d'affichage (fiche boutique → Équipe, listes) */
-export const ROLE_ORDER: UserRole[] = ['owner', 'shop_manager', 'manager', 'cashier', 'stock_manager', 'viewer']
+export const ROLE_ORDER: UserRole[] = ['owner', 'shop_manager', 'manager', 'accountant', 'cashier', 'stock_manager', 'viewer']
 
 /** Rôles qu'un appelant peut attribuer, modifier ou retirer dans une boutique */
 export function manageableRoles(callerRole: string | null | undefined): UserRole[] {
@@ -34,7 +37,7 @@ export function manageableRoles(callerRole: string | null | undefined): UserRole
     case 'owner':
       return ASSIGNABLE_ROLES
     case 'shop_manager':
-      return ['manager', 'cashier', 'stock_manager', 'viewer']
+      return ['manager', 'accountant', 'cashier', 'stock_manager', 'viewer']
     case 'manager':
       return ['cashier', 'stock_manager', 'viewer']
     default:

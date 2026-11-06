@@ -14,6 +14,7 @@ import { useOnboarding } from '@/components/onboarding/onboarding-provider'
 import { useGettingStarted } from '@/components/onboarding/getting-started'
 import { useAvailableTours } from '@/components/onboarding/use-available-tours'
 import type { TourId } from '@/lib/onboarding/tours'
+import { isReadOnlyRole } from '@/lib/permissions'
 
 const NEW_MEMBER_DAYS = 30
 const TOUR_BY_ROLE: Record<string, TourId> = { cashier: 'first_sale', stock_manager: 'add_product' }
@@ -34,7 +35,8 @@ export function TeamWelcome() {
   const tour: TourId = preferred && available.includes(preferred) ? preferred : 'quick_tour'
   if (state.guideDismissed || state.tours[tour]?.status) return null
 
-  const kind = tour === 'quick_tour' ? 'other' : role
+  // Observateur, Comptable : ni caisse ni saisie, la phrase le dit
+  const kind = tour === 'quick_tour' ? (isReadOnlyRole(role) ? 'read_only' : 'other') : role
   const firstName = profile.full_name?.trim().split(/\s+/)[0]
 
   return (
