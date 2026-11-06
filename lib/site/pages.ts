@@ -4,7 +4,7 @@
 export type SitePageKey = 'platform' | 'trades' | 'pricing' | 'help'
 
 export const SITE_PAGES: { key: SitePageKey; path: string; live: boolean }[] = [
-  { key: 'platform', path: '/plateforme', live: false }, // lot B
+  { key: 'platform', path: '/plateforme', live: true },
   { key: 'trades', path: '/metiers', live: false },      // lot C (liste d'attente, migration 217)
   { key: 'pricing', path: '/tarifs', live: true },
   { key: 'help', path: '/aide', live: false },
