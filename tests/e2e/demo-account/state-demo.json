@@ -1,0 +1,285 @@
+{
+ "done": {
+  "compte": "2026-11-06T15:02:03.046Z",
+  "notifications": "2026-11-06T15:02:03.419Z",
+  "boutiques": "2026-11-06T15:02:06.217Z",
+  "notifications2": "2026-11-06T15:02:06.545Z",
+  "equipe": "2026-11-06T15:02:08.020Z",
+  "catalogue": "2026-11-06T15:03:10.066Z",
+  "ventes": "2026-11-06T15:05:45.658Z",
+  "operations": "2026-11-06T15:09:57.143Z"
+ },
+ "members": {
+  "jeanpaul": "69c9d250-0b7d-4979-8f15-a8a91ab98c5b",
+  "fatou": "0b67ff5f-3e65-4d3b-b632-ac351c9b687e",
+  "samuel": "724a908b-4a2c-45af-8539-93a99486e769",
+  "mariam": "4c009881-e6a9-40ac-a398-cff2c9273687"
+ },
+ "categories": {
+  "akwa": {
+   "alim": "5b2f1fdd-7bae-49d4-b75d-f057c08ca200",
+   "boissons": "f4df3a16-5685-4f4c-9ff6-f70f9375eb82",
+   "frais": "1849d61c-a137-47d1-b6fe-722a5f77c68e",
+   "maison": "5c5c6db0-ce6b-456a-a59c-978d5796fe15",
+   "papeterie": "a024d58c-503b-4116-a40f-fe4a8b9e0b5e"
+  },
+  "bonapriso": {
+   "alim": "199dc521-596b-48cb-827d-af47b5a296d8",
+   "boissons": "a60f3835-8ba3-4e92-8f05-216c0642573a",
+   "frais": "671a56b6-a93b-4f23-ad56-6d89059bfc0b",
+   "maison": "b8558577-f2d6-4841-97dc-2c8293cb95c9",
+   "papeterie": "40ab0829-cbd4-4f7d-98f6-8261f5c39e8b"
+  },
+  "bastos": {
+   "alim": "571767bd-ba60-4e43-8f43-d176cb1a49ad",
+   "boissons": "76ba63e0-dade-4bef-ae47-41e762260c24",
+   "frais": "b31c6a82-ff43-4da6-9806-1804208c0849",
+   "maison": "279bbc6b-706f-41d6-b555-713b11def9f4",
+   "papeterie": "7d69ff01-5d9f-44f1-b00a-9c6e9e881509"
+  }
+ },
+ "suppliers": {
+  "akwa": {
+   "littoral": "78831dc1-43f6-43ae-b9e8-ab0d0d6a68b0",
+   "ferme": "f408dd56-39a7-4990-955e-acbedf81c75e",
+   "wouri": "db7aca8f-c55a-4002-a2a5-9480f16e8492",
+   "papeterie": "e401f3c6-db96-4be7-922b-47491c97d31a"
+  },
+  "bonapriso": {
+   "littoral": "f9951697-d32c-42f1-b06d-ed092d3e6370",
+   "ferme": "02e3c3da-4155-4008-869d-c443f85da8ad"
+  },
+  "bastos": {
+   "mfoundi": "3e5968e5-e3f6-4988-81d5-fdf22cbbe795"
+  }
+ },
+ "customers": {
+  "akwa": {
+   "baobab": "724a706c-376c-4bcc-860e-3b1a9ef662e9",
+   "emmanuel": "63f42a75-6d95-4cfa-9bdf-d0e86c2a97ac",
+   "solange": "48b59ab9-5023-468b-b0b2-7478004787b6",
+   "brigitte": "92606329-5042-43f5-8085-9fedd184b267",
+   "clarisse": "35ae03a9-8de8-4742-9d47-502d17ed43d3",
+   "ibrahim": "ce7836a9-bea9-4f07-8898-6b1d4267d8d7",
+   "patrick": "7558917f-f1c3-4567-b47b-f379026ad375",
+   "helene": "306ae469-5e7f-4fc4-b758-3247d6b6607b"
+  },
+  "bonapriso": {
+   "palmiers": "2ffb35f2-9410-44cd-8e30-b9b5887914f9",
+   "didier": "ca57e802-27ce-4312-b636-08180a4b912b",
+   "estelle": "158aa5cd-59ea-48d1-a489-fa9e778f1691"
+  },
+  "bastos": {
+   "rachel": "0453b9c7-41f9-44dd-9362-6e7cefce0e93"
+  }
+ },
+ "products": {
+  "akwa": {
+   "riz": "66468872-3ad2-4296-9859-87623c7cb4a5",
+   "sucre": "635bfa3f-54cc-49e0-9767-f57e0fa1a81d",
+   "farine": "eb5fec04-8bcb-4f30-bf82-9ef43b67ea73",
+   "pates": "42dc69e8-fde7-4433-a34f-e285bfb7439a",
+   "sel": "745eece1-ad7c-44ed-9cb8-d40e63c9bcf3",
+   "arachides": "13517ec0-bd8e-4363-821c-ba172458ff3a",
+   "huile": "e6592150-87c7-4833-a639-90a0cf5cb0c8",
+   "miel": "af144a28-f969-4c5d-90db-fca78678bc1d",
+   "pain": "68100dfe-aa13-4ba2-ae74-e024201a0ca4",
+   "chocolat": "79739382-668f-4f39-aa71-e2097359bdc6",
+   "lait": "f94585a8-69fa-4f9a-8a50-c8fc63e9fe37",
+   "oeufs": "0e041a67-ed46-4de1-9ce6-f8b1789c4e9f",
+   "eau": "ac7f4243-437d-4f29-ba28-c818ad5366df",
+   "jus": "02c544fe-7bca-4b9a-b84e-0f0da82d6901",
+   "cafe": "4556a466-8a74-4065-882b-aec15d5dd050",
+   "the": "e6af1530-f9b2-49b0-88b2-c89d42137f4c",
+   "tomates": "a7ea061b-6c94-42e6-aead-be57b4991118",
+   "bananes": "d4188b66-82e3-47b2-9d5f-5764b5dbbe4f",
+   "oranges": "80e0ccfd-ec91-428c-b057-b79fba7820e0",
+   "oignons": "49a295f6-81c2-4d51-ae1e-cd035271cb8e",
+   "ananas": "924e48ec-155b-4b08-8619-3404c07b3507",
+   "avocats": "c66a332c-18ea-4668-b116-96f6047de18f",
+   "piments": "b58e2537-dfb1-40f5-88a6-2c6ce00e489e",
+   "mangues": "f7bfc056-24b1-440f-877b-c1dd9496754a",
+   "citrons": "212ebfaa-3a25-4cdd-bbcc-2a479794bc90",
+   "carottes": "b08a56ec-24b8-408e-b5a0-1e20fc5cb918",
+   "pommes-de-terre": "f0e82037-7dac-43eb-a868-05a118e80136",
+   "ail": "d69d3d23-4687-4bcd-ae49-22150bf36164",
+   "haricots": "c7da8db0-01a3-4571-bb55-796e7506257c",
+   "savon": "2f568047-61ff-4950-8be3-7a583abacc20",
+   "brosse-dents": "aaa82ea5-a7f7-45f5-a3dc-b97826b1ba9f",
+   "serviettes": "92e0f673-88dd-4617-8647-46575730150c",
+   "bougies": "a4e99529-2db7-457a-a442-803488514190",
+   "ampoule": "e194db97-1dce-4fc6-a28e-5f7e7b34d73a",
+   "balai": "931ca39c-b152-4143-a401-78de9a91ef7a",
+   "cahier": "3d439335-54f8-41e0-a5eb-8347d6b6907d",
+   "stylo": "1f616bed-5e60-4232-ac29-8aa07da6a6e7",
+   "crayons-couleur": "20fad19a-f0a9-4a9d-8150-bb0f652ae7f2"
+  },
+  "bonapriso": {
+   "riz": "7c8c2b09-4e47-48b7-b706-88e0457c6023",
+   "sucre": "4e5807be-3eba-49f1-9ae4-db565e501c58",
+   "farine": "034afca1-fa14-4c58-8094-8b281823f2ea",
+   "pates": "70992ef4-bb9a-4c66-b539-8221d9f4b7a5",
+   "sel": "fa65dc7a-112e-4267-800d-968c5923179f",
+   "arachides": "779459b2-5051-4b9d-8e7c-27b4aefda7c2",
+   "huile": "5091d4f0-ef98-4b44-826a-cf64c8e5b559",
+   "pain": "57be11c1-38e8-4e77-8b70-437314ed763d",
+   "lait": "8f626081-19eb-4d8d-a23f-d21414805f3a",
+   "oeufs": "a1dcd0eb-87f6-4104-91a9-c8627dd8e394",
+   "eau": "28f4af60-e8be-4f5d-9b0e-7550c97f4dbd",
+   "jus": "a5cc93c2-d879-4149-be98-9da8bfd7744f",
+   "the": "9b490a76-a82d-4b03-9570-00c351a1e290",
+   "tomates": "e89d3a67-c83c-43e4-9076-60da7dbd99c5",
+   "bananes": "440ca48c-fe48-4356-8d5d-bc84335d4ada",
+   "oranges": "3b6b055e-58d5-45f6-a067-b3b2fcb85656",
+   "oignons": "5fc7b653-9126-4b5c-85b9-49449021e744",
+   "ananas": "d70bdc20-bb8d-47e7-a0fb-b164ac24594a",
+   "avocats": "787fd071-9933-4d6d-aa8e-f54147874389",
+   "piments": "123b8309-3b96-46a9-a606-cfb64a46ec31",
+   "carottes": "7f681f1b-97ee-4a22-8e4a-27e13b7feaed",
+   "pommes-de-terre": "ea57f1c1-4b4c-4141-ae0a-c7eb7f129c6a",
+   "savon": "4facfc61-a97e-4407-8e53-ebd9e401e68e",
+   "ampoule": "93672357-2b8e-4fbc-8f14-a024d93bea3c",
+   "cahier": "615d4ada-9cc5-451e-a130-0e804a1d5a7f",
+   "stylo": "126832d0-5e78-4d68-b12a-4b5ab1b34e60"
+  },
+  "bastos": {
+   "riz": "f101e935-baac-47ce-a2af-e228ddd8529e",
+   "sucre": "f2ffa2e3-2b3f-4354-82db-a01bab892d1f",
+   "pates": "59427164-d696-4d68-812b-d5c3cb3f3e71",
+   "huile": "eba2a4c7-9eac-49fc-93b1-a261019418b9",
+   "pain": "f851e4ae-d882-4c16-bb36-d30a8094be89",
+   "lait": "63e4d415-2a29-4c61-871c-fe28f4a4ec20",
+   "oeufs": "f7539881-f589-413d-9074-1a82789ce516",
+   "eau": "a571cc33-a3c6-4be7-a2ae-6d9f569ae62e",
+   "jus": "58facda9-32b9-449d-bf6f-d51f22fbfcb0",
+   "the": "22a07e74-e745-4ab2-9713-6072eea0b806",
+   "tomates": "6573520b-9eaa-4ed7-a2f1-6270ec606697",
+   "bananes": "c0b659d6-1552-483a-8a91-edb970140df8",
+   "oranges": "fc91128b-e2ff-4b15-ac13-0a54db5f759f",
+   "oignons": "d8539acc-3b5c-4f0a-a375-4f1bb8ec5eba",
+   "ananas": "7aaa4d3d-ecd0-4d1f-b489-2412bbebb972",
+   "avocats": "74ef02e7-88f9-47e0-9a43-d0dd4d227595",
+   "savon": "4a494737-d1af-4ed3-946f-ed42806f940a",
+   "cahier": "ed9a960a-27c5-4115-a4d5-6b1dbb01467d"
+  }
+ },
+ "images": {
+  "riz": "https://buiegikcmgcouthavqig.supabase.co/storage/v1/object/public/product-images/78e6e774-730f-48d5-8aed-b0cc9c1a4ce8/1793977328734_h0l5ui6m2v4.jpg",
+  "sucre": "https://buiegikcmgcouthavqig.supabase.co/storage/v1/object/public/product-images/78e6e774-730f-48d5-8aed-b0cc9c1a4ce8/1793977329260_eg149gniyj5.jpg",
+  "farine": "https://buiegikcmgcouthavqig.supabase.co/storage/v1/object/public/product-images/78e6e774-730f-48d5-8aed-b0cc9c1a4ce8/1793977329685_4xifx73fm7q.jpg",
+  "pates": "https://buiegikcmgcouthavqig.supabase.co/storage/v1/object/public/product-images/78e6e774-730f-48d5-8aed-b0cc9c1a4ce8/1793977330107_aqll40eop.jpg",
+  "sel": "https://buiegikcmgcouthavqig.supabase.co/storage/v1/object/public/product-images/78e6e774-730f-48d5-8aed-b0cc9c1a4ce8/1793977330732_dnay5wzw1fk.jpg",
+  "arachides": "https://buiegikcmgcouthavqig.supabase.co/storage/v1/object/public/product-images/78e6e774-730f-48d5-8aed-b0cc9c1a4ce8/1793977331174_4olluuvm50b.jpg",
+  "huile": "https://buiegikcmgcouthavqig.supabase.co/storage/v1/object/public/product-images/78e6e774-730f-48d5-8aed-b0cc9c1a4ce8/1793977331602_9rgycxf3wef.jpg",
+  "miel": "https://buiegikcmgcouthavqig.supabase.co/storage/v1/object/public/product-images/78e6e774-730f-48d5-8aed-b0cc9c1a4ce8/1793977331964_5lhtl100il3.jpg",
+  "pain": "https://buiegikcmgcouthavqig.supabase.co/storage/v1/object/public/product-images/78e6e774-730f-48d5-8aed-b0cc9c1a4ce8/1793977332426_pcb1b8felh.jpg",
+  "chocolat": "https://buiegikcmgcouthavqig.supabase.co/storage/v1/object/public/product-images/78e6e774-730f-48d5-8aed-b0cc9c1a4ce8/1793977332781_8lfgu71bhco.jpg",
+  "lait": "https://buiegikcmgcouthavqig.supabase.co/storage/v1/object/public/product-images/78e6e774-730f-48d5-8aed-b0cc9c1a4ce8/1793977333196_brxouldqjyh.jpg",
+  "oeufs": "https://buiegikcmgcouthavqig.supabase.co/storage/v1/object/public/product-images/78e6e774-730f-48d5-8aed-b0cc9c1a4ce8/1793977333514_l7jvp7b481s.jpg",
+  "eau": "https://buiegikcmgcouthavqig.supabase.co/storage/v1/object/public/product-images/78e6e774-730f-48d5-8aed-b0cc9c1a4ce8/1793977333849_74xajpxid13.jpg",
+  "jus": "https://buiegikcmgcouthavqig.supabase.co/storage/v1/object/public/product-images/78e6e774-730f-48d5-8aed-b0cc9c1a4ce8/1793977334225_2am8azjidz8.jpg",
+  "cafe": "https://buiegikcmgcouthavqig.supabase.co/storage/v1/object/public/product-images/78e6e774-730f-48d5-8aed-b0cc9c1a4ce8/1793977334566_75ik13e8d64.jpg",
+  "the": "https://buiegikcmgcouthavqig.supabase.co/storage/v1/object/public/product-images/78e6e774-730f-48d5-8aed-b0cc9c1a4ce8/1793977334969_9snaydyuz76.jpg",
+  "tomates": "https://buiegikcmgcouthavqig.supabase.co/storage/v1/object/public/product-images/78e6e774-730f-48d5-8aed-b0cc9c1a4ce8/1793977335349_ybes4y6f3ro.jpg",
+  "bananes": "https://buiegikcmgcouthavqig.supabase.co/storage/v1/object/public/product-images/78e6e774-730f-48d5-8aed-b0cc9c1a4ce8/1793977335654_6aksx229oa7.jpg",
+  "oranges": "https://buiegikcmgcouthavqig.supabase.co/storage/v1/object/public/product-images/78e6e774-730f-48d5-8aed-b0cc9c1a4ce8/1793977336011_pa6p4mf07i9.jpg",
+  "oignons": "https://buiegikcmgcouthavqig.supabase.co/storage/v1/object/public/product-images/78e6e774-730f-48d5-8aed-b0cc9c1a4ce8/1793977336306_ebce37jo2yo.jpg",
+  "ananas": "https://buiegikcmgcouthavqig.supabase.co/storage/v1/object/public/product-images/78e6e774-730f-48d5-8aed-b0cc9c1a4ce8/1793977336648_wob0adllpnh.jpg",
+  "avocats": "https://buiegikcmgcouthavqig.supabase.co/storage/v1/object/public/product-images/78e6e774-730f-48d5-8aed-b0cc9c1a4ce8/1793977337044_n4enziaeis.jpg",
+  "piments": "https://buiegikcmgcouthavqig.supabase.co/storage/v1/object/public/product-images/78e6e774-730f-48d5-8aed-b0cc9c1a4ce8/1793977337388_v2hpuf0ls3.jpg",
+  "mangues": "https://buiegikcmgcouthavqig.supabase.co/storage/v1/object/public/product-images/78e6e774-730f-48d5-8aed-b0cc9c1a4ce8/1793977337868_mtziox3k8u.jpg",
+  "citrons": "https://buiegikcmgcouthavqig.supabase.co/storage/v1/object/public/product-images/78e6e774-730f-48d5-8aed-b0cc9c1a4ce8/1793977338332_zz39kl9k8s.jpg",
+  "carottes": "https://buiegikcmgcouthavqig.supabase.co/storage/v1/object/public/product-images/78e6e774-730f-48d5-8aed-b0cc9c1a4ce8/1793977338682_tciwv31o37.jpg",
+  "pommes-de-terre": "https://buiegikcmgcouthavqig.supabase.co/storage/v1/object/public/product-images/78e6e774-730f-48d5-8aed-b0cc9c1a4ce8/1793977339101_zqwm2jbh0kk.jpg",
+  "ail": "https://buiegikcmgcouthavqig.supabase.co/storage/v1/object/public/product-images/78e6e774-730f-48d5-8aed-b0cc9c1a4ce8/1793977339433_xqxi1seudud.jpg",
+  "haricots": "https://buiegikcmgcouthavqig.supabase.co/storage/v1/object/public/product-images/78e6e774-730f-48d5-8aed-b0cc9c1a4ce8/1793977339839_hcb11sb6z4m.jpg",
+  "savon": "https://buiegikcmgcouthavqig.supabase.co/storage/v1/object/public/product-images/78e6e774-730f-48d5-8aed-b0cc9c1a4ce8/1793977340164_41mkz2gslhg.jpg",
+  "brosse-dents": "https://buiegikcmgcouthavqig.supabase.co/storage/v1/object/public/product-images/78e6e774-730f-48d5-8aed-b0cc9c1a4ce8/1793977340516_ea96i3j9amc.jpg",
+  "serviettes": "https://buiegikcmgcouthavqig.supabase.co/storage/v1/object/public/product-images/78e6e774-730f-48d5-8aed-b0cc9c1a4ce8/1793977340949_tnvfh2vrp8.jpg",
+  "bougies": "https://buiegikcmgcouthavqig.supabase.co/storage/v1/object/public/product-images/78e6e774-730f-48d5-8aed-b0cc9c1a4ce8/1793977341474_i2ofcx68dak.jpg",
+  "ampoule": "https://buiegikcmgcouthavqig.supabase.co/storage/v1/object/public/product-images/78e6e774-730f-48d5-8aed-b0cc9c1a4ce8/1793977341777_4qhuwqnu8t7.jpg",
+  "balai": "https://buiegikcmgcouthavqig.supabase.co/storage/v1/object/public/product-images/78e6e774-730f-48d5-8aed-b0cc9c1a4ce8/1793977342123_6yww2wjjbdx.jpg",
+  "cahier": "https://buiegikcmgcouthavqig.supabase.co/storage/v1/object/public/product-images/78e6e774-730f-48d5-8aed-b0cc9c1a4ce8/1793977342471_d0sfpbkqby.jpg",
+  "stylo": "https://buiegikcmgcouthavqig.supabase.co/storage/v1/object/public/product-images/78e6e774-730f-48d5-8aed-b0cc9c1a4ce8/1793977342785_7egd5jz3qew.jpg",
+  "crayons-couleur": "https://buiegikcmgcouthavqig.supabase.co/storage/v1/object/public/product-images/78e6e774-730f-48d5-8aed-b0cc9c1a4ce8/1793977343135_jgfq0wkvwcs.jpg"
+ },
+ "creditSales": {
+  "bonapriso": {
+   "palmiers": [
+    "291f7a73-1fbb-4d10-b022-0ac042ef990e",
+    "0518cf39-7df5-4602-b9af-8f6d6292047a",
+    "bb87e771-1f13-4c97-9bcd-c4b5c9effc43",
+    "edb2f47e-af5a-4504-b3c6-2c811f4c56c2",
+    "5a6f9c9e-ed58-4ff7-891f-0803d04a7412",
+    "e99ce3fa-b305-4b8f-8f6b-e440141b8be2",
+    "48cbc37b-3f6e-4a92-b9ce-c2bd869674ca",
+    "674a3580-8dd4-4082-beab-04bd27f22b65",
+    "70111ff2-af22-42c0-8e9b-ed161cd61819",
+    "2204cde7-6c0c-44fc-b94d-2fe95cc10471",
+    "aa5dfbd6-1053-4434-a61a-f7e24ee8a714",
+    "2f5a20fc-e4a3-4448-9d96-78b43aabc159",
+    "25382beb-d817-4078-8df6-dc28e3e92a65",
+    "f00de540-c54a-431b-8c9e-86cb92c89032",
+    "0e57e291-77a0-4315-8440-5f5cf7207a28",
+    "9834ec28-1bfd-470b-94cc-bc94338c689d",
+    "bc555ece-7d15-40a4-81dd-4447412cb64f",
+    "8668648f-858c-4082-88ca-0f12273d2451",
+    "c4e31962-ec33-4fd5-a867-e2a7c7ab754d",
+    "2a28929a-001c-447c-9a77-b757e289eb1f"
+   ]
+  },
+  "akwa": {
+   "solange": [
+    "207bc85e-9ffe-4480-8603-de874f7fdb53",
+    "64f2e74f-c2e4-4f51-84d4-eb589319177e",
+    "242b6c83-c71e-4cfa-ba0f-4e5bc0228a1d",
+    "40bda750-8763-4610-98df-ec8f689d210e",
+    "d1016148-0584-4c65-8dd6-cfb9ae140045",
+    "97c81fe1-6a8a-4226-b179-70a00b193940"
+   ],
+   "baobab": [
+    "e63d15de-9207-4f19-ba9f-3f73f0d304c6",
+    "75c7192a-089f-464e-be7f-59418f38c3ed",
+    "fcbf7667-5a9f-48b7-bf39-8b0a974dc87d",
+    "7744e024-3d67-4023-8225-11ce19c574cd",
+    "8236ded3-cad8-4df6-9bda-1629da989229",
+    "990c4fb9-e459-41c2-b6a1-6078ee0ff897"
+   ],
+   "emmanuel": [
+    "615ef2fa-df73-4791-bf02-0b04d40ccf0c",
+    "8f73847f-d0e0-455e-9290-352be9f80cf7",
+    "9908fac8-8d15-41d5-95d9-473a4f88344e",
+    "140f7bcf-d36d-4044-8504-0c28d3c5e158",
+    "983a72ca-e347-4893-a8f5-1d57a775583c",
+    "bb4bae56-81ed-47a7-9dfd-2253c4870fbe",
+    "31ad5a20-4933-4b57-8053-03f555be7f8c",
+    "6032a85f-d7ab-4a97-a3b7-228f24aab548",
+    "26cf4e77-3770-4de2-91d9-a4c7b65ead78",
+    "810c667e-0cb0-4369-b896-ee2a437dcbf1",
+    "9cc758e2-0db5-4309-aadd-ed73eea518a9",
+    "19139d6f-df99-42d8-93a6-0c4db7cf8e40",
+    "019abb15-0584-4c04-968d-85092a32768d"
+   ]
+  }
+ },
+ "salesDone": {
+  "akwa": 2396,
+  "bastos": 829,
+  "bonapriso": 1354
+ },
+ "ops": {
+  "po0": "8aba4f6a-aa05-4e13-bf42-a4ddf84907f6",
+  "po1": "6cf44963-46f0-438b-aaf8-2b45a715fedc",
+  "po2": "0044681a-637d-4075-ab34-5ef885b21e26",
+  "po3": "3f280b35-2cff-457e-8f34-84cd7ee6a02e",
+  "restock0": true,
+  "restock1": true,
+  "restock2": true,
+  "transfer0": "476107d1-df66-440f-b4b5-149bd7f849e4",
+  "transferRecv0": true,
+  "transfer1": "35612ee3-c388-40ae-8dfe-cb3750243b05",
+  "inventory": true,
+  "repay-baobab": true,
+  "repay-emmanuel": true
+ }
+}

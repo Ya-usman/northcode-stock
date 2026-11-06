@@ -1,0 +1,8 @@
+Compte de DÉMONSTRATION StockShop (stocshopci+demo@gmail.com), créé le 6 nov. 2026 (carte blanche de l'utilisateur).
+Copie du contenu de la vitrine Marché Soleil (ghislainx123@gmail.com, JAMAIS modifiée : photos lues seulement).
+- data.js : contenu de la vitrine (reconstitué depuis l'historique de session) ; data-demo.js : 90 jours, rythme doublé,
+  charges mensuelles ; plan.js : plan de ventes déterministe.
+- seed-demo.js : sans argument = simulation ; --execute [--stage=…] = écriture réelle par les routes de l'application
+  (SEED_BASE=http://localhost:<port> d'un serveur local à jour) ; reprenable grâce à state-demo.json.
+- verify-demo.js : contrôle en lecture seule (13 contrôles).
+- Activité en direct : migration 216 (demo_live_tick + pg_cron toutes les 15 min), active seulement si entities.is_demo.
