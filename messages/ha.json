@@ -2984,7 +2984,12 @@
       "pricing": "Farashi",
       "reviews": "Ra'ayoyi",
       "login": "Shiga",
-      "start_trial": "Fara Gwaji Kyauta"
+      "start_trial": "Fara Gwaji Kyauta",
+      "theme_dark": "Yanayin duhu",
+      "theme_light": "Yanayin haske",
+      "language": "Harshe",
+      "menu_open": "Buɗe menu",
+      "menu_close": "Rufe menu"
     },
     "hero": {
       "badge": "Najeriya & Kamaru",
@@ -3152,6 +3157,8 @@
   "billing_page": {
     "pricing_activity": "Ana amfani da kantinka galibi daga: {country} ({share}% na ayyuka a kwanaki 30 da suka wuce). Farashin wannan ƙasa ne ke aiki. Kuskure ne? Tuntuɓe mu.",
     "pricing_override": "Farashin {country}, ƙungiyarmu ce ta sanya shi. Kana da tambaya? Tuntuɓe mu.",
+    "pricing_activity_short": "Ana amfani da kantinka galibi daga: {country} ({share}% na ayyuka a kwanaki 30 da suka wuce). Farashin wannan ƙasa ne ke aiki.",
+    "pricing_override_short": "Farashin {country}, ƙungiyarmu ce ta sanya shi.",
     "locked_price": "An tabbatar da farashi muddin kana sabuntawa",
     "change_credit": "Kiredit na kwanakin da ba a yi amfani da su ba",
     "change_due_today": "Abin da za a biya yau",

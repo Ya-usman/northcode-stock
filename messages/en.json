@@ -2984,7 +2984,12 @@
       "pricing": "Pricing",
       "reviews": "Reviews",
       "login": "Log In",
-      "start_trial": "Start Free Trial"
+      "start_trial": "Start Free Trial",
+      "theme_dark": "Dark mode",
+      "theme_light": "Light mode",
+      "language": "Language",
+      "menu_open": "Open menu",
+      "menu_close": "Close menu"
     },
     "hero": {
       "badge": "Nigeria & Cameroon",
@@ -3152,6 +3157,8 @@
   "billing_page": {
     "pricing_activity": "Your shop is mostly used from: {country} ({share}% of activity over the last 30 days). That country’s pricing applies. A mistake? Contact us.",
     "pricing_override": "{country} pricing, set by our team. A question? Contact us.",
+    "pricing_activity_short": "Your shop is mostly used from: {country} ({share}% of activity over the last 30 days). That country’s pricing applies.",
+    "pricing_override_short": "{country} pricing, set by our team.",
     "locked_price": "Price guaranteed as long as you renew",
     "change_credit": "Credit for unused days",
     "change_due_today": "To pay today",

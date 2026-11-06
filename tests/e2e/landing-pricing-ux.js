@@ -96,9 +96,10 @@ const text = async (page, id) => norm(await page.getByTestId(id).first().innerTe
 
   console.log('\n5. Téléphone, anglais, haoussa')
   v = await visit({ width: 375, height: 812 }); p = v.page
-  // La section Tarifs n'élargit jamais la page (l'en-tête de l'accueil dépasse déjà de quelques pixels, hors de ce lot)
+  // La section Tarifs n'élargit jamais la page ; l'en-tête tient en largeur (thème, puis langue sous 360 px, dans le menu)
   const pageW = () => p.evaluate(() => document.documentElement.scrollWidth)
   const before = await pageW()
+  ok(before === 375, `téléphone : la page ne défile pas de côté (${before})`)
   await p.getByTestId('landing-compare-toggle').click(); await wait(400)
   const sw = [await pageW(), before]
   ok(sw[0] <= sw[1], 'téléphone : le tableau ouvert n\'élargit pas la page', sw)
@@ -115,6 +116,29 @@ const text = async (page, id) => norm(await page.getByTestId(id).first().innerTe
   await p.getByTestId('landing-period').scrollIntoViewIfNeeded(); await wait(300)
   await p.screenshot({ path: OUT + '/pricing-landing-phone.png' })
   await v.browser.close()
+  // En-tête sur petits téléphones, dans les trois langues : rien ne dépasse
+  const wide = []
+  for (const width of [320, 360]) for (const locale of ['fr', 'en', 'ha']) {
+    v = await visit({ locale, width, height: 700 }); p = v.page
+    const w = await p.evaluate(() => [document.documentElement.scrollWidth, document.documentElement.clientWidth])
+    if (w[0] > w[1]) wide.push(`${locale} ${width} : ${w[0]}`)
+    if (width === 320 && locale === 'fr') {
+      const t = p.getByTestId('landing-menu-toggle')
+      ok(await t.getAttribute('aria-label') === 'Ouvrir le menu' && await t.getAttribute('aria-expanded') === 'false', 'menu : nom accessible et état fermé')
+      await t.click(); await wait(300)
+      ok(await t.getAttribute('aria-label') === 'Fermer le menu' && await t.getAttribute('aria-expanded') === 'true', 'menu ouvert : « Fermer le menu »')
+      ok(await p.getByTestId('landing-menu-theme').isVisible() && /Mode sombre|Mode clair/.test(await p.getByTestId('landing-menu-theme').innerText()), '320 px : thème dans le menu')
+      const langs = await p.getByTestId('landing-menu-languages').innerText().catch(() => '')
+      ok(await p.getByTestId('landing-menu-languages').isVisible() && /English/.test(langs) && /Français/.test(langs) && /Hausa/.test(langs), '320 px : langues dans le menu', langs)
+      await p.screenshot({ path: OUT + '/pricing-landing-phone320-menu.png', clip: { x: 0, y: 0, width: 320, height: 380 } })
+    }
+    if (width === 360 && locale === 'fr') {
+      ok(!(await p.getByTestId('landing-menu-theme').count()), '360 px : menu fermé, thème rangé dedans')
+      ok(await p.getByRole('button', { name: 'Langue' }).isVisible(), "360 px : langue dans l'en-tête, avec son nom accessible")
+    }
+    await v.browser.close()
+  }
+  ok(wide.length === 0, "en-tête : aucune page plus large que l'écran (320 et 360 px, fr / en / ha)", wide)
   v = await visit({ locale: 'en' }); p = v.page
   ok(/10,000/.test(await text(p, 'landing-price-pro')) && /Paystack/.test(await text(p, 'landing-pay-methods')), 'anglais sans pays connu : Nigeria', await text(p, 'landing-price-pro'))
   ok(/Compare plans/.test(await text(p, 'landing-compare-toggle')) && /Transfers between shops/.test(await text(p, 'landing-plan-pro')), 'anglais : textes')
@@ -168,6 +192,12 @@ const text = async (page, id) => norm(await page.getByTestId(id).first().innerTe
   ok(norm(await page.getByTestId('billing-choose-business').innerText().catch(() => '')) === 'Passer à Business', 'formule supérieure : « Passer à Business »')
   const ps = norm(await page.getByTestId('billing-pay-soon').innerText().catch(() => ''))
   ok(/votre pays \(France\)/.test(ps) && /support@stockshop\.tech/.test(ps), 'paiement pas encore ouvert : dit au-dessus des formules, avant tout clic', ps)
+  // Tarif du pays + paiement pas encore ouvert : un seul encadré, une seule invitation à écrire
+  const notice = page.getByTestId('billing-notice')
+  const nt = norm(await notice.innerText().catch(() => ''))
+  ok(await notice.count() === 1 && await notice.getByTestId('billing-pricing-country').count() === 1 && await notice.getByTestId('billing-pay-soon').count() === 1,
+    'un seul encadré : tarif du pays et paiement', nt)
+  ok(nt.startsWith('Tarif de France, fixé par notre équipe.') && !/Contactez-nous/.test(nt), 'pas de « Contactez-nous » en double', nt)
   await page.getByTestId('billing-period').scrollIntoViewIfNeeded().catch(() => {}); await wait(400)
   await page.screenshot({ path: OUT + '/pricing-billing.png' })
   await page.getByTestId('billing-period').getByText('6 mois').click().catch(() => {}); await wait(500)

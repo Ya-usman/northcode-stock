@@ -11,7 +11,7 @@
 const { openPage, SCR } = require('./lib/session.js')
 let pass = 0, fail = 0
 const ok = (c, m) => { c ? pass++ : fail++; console.log(`  ${c ? 'OK ' : '!!!'} ${m}`) }
-const BASE = 'http://localhost:3000'
+const BASE = process.env.CAPTURE_BASE || 'http://localhost:3000'
 
 async function openAddDrawer(page) {
   await page.getByRole('button', { name: /^Ajouter$/ }).first().click({ timeout: 20000 })

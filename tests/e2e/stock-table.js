@@ -27,7 +27,7 @@ async function stockColumns(page) {
 ;(async () => {
   // ── A) ordinateur ─────────────────────────────────────────────────────────
   const { browser, page } = await openPage({ width: 1280, height: 900, blockServiceWorkers: true })
-  await page.goto('http://localhost:3000/fr/stock/products', { waitUntil: 'domcontentloaded' })
+  await page.goto(`${process.env.CAPTURE_BASE || 'http://localhost:3000'}/fr/stock/products`, { waitUntil: 'domcontentloaded' })
   const tables = page.locator('table')
   await tables.first().waitFor({ timeout: 20000 })
   const nTables = await tables.count()
@@ -106,7 +106,7 @@ async function stockColumns(page) {
 
   // ── E) téléphone ──────────────────────────────────────────────────────────
   const m = await openPage({ width: 390, height: 844, blockServiceWorkers: true })
-  await m.page.goto('http://localhost:3000/fr/stock/products', { waitUntil: 'domcontentloaded' })
+  await m.page.goto(`${process.env.CAPTURE_BASE || 'http://localhost:3000'}/fr/stock/products`, { waitUntil: 'domcontentloaded' })
   await m.page.locator('.grid .rounded-lg.border.bg-card').first().waitFor({ timeout: 20000 })
   ok(await m.page.locator('table').count() === 0, 'E) téléphone : cartes par défaut')
   await m.page.getByRole('button', { name: 'Vue en tableau' }).click()

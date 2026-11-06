@@ -456,21 +456,25 @@ export default function BillingPage({ params: { locale } }: { params: { locale: 
             }))} />
           </div>
 
-          {terms?.pricing && terms.pricing.reason !== 'declared' && (
-            <p className="mb-4 rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-800 dark:bg-amber-950/40 dark:text-amber-300" data-testid="billing-pricing-country">
-              {terms.pricing.reason === 'activity'
-                ? t('pricing_activity', { country: tCountries(terms.pricing.country as any), share: terms.pricing.activity_share })
-                : t('pricing_override', { country: tCountries(terms.pricing.country as any) })}
-            </p>
+          {/* Tarif du pays et paiement pas encore ouvert : un seul encadré, dit avant tout clic ; quand le paiement
+              n'est pas ouvert, sa phrase donne déjà l'adresse du support, la ligne du tarif n'ajoute pas « Contactez-nous » */}
+          {((terms?.pricing && terms.pricing.reason !== 'declared') || isStripe) && (
+            <div className="mb-4 space-y-1 rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-800 dark:bg-amber-950/40 dark:text-amber-300" data-testid="billing-notice">
+              {terms?.pricing && terms.pricing.reason !== 'declared' && (
+                <p data-testid="billing-pricing-country">
+                  {terms.pricing.reason === 'activity'
+                    ? t(isStripe ? 'pricing_activity_short' : 'pricing_activity', { country: tCountries(terms.pricing.country as any), share: terms.pricing.activity_share })
+                    : t(isStripe ? 'pricing_override_short' : 'pricing_override', { country: tCountries(terms.pricing.country as any) })}
+                </p>
+              )}
+              {isStripe && (
+                <p data-testid="billing-pay-soon">{t('faq_3_unavailable', { country: tCountries(country.code as any) })}</p>
+              )}
+            </div>
           )}
           {terms?.limits && (
             <p className="mb-4 rounded-lg bg-stockshop-blue-muted px-3 py-2 text-sm text-stockshop-blue dark:bg-blue-950/40 dark:text-blue-300" data-testid="billing-legacy-limits">
               {t('legacy_limits', { date: new Date(terms.limits.until).toLocaleDateString(dateLocaleTag(locale), { day: 'numeric', month: 'long', year: 'numeric' }), shops: terms.limits.shops, members: terms.limits.team_members })}
-            </p>
-          )}
-          {isStripe && (
-            <p className="mb-4 rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-800 dark:bg-amber-950/40 dark:text-amber-300" data-testid="billing-pay-soon">
-              {t('faq_3_unavailable', { country: tCountries(country.code as any) })}
             </p>
           )}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">

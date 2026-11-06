@@ -7,7 +7,7 @@ const { openPage, SCR } = require('./lib/session.js')
 let pass = 0, fail = 0
 const ok = (c, m) => { c ? pass++ : fail++; console.log(`  ${c ? 'OK ' : '!!!'} ${m}`) }
 const num = s => parseInt(String(s).replace(/[^\d-]/g, ''), 10)
-const BASE = 'http://localhost:3000'
+const BASE = process.env.CAPTURE_BASE || 'http://localhost:3000'
 
 async function kpiValue(page, label) {
   // Libellé exact : « Produits » ne doit pas attraper « Voir les produits »

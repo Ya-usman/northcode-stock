@@ -2,7 +2,7 @@
 // AUCUNE ÉCRITURE : toute écriture /api et /rest/v1 est bloquée ; la session en cours est SIMULÉE dans la réponse de
 // lecture (produits réels d'Alpha, comptages fabriqués dans ce navigateur seulement). Serveur local obligatoire.
 const { openPage } = require('./lib/session.js')
-const BASE = 'http://localhost:3000'
+const BASE = process.env.CAPTURE_BASE || 'http://localhost:3000'
 const ALPHA = 'a0000000-0000-0000-0000-000000000001'
 const OUT = __dirname + '/out'
 require('fs').mkdirSync(OUT, { recursive: true })

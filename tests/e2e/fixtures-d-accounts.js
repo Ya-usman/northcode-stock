@@ -22,7 +22,7 @@ const ACCOUNTS = [
     if ((data?.users || []).some(u => u.email === a.email)) { console.error(`ARRÊT : ${a.email} existe déjà — rien n'est fait`); process.exit(2) }
   }
   const s = await openPage({ width: 1280, height: 900, skipGoto: true, email: 'admin@northcode.ng', write: W })
-  await s.page.goto('http://localhost:3000/fr/offline', { waitUntil: 'domcontentloaded' })
+  await s.page.goto(`${process.env.CAPTURE_BASE || 'http://localhost:3000'}/fr/offline`, { waitUntil: 'domcontentloaded' })
   const api = (method, url, body) => s.page.evaluate(async ({ method, url, body }) => { const r = await fetch(url, { method, headers: { 'Content-Type': 'application/json' }, body: body ? JSON.stringify(body) : undefined }); let j = {}; try { j = await r.json() } catch {} return { status: r.status, json: j } }, { method, url, body })
 
   for (const a of ACCOUNTS) {

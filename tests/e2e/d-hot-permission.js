@@ -18,9 +18,9 @@ const wait = ms => new Promise(r => setTimeout(r, ms))
   console.log(`Réglage manager.view_purchase_cost avant : ${JSON.stringify(original?.manager?.view_purchase_cost)} (absent = défaut OUI)`)
 
   const owner = await openPage({ width: 1280, height: 900, skipGoto: true, email: 'admin@northcode.ng', write: W })
-  await owner.page.goto('http://localhost:3000/fr/offline', { waitUntil: 'domcontentloaded' })
+  await owner.page.goto(`${process.env.CAPTURE_BASE || 'http://localhost:3000'}/fr/offline`, { waitUntil: 'domcontentloaded' })
   const manager = await openPage({ width: 1280, height: 900, skipGoto: true, email: 'cassierstock@gmail.com' })
-  await manager.page.goto('http://localhost:3000/fr/offline', { waitUntil: 'domcontentloaded' })
+  await manager.page.goto(`${process.env.CAPTURE_BASE || 'http://localhost:3000'}/fr/offline`, { waitUntil: 'domcontentloaded' })
   const call = (s, method, url, body) => s.page.evaluate(async ({ method, url, body }) => { const r = await fetch(url, { method, headers: { 'Content-Type': 'application/json' }, body: body ? JSON.stringify(body) : undefined }); let t = ''; try { t = await r.text() } catch {} return { status: r.status, t } }, { method, url, body })
   const managerSees = async () => {
     const c = await call(manager, 'GET', `/api/costs?shop_ids=${ALPHA}`)

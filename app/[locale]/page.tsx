@@ -128,20 +128,21 @@ export default function LandingPage({ params: { locale } }: { params: { locale: 
 
           {/* Right controls */}
           <div className="flex items-center gap-1">
-            {/* Dark / Light toggle */}
+            {/* Dark / Light toggle : dans le menu sur téléphone, pour que l'en-tête tienne en largeur */}
             <Button
               variant="ghost"
               size="sm"
               onClick={toggle}
-              className="h-8 w-8 p-0 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800"
+              aria-label={isDark ? t('nav.theme_light') : t('nav.theme_dark')}
+              className="hidden sm:inline-flex h-8 w-8 p-0 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800"
             >
               {isDark ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
             </Button>
 
-            {/* Language switcher */}
+            {/* Language switcher : dans le menu sous 360 px de large */}
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="sm" className="h-8 px-2 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 gap-1">
+                <Button variant="ghost" size="sm" aria-label={t('nav.language')} className="hidden min-[360px]:inline-flex h-8 px-2 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 gap-1">
                   <span>{LANGUAGES.find(l => l.code === locale)?.flag ?? '🌐'}</span>
                   <span className="hidden sm:inline text-sm font-medium">
                     {(LANGUAGES.find(l => l.code === locale)?.label ?? locale).split(' ')[0]}
@@ -174,6 +175,9 @@ export default function LandingPage({ params: { locale } }: { params: { locale: 
               variant="ghost"
               size="sm"
               className="md:hidden h-8 w-8 p-0 text-gray-700 dark:text-gray-300 ml-1"
+              aria-label={mobileMenuOpen ? t('nav.menu_close') : t('nav.menu_open')}
+              aria-expanded={mobileMenuOpen}
+              data-testid="landing-menu-toggle"
               onClick={() => setMobileMenuOpen(v => !v)}
             >
               {mobileMenuOpen ? <X className="h-4 w-4" /> : <Menu className="h-4 w-4" />}
@@ -188,6 +192,19 @@ export default function LandingPage({ params: { locale } }: { params: { locale: 
             <a href="#pricing" onClick={() => setMobileMenuOpen(false)} className="text-sm text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white py-1">{t('nav.pricing')}</a>
             <a href="#testimonials" onClick={() => setMobileMenuOpen(false)} className="text-sm text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white py-1">{t('nav.reviews')}</a>
             <Link href={`/${locale}/login`} onClick={() => setMobileMenuOpen(false)} className="text-sm text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white py-1">{t('nav.login')}</Link>
+            <button type="button" onClick={toggle} data-testid="landing-menu-theme" className="sm:hidden flex items-center gap-2 text-left text-sm text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white py-1">
+              {isDark ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+              {isDark ? t('nav.theme_light') : t('nav.theme_dark')}
+            </button>
+            <div className="min-[360px]:hidden flex flex-wrap gap-2 pt-1" role="group" aria-label={t('nav.language')} data-testid="landing-menu-languages">
+              {LANGUAGES.map(lang => (
+                <button key={lang.code} type="button" onClick={() => { setMobileMenuOpen(false); switchLanguage(lang.code) }}
+                  aria-pressed={locale === lang.code}
+                  className={`rounded-md border px-2.5 py-1 text-sm ${locale === lang.code ? 'border-stockshop-blue text-stockshop-blue font-semibold dark:border-blue-400 dark:text-blue-400' : 'border-gray-200 text-gray-700 dark:border-gray-700 dark:text-gray-300'}`}>
+                  <span className="mr-1.5">{lang.flag}</span>{lang.label}
+                </button>
+              ))}
+            </div>
           </div>
         )}
       </header>

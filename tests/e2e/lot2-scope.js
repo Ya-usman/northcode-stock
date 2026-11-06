@@ -246,7 +246,7 @@ const tab = (page, name) => page.getByRole('tab', { name, exact: false }).first(
   }
   // Mise à jour (23 oct. 2026) : compte d'Alpha explicite — le caissier de l'étape 7 (CAPTURE_EMAIL) restait actif
   const a = await openPage({ width: 1280, height: 900, skipGoto: true, email: 'admin@northcode.ng', write: W })
-  await a.page.goto('http://localhost:3000/fr/offline', { waitUntil: 'domcontentloaded' })
+  await a.page.goto(`${process.env.CAPTURE_BASE || 'http://localhost:3000'}/fr/offline`, { waitUntil: 'domcontentloaded' })
   const api = (method, url, body) => a.page.evaluate(async ({ method, url, body }) => { const r = await fetch(url, { method, headers: { 'Content-Type': 'application/json' }, body: body ? JSON.stringify(body) : undefined }); let j = {}; try { j = await r.json() } catch {} return { status: r.status, json: j } }, { method, url, body })
   const item = p => ({ product_id: p.id, product_name: 'TEST ligne', unit: 'piece', quantity_ordered: 1, unit_price: 1 })
   let r = await api('POST', '/api/purchase-orders', { shop_id: ALPHA, supplier_id: foreignSup.id, items: [item(alphaProd)], notes: NOTE })

@@ -21,7 +21,7 @@ const W = {
 }
 async function open(locale, width, height, expiredQty = 20) {
   const s = await session({ width, height, scale: 1, locale })
-  await s.page.context().addInitScript(([shop]) => { try { localStorage.setItem('active_shop_id', shop); localStorage.setItem('stock_table_columns', JSON.stringify(['physical'])) } catch {} }, [AKWA])
+  await s.page.context().addInitScript(([shop]) => { try { localStorage.setItem('dashboard_shop_filter', shop); localStorage.setItem('active_shop_id', shop); localStorage.setItem('stock_table_columns', JSON.stringify(['physical'])) } catch {} }, [AKWA])
   // Lot de pain présenté comme périmé (navigateur seulement)
   await s.page.route(/\/rest\/v1\/product_batches\?/, async route => {
     const url = route.request().url()
