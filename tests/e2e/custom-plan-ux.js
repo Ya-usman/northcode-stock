@@ -118,7 +118,7 @@ async function open({ email = 'ghislainx123@gmail.com', mocks = {}, path = '/bil
   const { chromium } = require('playwright-core')
   const vb = await chromium.launch({ channel: 'msedge', headless: true })
   const vp = await (await vb.newContext({ viewport: { width: 1366, height: 900 }, locale: 'fr-FR' })).newPage()
-  await vp.goto(`${BASE}/fr`, { waitUntil: 'domcontentloaded', timeout: 120000 }); await wait(5000)
+  await vp.goto(`${BASE}/fr/tarifs`, { waitUntil: 'domcontentloaded', timeout: 120000 }); await wait(5000)
   const lc = vp.getByTestId('landing-custom')
   await lc.scrollIntoViewIfNeeded().catch(() => {})
   ok(await lc.count() === 1 && norm(await lc.innerText()).includes('Sur mesure · à partir de 4 boutiques'), 'accueil : carte « Sur mesure » (essai, puis devis dans l\'application)')

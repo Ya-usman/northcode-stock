@@ -18,7 +18,8 @@ function isBetaPeriod() {
 }
 
 // Pages accessibles sans connexion
-const PUBLIC_PATHS = ['/', '/login', '/register', '/forgot-password', '/reset-password', '/update-password']
+// Pages publiques du site (6 nov. 2026) : accueil, tarifs, plateforme, métiers, aide
+const PUBLIC_PATHS = ['/', '/login', '/register', '/forgot-password', '/reset-password', '/update-password', '/tarifs', '/plateforme', '/metiers', '/aide']
 
 // Pages strictement réservées aux owners/super_admin.
 // Les autres pages (stock, sales, customers…) sont accessibles à tous les membres

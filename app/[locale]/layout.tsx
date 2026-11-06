@@ -1,5 +1,5 @@
 import { NextIntlClientProvider, type AbstractIntlMessages } from 'next-intl'
-import { getMessages } from 'next-intl/server'
+import { getMessages, unstable_setRequestLocale } from 'next-intl/server'
 import { notFound } from 'next/navigation'
 import { locales, type Locale } from '@/i18n'
 import { Toaster } from '@/components/ui/toaster'
@@ -31,6 +31,8 @@ const PUBLIC_NAMESPACES = ['landing', 'auth', 'register', 'error_page', 'reset_p
 
 export default async function LocaleLayout({ children, params: { locale } }: LocaleLayoutProps) {
   if (!locales.includes(locale as Locale)) notFound()
+  // Langue connue sans lire la requête : les pages publiques peuvent être générées à l'avance (6 nov. 2026)
+  unstable_setRequestLocale(locale)
 
   const messages = await getMessages()
   const publicMessages = Object.fromEntries(

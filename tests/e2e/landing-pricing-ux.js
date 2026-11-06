@@ -34,7 +34,7 @@ async function visit({ locale = 'fr', geo = null, width = 1366, height = 900 }) 
     sent.push(`${r.method()} ${u.pathname}`)
     return route.fulfill({ status: 200, contentType: 'application/json', body: '{}' })
   })
-  await page.goto(`${BASE}/${locale}`, { waitUntil: 'domcontentloaded', timeout: 120000 }); await wait(5000)
+  await page.goto(`${BASE}/${locale}/tarifs`, { waitUntil: 'domcontentloaded', timeout: 120000 }); await wait(5000)
   await page.locator('#pricing').scrollIntoViewIfNeeded().catch(() => {}); await wait(1500)
   return { browser, page, errors, sent }
 }
@@ -122,19 +122,22 @@ const text = async (page, id) => norm(await page.getByTestId(id).first().innerTe
     v = await visit({ locale, width, height: 700 }); p = v.page
     const w = await p.evaluate(() => [document.documentElement.scrollWidth, document.documentElement.clientWidth])
     if (w[0] > w[1]) wide.push(`${locale} ${width} : ${w[0]}`)
+    // En-tête du site (6 nov. 2026) : sur téléphone, pages, langue (une ligne) et thème rangés dans le menu ☰
     if (width === 320 && locale === 'fr') {
-      const t = p.getByTestId('landing-menu-toggle')
+      const t = p.getByTestId('site-menu-toggle')
       ok(await t.getAttribute('aria-label') === 'Ouvrir le menu' && await t.getAttribute('aria-expanded') === 'false', 'menu : nom accessible et état fermé')
       await t.click(); await wait(300)
       ok(await t.getAttribute('aria-label') === 'Fermer le menu' && await t.getAttribute('aria-expanded') === 'true', 'menu ouvert : « Fermer le menu »')
-      ok(await p.getByTestId('landing-menu-theme').isVisible() && /Mode sombre|Mode clair/.test(await p.getByTestId('landing-menu-theme').innerText()), '320 px : thème dans le menu')
-      const langs = await p.getByTestId('landing-menu-languages').innerText().catch(() => '')
-      ok(await p.getByTestId('landing-menu-languages').isVisible() && /English/.test(langs) && /Français/.test(langs) && /Hausa/.test(langs), '320 px : langues dans le menu', langs)
+      ok(await p.getByTestId('site-mmenu-dark').isVisible() && /Mode sombre/.test(await p.getByTestId('site-mmenu-dark').innerText()), '320 px : thème dans le menu')
+      ok(/Langue/.test(await p.getByTestId('site-mmenu-lang').innerText()) && /Français/.test(await p.getByTestId('site-mmenu-lang').innerText()), '320 px : « Langue : Français » sur une ligne du menu')
+      await p.getByTestId('site-mmenu-lang').click(); await wait(300)
+      const langs = await p.getByTestId('site-mmenu-languages').innerText().catch(() => '')
+      ok(/English/.test(langs) && /Français/.test(langs) && /Hausa/.test(langs), '320 px : la ligne ouvre la liste des langues', langs)
       await p.screenshot({ path: OUT + '/pricing-landing-phone320-menu.png', clip: { x: 0, y: 0, width: 320, height: 380 } })
     }
     if (width === 360 && locale === 'fr') {
-      ok(!(await p.getByTestId('landing-menu-theme').count()), '360 px : menu fermé, thème rangé dedans')
-      ok(await p.getByRole('button', { name: 'Langue' }).isVisible(), "360 px : langue dans l'en-tête, avec son nom accessible")
+      ok(!(await p.getByTestId('site-mmenu').count()) && await p.getByTestId('site-menu-toggle').isVisible(), '360 px : menu fermé, bouton ☰ visible')
+      ok(!(await p.getByTestId('site-lang').isVisible()), "360 px : la langue est dans le menu, pas dans l'en-tête")
     }
     await v.browser.close()
   }
