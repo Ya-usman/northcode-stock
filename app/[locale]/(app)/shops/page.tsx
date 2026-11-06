@@ -73,7 +73,10 @@ export default function ShopsPage({ params: { locale } }: { params: { locale: st
   // Équipe par boutique (déduite des rôles existants) : responsables et membres actifs
   const teamOf = (shopId: string) => {
     const inShop = people.filter(p => p.accountActive && p.memberships.some(m => m.shop_id === shopId && m.role !== 'owner'))
-    const leads = people.filter(p => p.accountActive && p.memberships.some(m => m.shop_id === shopId && m.role === 'manager'))
+    // Responsable de boutique (manager) ; à défaut, l'Administrateur (shop_manager) affecté à la boutique
+    const withRole = (role: string) => people.filter(p => p.accountActive && p.memberships.some(m => m.shop_id === shopId && m.role === role))
+    const managers = withRole('manager')
+    const leads = managers.length ? managers : withRole('shop_manager')
     return { members: inShop.length, leads }
   }
   const leadsText = (shopId: string) => {

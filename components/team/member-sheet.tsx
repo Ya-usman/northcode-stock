@@ -23,7 +23,7 @@ import type { Shop, UserRole } from '@/lib/types/database'
 import { canManageRole, manageableRoles, isAccountOwner } from '@/lib/team/roles'
 import { isPendingInvite, type TeamPerson } from '@/lib/team/use-team-people'
 import { teamActions } from '@/lib/team/team-actions'
-import { PersonAvatar, PresenceText, RoleBadge } from './team-ui'
+import { PersonAvatar, PresenceText, RoleBadge, RoleDescription } from './team-ui'
 import { AssignDialog } from './assign-dialog'
 import { handleLimitRefusal } from '@/components/billing/limit-reached-dialog'
 
@@ -193,7 +193,7 @@ export function MemberSheet({ person, onOpenChange, shops, roleByShop, myUserId,
                       </div>
                       {manageable ? (
                         <Select value={m.role} onValueChange={v => { if (v !== m.role) setRoleChange({ shopId: m.shop_id, memberId: m.id, from: m.role, to: v as UserRole }) }} disabled={busy === 'role'}>
-                          <SelectTrigger className="h-9 w-[160px] text-xs" aria-label={t('team.role_in_shop', { shop: shopName(m.shop_id) })} data-testid="member-role-select"><SelectValue /></SelectTrigger>
+                          <SelectTrigger className="h-9 w-[200px] text-xs" aria-label={t('team.role_in_shop', { shop: shopName(m.shop_id) })} data-testid="member-role-select"><SelectValue /></SelectTrigger>
                           <SelectContent>
                             {roleOptions.map(r => <SelectItem key={r} value={r}>{t(`roles.${r}` as any)}</SelectItem>)}
                           </SelectContent>
@@ -262,6 +262,7 @@ export function MemberSheet({ person, onOpenChange, shops, roleByShop, myUserId,
           if (ok) setRoleChange(null)
         }}
       >
+        {roleChange && <RoleDescription role={roleChange.to} className="text-sm text-foreground" />}
         {roleChange && multiShop && <p className="text-xs text-muted-foreground">{t('team.role_change_shop_hint', { shop: shopName(roleChange.shopId) })}</p>}
         {roleChange && (roleChange.to === 'manager' || roleChange.to === 'shop_manager') && (
           <div className="flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs text-amber-700 dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-400">

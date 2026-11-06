@@ -261,9 +261,9 @@ export default function SettingsPage({ params: { locale } }: { params: { locale:
   const ROLE_LABELS: Record<ConfigurableRole, string> = {
     shop_manager:  t('roles.shop_manager'),
     manager:       t('roles.manager'),
-    cashier:       t('settings.role_cashier'),
-    viewer:        t('settings.role_viewer'),
-    stock_manager: t('settings.role_stock_manager'),
+    cashier:       t('roles.cashier'),
+    viewer:        t('roles.viewer'),
+    stock_manager: t('roles.stock_manager'),
   }
 
   // Formulaire initialisé une fois PAR BOUTIQUE (pas à chaque rendu : une saisie en cours n'est pas

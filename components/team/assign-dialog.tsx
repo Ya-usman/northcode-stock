@@ -19,6 +19,7 @@ import { canManageRole, manageableRoles, isAccountOwner } from '@/lib/team/roles
 import { topRole, type TeamPerson } from '@/lib/team/use-team-people'
 import { teamActions } from '@/lib/team/team-actions'
 import { handleLimitRefusal } from '@/components/billing/limit-reached-dialog'
+import { RoleDescription } from './team-ui'
 
 interface Props {
   open: boolean
@@ -140,6 +141,7 @@ export function AssignDialog({ open, onOpenChange, shops, roleByShop, people, fi
               <SelectTrigger className="h-10" data-testid="assign-role"><SelectValue placeholder={t('form.select_placeholder')} /></SelectTrigger>
               <SelectContent>{roleOptions.map(r => <SelectItem key={r} value={r}>{t(`roles.${r}` as any)}</SelectItem>)}</SelectContent>
             </Select>
+            <RoleDescription role={role} adjustable />
             <p className="text-xs text-muted-foreground">{t('team.assign_hint')}</p>
             <p className="text-xs text-muted-foreground" data-testid="assign-personal-rule">{t('team.assign_personal_rule')}</p>
           </div>

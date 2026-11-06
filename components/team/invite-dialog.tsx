@@ -18,6 +18,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { useToast } from '@/components/ui/use-toast'
 import type { Shop, UserRole } from '@/lib/types/database'
 import { manageableRoles } from '@/lib/team/roles'
+import { RoleDescription } from './team-ui'
 import { teamActions } from '@/lib/team/team-actions'
 import { sharedAccountSignals } from '@/lib/team/shared-account-signals'
 import { emitOnboarding } from '@/lib/onboarding/events'
@@ -155,6 +156,7 @@ export function InviteDialog({ open, onOpenChange, shops, defaultShopId, fixedSh
             <SelectTrigger className="h-10" data-testid="invite-role"><SelectValue /></SelectTrigger>
             <SelectContent>{roleOptions.map(r => <SelectItem key={r} value={r}>{t(`roles.${r}` as any)}</SelectItem>)}</SelectContent>
           </Select>
+          <RoleDescription role={role} adjustable />
         </div>
         {signals.length > 0 && !existing && (
           <div className="flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs text-amber-800 dark:border-amber-800/60 dark:bg-amber-950/30 dark:text-amber-300" data-testid="invite-shared-warning">

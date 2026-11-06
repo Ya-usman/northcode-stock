@@ -44,6 +44,18 @@ export function RoleBadge({ role, size = 'sm', suffix }: { role: string; size?: 
   )
 }
 
+/** Ce que le rôle permet, en une phrase (accès par défaut, réglables par le propriétaire dans Paramètres) */
+export function RoleDescription({ role, className, adjustable }: { role?: string | null; className?: string; adjustable?: boolean }) {
+  const t = useTranslations('roles_desc')
+  if (!role) return null
+  return (
+    <div className="space-y-0.5" data-testid="role-desc">
+      <p className={cn('text-xs text-muted-foreground', className)}>{t(role as any)}</p>
+      {adjustable && role !== 'owner' && <p className="text-[11px] text-muted-foreground/80" data-testid="role-desc-adjust">{t('adjust')}</p>}
+    </div>
+  )
+}
+
 export function PersonAvatar({ person, size = 'md' }: { person: TeamPerson; size?: 'md' | 'lg' }) {
   const role = topRole(person)
   const active = person.accountActive && person.memberships.length > 0

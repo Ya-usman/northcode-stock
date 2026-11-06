@@ -289,7 +289,8 @@ export function AppLayout({ children, locale }: { children: React.ReactNode; loc
   // quelques secondes) → un seul message « N nouvelles ventes · total ».
   const saleBurstRef = useRef<{ count: number; total: number; lastNumber: string; timer: ReturnType<typeof setTimeout> | null }>({ count: 0, total: 0, lastNumber: '', timer: null })
   useEffect(() => {
-    const isAdmin = profile?.role === 'owner' || profile?.role === 'manager' || profile?.role === 'super_admin'
+    // Alerte « nouvelle vente » : propriétaire, Administrateur (shop_manager) et Responsable de boutique (manager)
+    const isAdmin = profile?.role === 'owner' || profile?.role === 'shop_manager' || profile?.role === 'manager' || profile?.role === 'super_admin'
     if (!shop?.id || !user?.id || !isAdmin) return
 
     // Pré-déverrouiller l'AudioContext au premier geste utilisateur
