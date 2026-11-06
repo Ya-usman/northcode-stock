@@ -320,3 +320,86 @@ html.dark .mk .acc-violet .list li { border-left-color: #5B21B6; } html.dark .mk
   .mk .phone-wrap { width: 240px; }
   .mk .member { padding: 12px 16px; gap: 10px; }
 }
+
+/* Lot C : page Métiers (cartes), page Santé (illustrations, socle), liste d'attente */
+.mk .trades { margin-top: 8px; display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; text-align: left; }
+.mk .trade { background: var(--surface); border: 1px solid var(--line); border-radius: 16px; padding: 26px 26px 24px; display: flex; flex-direction: column; }
+.mk .trade.live { border-color: var(--link); box-shadow: 0 0 0 1px var(--link) inset; }
+.mk .trade-head { display: flex; align-items: center; gap: 10px; }
+.mk .trade-head .ic { width: 36px; height: 36px; border-radius: 10px; } .mk .trade-head .ic svg { width: 19px; height: 19px; }
+.mk .trade-head .tag { margin-left: auto; }
+.mk .trade h3 { font-size: 19px; font-weight: 700; }
+.mk .trade > p { margin-top: 10px; font-size: 14.5px; color: var(--ink-2); line-height: 1.55; }
+.mk .trade ul { list-style: none; margin: 16px 0 0; display: grid; gap: 8px; font-size: 14px; color: var(--ink-2); }
+.mk .trade li { padding-left: 16px; position: relative; }
+.mk .trade li::before { content: ''; position: absolute; left: 0; top: .62em; width: 6px; height: 6px; border-radius: 50%; background: var(--line); }
+.mk .trade.live li::before, .mk .trade.next li::before { background: var(--link); }
+.mk .trade .actions { margin-top: auto; padding-top: 20px; display: flex; flex-wrap: wrap; gap: 14px; align-items: center; }
+.mk .trade .link { font-size: 14px; font-weight: 600; color: var(--link); display: inline-flex; align-items: center; gap: 6px; background: none; border: 0; padding: 0; cursor: pointer; font-family: inherit; }
+.mk .trade.later { background: var(--ground-2); border-style: dashed; }
+.mk .trade.later > p { color: var(--ink-3); }
+.mk .tag { font-size: 12px; font-weight: 600; color: var(--ink-2); border: 1px solid var(--line); padding: 3px 10px; border-radius: 999px; white-space: nowrap; font-family: var(--mk-body), 'Noto Sans', sans-serif; letter-spacing: 0; }
+.mk .tag-live { color: var(--link); background: var(--blue-muted); border-color: transparent; }
+.mk .tag-next { color: var(--c-green); background: var(--c-green-s); border-color: transparent; }
+
+.mk .waitlist { margin-top: 28px; display: grid; grid-template-columns: 1fr auto; align-items: center; gap: 24px; padding: 24px 26px; border: 1px solid var(--line); border-radius: 16px; background: var(--surface); text-align: left; }
+.mk .waitlist > div > strong { display: block; font-size: 17px; }
+.mk .waitlist > div > span { display: block; margin-top: 4px; font-size: 14.5px; color: var(--ink-2); }
+.mk .wl-form { min-width: 0; }
+.mk .wl-fields { display: flex; gap: 10px; align-items: flex-end; flex-wrap: wrap; }
+.mk .wl-field { display: grid; gap: 4px; font-size: 12.5px; font-weight: 600; color: var(--ink-2); }
+.mk .wl-field select, .mk .wl-field input { height: 44px; border: 1px solid var(--line); border-radius: 10px; padding: 0 12px; font: inherit; font-size: 15px; font-weight: 400; background: var(--surface); color: var(--ink); min-width: 0; }
+.mk .wl-field [aria-invalid="true"] { border-color: #DC2626; }
+.mk .wl-contact input { width: 240px; }
+.mk .wl-fields .btn { height: 44px; }
+.mk .wl-trap { position: absolute; left: -9999px; width: 1px; height: 1px; opacity: 0; }
+.mk .wl-note, .mk .wl-error { margin-top: 10px; font-size: 13px; color: var(--ink-3); max-width: 560px; }
+.mk .wl-error { color: #B91C1C; font-weight: 600; }
+html.dark .mk .wl-error { color: #F87171; }
+.mk .wl-done { display: grid; gap: 4px; padding: 16px 18px; border-radius: 12px; background: var(--c-green-s); color: var(--ink); }
+.mk .wl-done strong { color: var(--c-green); }
+.mk .wl-block { max-width: 760px; margin: 0 auto; text-align: left; }
+.mk .wl-block .wl-fields { margin-top: 24px; }
+.mk .wl-block .wl-contact { flex: 1; } .mk .wl-block .wl-contact input { width: 100%; }
+
+/* Page d'un secteur (Santé) : couleur du secteur, fil d'Ariane, illustrations sobres */
+.mk .sector-health { --sector: var(--c-green); --sector-s: var(--c-green-s); }
+.mk .crumb { display: inline-flex; align-items: center; gap: 8px; font-size: 14px; color: var(--ink-3); }
+.mk .crumb a { color: var(--link); font-weight: 600; }
+.mk .sector-head .tag-next { margin-left: 4px; }
+.mk .illus { background: var(--surface); border: 1px solid var(--line); border-radius: 16px; box-shadow: var(--shadow); overflow: hidden; }
+.mk .illus-top { display: flex; justify-content: space-between; align-items: center; padding: 16px 22px; border-bottom: 1px solid var(--line-2); font-size: 14px; }
+.mk .illus-top b { font-weight: 700; } .mk .illus-top small { color: var(--ink-3); }
+.mk .illus-row { display: grid; grid-template-columns: 1fr auto; gap: 4px 12px; padding: 13px 22px; border-bottom: 1px solid var(--line-2); font-size: 14px; }
+.mk .illus-row:last-child { border-bottom: 0; }
+.mk .illus-row b { font-weight: 600; }
+.mk .illus-row small { grid-column: 1 / -1; color: var(--ink-3); font-size: 12.5px; }
+.mk .st { font-size: 12px; font-weight: 600; padding: 2px 9px; border-radius: 999px; background: var(--ground-2); color: var(--ink-2); white-space: nowrap; align-self: start; }
+.mk .st-go { background: var(--sector-s, var(--c-green-s)); color: var(--sector, var(--c-green)); }
+.mk .st-warn { background: var(--c-orange-s); color: var(--c-orange); }
+.mk .st-done { background: var(--c-blue-s); color: var(--link); }
+.mk .illus-note { margin-top: 12px; font-size: 12.5px; color: var(--ink-3); font-style: italic; }
+.mk .k-sector { color: var(--sector); } .mk .ic-sector { background: var(--sector-s); color: var(--sector); }
+.mk .acc-sector .list li { border-left-color: var(--sector-s); }
+.mk .duo { display: grid; grid-template-columns: repeat(2, 1fr); gap: 20px; margin-top: 40px; text-align: left; }
+.mk .core { margin-top: 40px; display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; text-align: left; list-style: none; }
+.mk .core li { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 18px; }
+.mk .core b { display: block; font-size: 15px; } .mk .core span { font-size: 14px; color: var(--ink-2); }
+.mk .highlight { margin-top: 16px; padding: 20px 22px; border-radius: 14px; background: var(--sector-s, var(--tint)); text-align: left; }
+.mk .highlight b { display: block; color: var(--ink); } .mk .highlight span { font-size: 14.5px; color: var(--ink-2); }
+.mk .hero-actions { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; margin-top: 28px; }
+
+@media (max-width: 1000px) { .mk .trades { grid-template-columns: 1fr 1fr; } .mk .waitlist { grid-template-columns: 1fr; } }
+@media (max-width: 760px) {
+  .mk .trades, .mk .duo, .mk .core { grid-template-columns: 1fr; gap: 12px; }
+  .mk .trade { padding: 20px; }
+  .mk .waitlist { padding: 20px; }
+  .mk .wl-fields { flex-direction: column; align-items: stretch; }
+  .mk .wl-field select, .mk .wl-contact input { width: 100%; }
+  .mk .wl-fields .btn { width: 100%; }
+  .mk .hero-actions .btn { width: 100%; }
+  .mk .illus-top, .mk .illus-row { padding-left: 16px; padding-right: 16px; }
+}
+/* Libellés longs (haoussa « Nan ba da jimawa ba ») : l'en-tête de carte passe à la ligne au lieu d'élargir la page */
+.mk .trades > *, .mk .duo > * { min-width: 0; }
+.mk .trade-head { flex-wrap: wrap; row-gap: 6px; }

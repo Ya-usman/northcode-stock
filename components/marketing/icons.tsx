@@ -26,3 +26,11 @@ export const IconSun = () => <Svg size={18}><circle cx="12" cy="12" r="4" /><pat
 export const IconMenu = () => <Svg size={20} stroke={2}><path d="M4 7h16M4 12h16M4 17h16" /></Svg>
 export const IconClose = () => <Svg size={20} stroke={2}><path d="M6 6l12 12M18 6L6 18" /></Svg>
 export const IconLanguage = () => <Svg size={16}><circle cx="12" cy="12" r="9" /><path d="M3 12h18M12 3a14 14 0 010 18M12 3a14 14 0 000 18" /></Svg>
+// Métiers (lot C)
+export const IconHealth = () => <Svg><path d="M12 21s-7.5-4.6-9.2-9.4C1.6 8.2 3.8 5 7.2 5c2 0 3.6 1.1 4.8 2.8C13.2 6.1 14.8 5 16.8 5c3.4 0 5.6 3.2 4.4 6.6C19.5 16.4 12 21 12 21z" /><path d="M12 10v5M9.5 12.5h5" /></Svg>
+export const IconTools = () => <Svg><path d="M14.7 6.3a4 4 0 00-5.4 5.4L3 18l3 3 6.3-6.3a4 4 0 005.4-5.4l-2.5 2.5-2.4-.6-.6-2.4z" /></Svg>
+export const IconSchool = () => <Svg><path d="M2 9l10-5 10 5-10 5z" /><path d="M6 11v5c0 1.7 2.7 3 6 3s6-1.3 6-3v-5M22 9v6" /></Svg>
+export const IconCalendar = () => <Svg><rect x="3" y="5" width="18" height="16" rx="2" /><path d="M3 10h18M8 3v4M16 3v4" /></Svg>
+export const IconPlus = () => <Svg><circle cx="12" cy="12" r="9" /><path d="M12 8v8M8 12h8" /></Svg>
+export const IconFlask = () => <Svg><path d="M9 3h6M10 3v6l-5.5 9.5A2 2 0 006.2 21h11.6a2 2 0 001.7-2.5L14 9V3" /><path d="M7.5 15h9" /></Svg>
+export const IconPill = () => <Svg><rect x="2.5" y="8.5" width="19" height="7" rx="3.5" transform="rotate(-45 12 12)" /><path d="M8.5 8.5l7 7" /></Svg>

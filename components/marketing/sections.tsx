@@ -80,3 +80,15 @@ export async function FinalCta({ locale, showPlatform = true }: { locale: string
     </section>
   )
 }
+
+/** Textes du formulaire de liste d'attente (passés au composant client, aucun catalogue envoyé au navigateur). */
+export async function getWaitlistLabels(locale: string) {
+  const t = await getTranslations({ locale, namespace: 'site.waitlist' })
+  const keys = ['sector_label', 'sub_label', 'choose', 'contact_label', 'contact_placeholder', 'submit', 'sending', 'retry', 'note',
+    'done_title', 'done_text', 'err_contact', 'err_sector', 'err_offline', 'err_server', 'err_limit'] as const
+  const raw = (k: string) => t.raw(k) as Record<string, string>
+  return {
+    ...Object.fromEntries(keys.map(k => [k, k === 'done_text' ? t.raw(k) as string : t(k)])),
+    sectors: raw('sectors'), subs: raw('subs'),
+  } as import('./waitlist-form').WaitlistLabels
+}

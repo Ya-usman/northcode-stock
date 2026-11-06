@@ -21,6 +21,12 @@ const limiters = {
     limiter: Ratelimit.slidingWindow(10, '1 h'),
     prefix: 'rl:billing',
   }),
+  // Liste d'attente des métiers (pages publiques, 6 nov. 2026) : 5 inscriptions par heure et par adresse
+  waitlist: new Ratelimit({
+    redis,
+    limiter: Ratelimit.slidingWindow(5, '1 h'),
+    prefix: 'rl:waitlist',
+  }),
   // General API: max 60 per minute per IP
   api: new Ratelimit({
     redis,

@@ -4,7 +4,7 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import {
   LayoutDashboard, ShoppingBag, CreditCard, Package,
-  TrendingUp, LogOut, ChevronRight, ShieldCheck, Sun, Moon, UserCheck, ScrollText, Users, Activity, Gift, Sparkles, Rocket, FileText } from 'lucide-react'
+  TrendingUp, LogOut, ChevronRight, ShieldCheck, Sun, Moon, UserCheck, ScrollText, Users, Activity, Gift, Sparkles, Rocket, FileText, ListChecks } from 'lucide-react'
 import { cn } from '@/lib/utils/cn'
 import { useTheme } from '@/lib/hooks/use-theme'
 import { BRAND_TEXT_CLASS } from '@/components/brand/brand-logo'
@@ -27,6 +27,7 @@ const navSections = (locale: string) => [
     items: [
       { href: `/${locale}/admin/analytics`, label: 'Analytics',      icon: TrendingUp },
       { href: `/${locale}/admin/activation`, label: 'Activation',    icon: Rocket },
+      { href: `/${locale}/admin/waitlist`, label: "Liste d'attente", icon: ListChecks },
     ],
   },
   {

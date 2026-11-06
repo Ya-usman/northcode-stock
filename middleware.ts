@@ -39,8 +39,11 @@ const ROLE_ACCESS: Record<string, string[]> = {
 
 const SUPER_ADMIN_EMAILS = (process.env.SUPER_ADMIN_EMAILS || process.env.NEXT_PUBLIC_SUPER_ADMIN_EMAILS || '').split(',').map(e => e.trim()).filter(Boolean)
 
+// Sections publiques avec des sous-pages (une page par secteur : /metiers/sante…)
+const PUBLIC_PREFIXES = ['/metiers/']
+
 function isPublic(path: string): boolean {
-  return PUBLIC_PATHS.some(p => path === p || path.startsWith(p + '?'))
+  return PUBLIC_PATHS.some(p => path === p || path.startsWith(p + '?')) || PUBLIC_PREFIXES.some(p => path.startsWith(p))
 }
 
 function getRequiredRoles(path: string): string[] | null {
