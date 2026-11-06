@@ -5,6 +5,7 @@ import { loadShopAccess, parseShopIds } from '@/lib/api/shop-access'
 import { reportSections, type ReportSections } from '@/lib/api/report-sections'
 import { fetchAllRows } from '@/lib/dashboard/fetch-rows'
 import { historyDaysFor, historyStartAllowed, historyRefusal } from '@/lib/saas/plan-features'
+import { calendarDay } from '@/lib/dates/calendar-day'
 
 // GET /api/reports/summary?shop_ids=a,b&start=ISO&end=ISO  (pure lecture)
 // Données de la page Rapports, calculées par le SERVEUR (avant : lues directement par le navigateur, la base ne
@@ -42,7 +43,8 @@ export async function GET(request: Request) {
     // Historique par formule (3 mois Starter, 1 an Pro, sans limite Business), boutique la plus limitée
     const days = await historyDaysFor(admin, reportShops)
     if (!historyStartAllowed(start, days)) { const r = historyRefusal(days, t); return NextResponse.json(r.body, { status: r.status }) }
-    const startDay = start.slice(0, 10), endDay = end.slice(0, 10)
+    // Jours du calendrier de l'écran (dépenses) : jamais la date UTC des bornes (la veille à l'est de UTC)
+    const startDay = calendarDay(sp.get('start_day'), start, 'start'), endDay = calendarDay(sp.get('end_day'), end, 'end')
 
     // Ventes actives de la période (boutiques des Rapports), filtrées par vendeur là où la personne est limitée à ses ventes
     const salesAll = await fetchAllRows<any>(() => admin

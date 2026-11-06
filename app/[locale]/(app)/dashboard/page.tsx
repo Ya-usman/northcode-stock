@@ -185,6 +185,8 @@ export default function DashboardPage() {
       const summaryParams = new URLSearchParams({
         shop_ids: shopIds.join(','), day_start: todayStart, day_end: todayEnd,
         month_start: startOfMonth(today).toISOString(), month_end: endOfMonth(today).toISOString(),
+        // Jours du calendrier local (dépenses du mois) : le serveur ne les déduit plus de l'heure UTC
+        month_start_day: format(startOfMonth(today), 'yyyy-MM-dd'), month_end_day: format(endOfMonth(today), 'yyyy-MM-dd'),
       })
       const summaryPromise = fetch(`/api/dashboard/summary?${summaryParams}`).then(async r => {
         const j = await r.json().catch(() => ({}))

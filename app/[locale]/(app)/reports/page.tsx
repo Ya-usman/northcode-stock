@@ -156,7 +156,7 @@ export default function ReportsPage() {
   // boutique, vendeur limité à ses ventes décidé par le serveur, aucun coût ni marge (réservés à /api/reports/margin).
   // Avant : lues directement par le navigateur, la base ne contrôlant que l'appartenance à la boutique.
   const loadFreshReportData = async (start: string, end: string): Promise<ReportsData> => {
-    const res = await fetch(`/api/reports/summary?${new URLSearchParams({ shop_ids: effectiveShopIds.join(','), start, end })}`)
+    const res = await fetch(`/api/reports/summary?${new URLSearchParams({ shop_ids: effectiveShopIds.join(','), start, end, start_day: format(new Date(start), 'yyyy-MM-dd'), end_day: format(new Date(end), 'yyyy-MM-dd') })}`)
     const j = await res.json().catch(() => ({}))
     if (!res.ok) { handlePlanRefusal(j); throw new Error(j.error || t('errors.generic')) }
     // Libellé lisible : traduit (Espèces, Carte, Crédit…) ou nom de marque (Orange Money, MTN MoMo…)

@@ -52,7 +52,11 @@ export function ExpenseRevenueChart() {
 
       // Lu par le SERVEUR (/api/dashboard/expense-revenue) : chiffre d'affaires de la boutique seulement là où il est
       // autorisé, dépenses seulement là où elles le sont — décidé boutique par boutique, jamais par ce navigateur.
-      const params = new URLSearchParams({ shop_ids: effectiveShopIds.join(','), from: sixMonthsAgo.toISOString(), to: endOfMonth(today).toISOString() })
+      const params = new URLSearchParams({
+        shop_ids: effectiveShopIds.join(','), from: sixMonthsAgo.toISOString(), to: endOfMonth(today).toISOString(),
+        // Jours du calendrier local (dépenses) : le serveur ne les déduit plus de l'heure UTC
+        from_day: format(sixMonthsAgo, 'yyyy-MM-dd'), to_day: format(endOfMonth(today), 'yyyy-MM-dd'),
+      })
       const res = await fetch(`/api/dashboard/expense-revenue?${params}`)
       const json = await res.json().catch(() => ({}))
       if (!res.ok) throw new Error(json.error || 'expense-revenue')

@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { historyDaysFor, clampStart } from '@/lib/saas/plan-features'
+import { calendarDay, startDayAfterClamp } from '@/lib/dates/calendar-day'
 import { createAdminClient, createClient } from '@/lib/supabase/server'
 import { getApiTranslator } from '@/lib/api/i18n'
 import { loadShopAccess, ownSalesScope, parseShopIds } from '@/lib/api/shop-access'
@@ -62,7 +63,8 @@ export async function GET(request: Request) {
       expenseShops.length ? fetchAllRows<any>(() => admin
         .from('expenses').select('amount, shop_id')
         .in('shop_id', expenseShops).eq('is_recurring', false)
-        .gte('date', monthStart.slice(0, 10)).lte('date', monthEnd.slice(0, 10))
+        // Jours du calendrier de l'écran : jamais la date UTC des bornes (le dernier jour du mois précédent à l'est de UTC)
+        .gte('date', startDayAfterClamp(sp.get('month_start_day'), rawMonthStart, monthStart)).lte('date', calendarDay(sp.get('month_end_day'), monthEnd, 'end'))
         .order('date').order('id')) : Promise.resolve(null),
     ])
 
