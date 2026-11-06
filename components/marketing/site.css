@@ -2,7 +2,16 @@
    Tout est rangé sous .mk : rien ne touche l'application. Bleu marque, jaune pour les actions principales (texte foncé,
    jamais blanc), une couleur par domaine en petites touches. Mode sombre : mêmes jetons redéfinis sous html.dark. */
 
+
+/* Polices auto-hébergées (public/fonts, versions variables de Google Fonts, licence SIL OFL) : aucune dépendance à
+   Google à la construction ni à l'affichage. « latin-ext » (ɓ ɗ ƙ du haoussa) chargé seulement si la page en contient. */
+@font-face { font-family: 'Montserrat Site'; font-style: normal; font-weight: 700 800; font-display: swap; src: url('/fonts/montserrat-latin-ext.woff2') format('woff2'); unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C4, U+2113, U+2C60-2C7F, U+A720-A7FF; }
+@font-face { font-family: 'Montserrat Site'; font-style: normal; font-weight: 700 800; font-display: swap; src: url('/fonts/montserrat-latin.woff2') format('woff2'); unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD; }
+@font-face { font-family: 'Noto Sans Site'; font-style: normal; font-weight: 400 700; font-display: swap; src: url('/fonts/noto-sans-latin-ext.woff2') format('woff2'); unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C4, U+2113, U+2C60-2C7F, U+A720-A7FF; }
+@font-face { font-family: 'Noto Sans Site'; font-style: normal; font-weight: 400 700; font-display: swap; src: url('/fonts/noto-sans-latin.woff2') format('woff2'); unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD; }
+
 .mk {
+  --mk-display: 'Montserrat Site'; --mk-body: 'Noto Sans Site';
   --blue: #073E8A; --blue-muted: #EDF2FA; --blue-deep: #052F6B; --link: #073E8A;
   --ink: #0A1628; --ink-2: #44526A; --ink-3: #6B778A; --line: #E6EAF0; --line-2: #F0F3F7;
   --ground: #FFFFFF; --ground-2: #F6F7F9; --tint: #F2F6FD; --surface: #FFFFFF; --surface-2: #FBFCFE; --glass: rgba(255,255,255,.9);

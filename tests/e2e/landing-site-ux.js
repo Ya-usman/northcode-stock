@@ -59,6 +59,16 @@ async function visit({ locale = 'fr', path = '', geo = null, width = 1440, heigh
   ok(/StockShop/.test(await p.title()) && /30 jours/.test(await p.locator('meta[name="description"]').getAttribute('content')), 'titre et description de la page', await p.title())
   const alt = await p.locator('link[rel="alternate"][hreflang]').evaluateAll(ls => ls.map(l => l.getAttribute('hreflang')))
   ok(['fr', 'en', 'ha'].every(l => alt.includes(l)), 'versions fr / en / ha déclarées', alt)
+  // Polices servies par le site lui-même (jamais Google : la construction en dépendait et a échoué le 6 nov. 2026)
+  const fonts = await p.evaluate(async () => {
+    await document.fonts.ready
+    const files = performance.getEntriesByType('resource').map(e => e.name).filter(n => /\.woff2|fonts\.(googleapis|gstatic)/.test(n))
+    return { files, title: document.fonts.check('800 40px "Montserrat Site"'), text: document.fonts.check('400 16px "Noto Sans Site"'), h1: getComputedStyle(document.querySelector('h1')).fontFamily }
+  })
+  ok(fonts.title && fonts.text && /Montserrat Site/.test(fonts.h1), 'polices du site chargées (titres Montserrat, texte Noto Sans)', fonts)
+  // (le nom « StockShop » du logo garde sa police next/font, elle aussi servie par le site : /_next/static/media)
+  ok(fonts.files.some(f => f === BASE + '/fonts/noto-sans-latin.woff2') && fonts.files.some(f => f === BASE + '/fonts/montserrat-latin.woff2')
+    && fonts.files.every(f => f.startsWith(BASE + '/')) && !fonts.files.some(f => /latin-ext/.test(f)), 'polices servies par le site, aucune par Google ; le jeu étendu n\'est pas chargé en français', fonts.files)
   ok(norm(await p.getByTestId('site-price-from').innerText()) === '5 000 F CFA', 'prix de départ du Cameroun : 5 000 F CFA', await p.getByTestId('site-price-from').innerText())
   ok(/1 boutique/.test(all) && /2 boutiques/.test(all) && /3 boutiques/.test(all), 'formules : boutiques lues dans les règles (1 / 2 / 3)')
   await p.screenshot({ path: OUT + '/site-home-pc.png' })
@@ -120,6 +130,8 @@ async function visit({ locale = 'fr', path = '', geo = null, width = 1440, heigh
   await v.browser.close()
   v = await visit({ locale: 'ha', width: 390, height: 844 })
   ok(norm(await v.page.locator('h1').innerText()) === 'Duk kantunanku. Tsari ɗaya. Cikakken hoto.', 'haoussa : titre', await v.page.locator('h1').innerText())
+  const haFonts = await v.page.evaluate(async () => { await document.fonts.ready; return performance.getEntriesByType('resource').map(e => e.name).filter(n => /latin-ext/.test(n)) })
+  ok(haFonts.some(f => /montserrat-latin-ext/.test(f)), 'haoussa : jeu étendu chargé pour ɗ ƙ ɓ (titres dans la bonne police)', haFonts)
   await v.browser.close()
 
   console.log(`\n${pass} réussis, ${fail} échec(s)`)

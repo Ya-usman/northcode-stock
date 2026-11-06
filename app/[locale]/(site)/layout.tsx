@@ -1,4 +1,4 @@
-import { Montserrat, Noto_Sans } from 'next/font/google'
+import { preload } from 'react-dom'
 import Link from 'next/link'
 import { getTranslations, unstable_setRequestLocale } from 'next-intl/server'
 import { BrandLogo } from '@/components/brand/brand-logo'
@@ -8,12 +8,15 @@ import { isLive, type SitePageKey } from '@/lib/site/pages'
 import '@/components/marketing/site.css'
 
 // Pages publiques (accueil, plateforme, métiers, tarifs) : générées à l'avance par langue, sans requête à la base.
-// Polices auto-hébergées (next/font) : titres Montserrat 700/800, texte Noto Sans.
-const display = Montserrat({ subsets: ['latin'], weight: ['700', '800'], variable: '--mk-display', display: 'swap' })
-const body = Noto_Sans({ subsets: ['latin', 'latin-ext'], weight: ['400', '500', '600', '700'], variable: '--mk-body', display: 'swap' })
+// Polices auto-hébergées dans public/fonts (Montserrat pour les titres, Noto Sans pour le texte, versions variables) :
+// la construction ne dépend plus de Google Fonts (échec du déploiement du 6 nov. 2026 : adresse de police sans
+// extension renvoyée aux serveurs de Vercel). @font-face dans components/marketing/site.css ; le jeu « latin-ext »
+// (ɓ ɗ ƙ du haoussa) n'est chargé que si la page en a besoin.
 
 export default async function SiteLayout({ children, params: { locale } }: { children: React.ReactNode; params: { locale: string } }) {
   unstable_setRequestLocale(locale)
+  preload('/fonts/noto-sans-latin.woff2', { as: 'font', type: 'font/woff2', crossOrigin: 'anonymous' })
+  preload('/fonts/montserrat-latin.woff2', { as: 'font', type: 'font/woff2', crossOrigin: 'anonymous' })
   const t = await getTranslations({ locale, namespace: 'site' })
   const pages: SitePageKey[] = ['platform', 'trades', 'pricing', 'help']
   const labels: SiteHeaderLabels = {
@@ -25,7 +28,7 @@ export default async function SiteLayout({ children, params: { locale } }: { chi
   const link = (key: SitePageKey, path: string, label: string) => (isLive(key) ? <li><Link href={`/${locale}${path}`}>{label}</Link></li> : null)
 
   return (
-    <div className={`mk ${display.variable} ${body.variable}`}>
+    <div className="mk">
       <SiteHeader locale={locale} labels={labels} />
       <main id="contenu">{children}</main>
       <footer className="site-footer">
