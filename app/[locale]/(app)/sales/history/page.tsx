@@ -2,12 +2,15 @@
 
 import { receiptView } from '@/lib/products/sale-measures'
 import { PageHeader } from '@/components/layout/page-header'
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
+import { cn } from '@/lib/utils/cn'
+import Link from 'next/link'
 import { useState, useEffect, useMemo, Fragment, useRef } from 'react'
 import { usePersistedFilters } from '@/lib/hooks/use-persisted-filters'
 import { useTranslations } from 'next-intl'
 import {
   Search, FileDown, FileText, Table2, ChevronDown, ChevronUp,
-  XCircle, CheckCircle2, Printer, Share2, Store, CornerDownLeft, Activity, Edit2, Trash2, Plus, Clock, ShoppingCart, FileSpreadsheet,
+  XCircle, CheckCircle2, Printer, Share2, Store, CornerDownLeft, Activity, Receipt, HandCoins, SlidersHorizontal, Edit2, Trash2, Plus, Clock, ShoppingCart, FileSpreadsheet,
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { useAuthContext as useAuth } from '@/lib/contexts/auth-context'
@@ -191,13 +194,28 @@ export default function SalesHistoryPage() {
   const PAGE_SIZE = 100
   const SEARCH_LIMIT = 500
 
-  const [view, setView] = useState<'sales' | 'repayments' | 'logs'>('sales')
+  // Onglet gardé dans l'adresse (?vue=credits | journal ; aucun paramètre = Ventes), comme les onglets du Stock :
+  // le bouton Retour et les liens ouvrent le bon onglet
+  type HistoryView = 'sales' | 'repayments' | 'logs'
+  const viewParam = useSearchParams().get('vue')
+  const viewFromParam = (v: string | null): HistoryView => v === 'credits' ? 'repayments' : v === 'journal' ? 'logs' : 'sales'
+  const [view, setViewState] = useState<HistoryView>(() => viewFromParam(viewParam))
+  useEffect(() => { setViewState(viewFromParam(viewParam)) }, [viewParam])
+  const setView = (v: HistoryView) => {
+    setViewState(v)
+    const want = v === 'repayments' ? 'credits' : v === 'logs' ? 'journal' : null
+    const q = new URLSearchParams(window.location.search)
+    if ((q.get('vue') || null) === want) return
+    if (want) q.set('vue', want); else q.delete('vue')
+    const qs = q.toString()
+    router.push(`${pathname}${qs ? `?${qs}` : ''}`, { scroll: false })
+  }
   const [cashierMap, setCashierMap] = useState<Record<string, string>>({})
   const [repayments, setRepayments] = useState<any[]>([])
   const [loadingMore, setLoadingMore] = useState(false)
   const [salesOffset, setSalesOffset] = useState(0)
   const [hasMoreSales, setHasMoreSales] = useState(false)
-  const [periodStats, setPeriodStats] = useState<{ count: number; ca: number; collected: number; balance: number } | null>(null)
+  const [periodStats, setPeriodStats] = useState<{ count: number; ca: number; collected: number; balance: number; cancelledCount: number; cancelledAmount: number } | null>(null)
   const [persistedFilters, setPersistedFilter] = usePersistedFilters(
     'sales_history', filterScope,
     { search: '', dateFilter: 'today', methodFilter: 'all', statusFilter: 'all', saleStatusFilter: 'all' as 'all' | 'active' | 'cancelled', customStart: '', customEnd: '' },
@@ -416,13 +434,15 @@ export default function SalesHistoryPage() {
       : methodFilter !== 'all' ? [methodFilter] : undefined,
     mine: cashierShopIds.length && profile?.id ? cashierShopIds : undefined,
   })
-  const buildStatsQuery = (start: Date, end: Date) => {
+  // Une vente annulée n'est PAS du chiffre d'affaires (décision du 7 nov. 2026) : nombre, CA, encaissé et reste dû
+  // portent sur les ventes actives ; les annulées sont comptées à part (« 3 annulées, non comptées »).
+  const buildStatsQuery = (start: Date, end: Date, status: 'active' | 'cancelled') => {
     const f = periodFilters()
     return supabase.rpc('sales_period_totals', {
       p_shop_ids: effectiveShopIds,
       p_start: start.toISOString(),
       p_end: end.toISOString(),
-      p_sale_statuses: saleStatusFilter !== 'all' ? [saleStatusFilter] : ['active', 'cancelled'],
+      p_sale_statuses: [status],
       p_methods: f.methods,
       p_payment_status: statusFilter !== 'all' ? statusFilter : undefined,
       p_mine_shop_ids: f.mine,
@@ -430,14 +450,14 @@ export default function SalesHistoryPage() {
   }
 
   // Encaissé de la période : lu dans les paiements (date de paiement), pas dans sales.amount_paid (date de la vente) :
-  // un remboursement reçu aujourd'hui compte aujourd'hui, pas le jour de la vente d'origine.
+  // un remboursement reçu aujourd'hui compte aujourd'hui, pas le jour de la vente d'origine. Ventes actives seulement.
   const buildCollectedQuery = (start: Date, end: Date) => {
     const f = periodFilters()
     return supabase.rpc('payments_period_collected', {
       p_shop_ids: effectiveShopIds,
       p_start: start.toISOString(),
       p_end: end.toISOString(),
-      p_sale_statuses: saleStatusFilter !== 'all' ? [saleStatusFilter] : undefined,
+      p_sale_statuses: ['active'],
       p_methods: f.methods,
       p_mine_shop_ids: f.mine,
     }, { get: true })
@@ -483,7 +503,7 @@ export default function SalesHistoryPage() {
       if (!cached) {
         setSales([])
         setHasMoreSales(false)
-        setPeriodStats({ count: 0, ca: 0, collected: 0, balance: 0 })
+        setPeriodStats({ count: 0, ca: 0, collected: 0, balance: 0, cancelledCount: 0, cancelledAmount: 0 })
         setLoading(false)
       }
       return
@@ -492,23 +512,23 @@ export default function SalesHistoryPage() {
       const { start, end } = getDateBounds()
       // Bounded so a stale connection/session after the app sat backgrounded
       // a while can never leave `loading` stuck true forever.
-      const [listResult, statsResult, collectedResult] = await withTimeout(Promise.all([
+      const none = Promise.resolve({ data: [{ sale_count: 0, revenue: 0, open_balance: 0 }], error: null })
+      const [listResult, activeResult, cancelledResult, collectedResult] = await withTimeout(Promise.all([
         buildSalesQuery(start, end, 0, isSearchMode),
-        buildStatsQuery(start, end),
-        buildCollectedQuery(start, end),
+        saleStatusFilter === 'cancelled' ? none : buildStatsQuery(start, end, 'active'),
+        saleStatusFilter === 'active' ? none : buildStatsQuery(start, end, 'cancelled'),
+        saleStatusFilter === 'cancelled' ? Promise.resolve({ data: 0, error: null }) : buildCollectedQuery(start, end),
       ]), 20_000, 'Chargement des ventes trop lent : réessayez.')
       if (stale()) return
-      // A transient auth/RLS hiccup can resolve statsResult/collectedResult
-      // with data: null instead of throwing — without this, listResult.error
-      // alone let a failure limited to just these two silently reset the
-      // owner-facing summary bar (count/CA/encaissé/solde) to zero while the
-      // sales table underneath still looked fine.
-      if (listResult.error || statsResult.error || collectedResult.error) {
-        throw listResult.error || statsResult.error || collectedResult.error
-      }
-      if (!statsResult.data || collectedResult.data === null || collectedResult.data === undefined) throw new Error('period_totals_missing')
+      // A transient auth/RLS hiccup can resolve the totals with data: null instead of throwing — without this, an
+      // error limited to the totals silently reset the summary to zero while the sales table still looked fine.
+      const failed = listResult.error || activeResult.error || cancelledResult.error || collectedResult.error
+      if (failed) throw failed
+      if (!activeResult.data || !cancelledResult.data || collectedResult.data === null || collectedResult.data === undefined) throw new Error('period_totals_missing')
       const salesData = (listResult.data || []) as Sale[]
-      const totals = (Array.isArray(statsResult.data) ? statsResult.data[0] : statsResult.data) as { sale_count: number; revenue: number; open_balance: number } | undefined
+      type Totals = { sale_count: number; revenue: number; open_balance: number }
+      const first = (d: any) => (Array.isArray(d) ? d[0] : d) as Totals | undefined
+      const totals = first(activeResult.data), cancelled = first(cancelledResult.data)
       setSales(salesData)
       setHasMoreSales(!isSearchMode && salesData.length === PAGE_SIZE)
       const cashiers = await enrichCashiers(salesData)
@@ -522,6 +542,8 @@ export default function SalesHistoryPage() {
         // Reste dû : la base exclut les ventes annulées (l'annulation a déjà retiré la dette du client ; sales.balance,
         // colonne calculée, garde l'arithmétique de la vente quel que soit son statut)
         balance:   Number(totals?.open_balance ?? 0),
+        cancelledCount:  Number(cancelled?.sale_count ?? 0),
+        cancelledAmount: Number(cancelled?.revenue ?? 0),
       })
     } catch {
       // cache already applied if available
@@ -700,7 +722,9 @@ export default function SalesHistoryPage() {
     setEditDialog(null); setDialog(null); setExpandedId(null); setEditProducts([]); setEditCustomers([])
   }, [scopeKey])
   // Plus aucun droit au journal dans ce contexte : retour aux ventes
-  useEffect(() => { if (view === 'logs' && !canSeeLogs) setView('sales') }, [view, canSeeLogs])
+  // (seulement une fois les rôles connus : une adresse ?vue=journal ne doit pas être perdue pendant le chargement)
+  const rolesKnown = scope.shopIds.some(id => !!roleByShop[id])
+  useEffect(() => { if (view === 'logs' && rolesKnown && !canSeeLogs) setView('sales') }, [view, canSeeLogs, rolesKnown])
 
   useEffect(() => {
     if (view === 'sales') fetchSales()
@@ -970,7 +994,7 @@ export default function SalesHistoryPage() {
           onClick={() => { const next = expandedId === sale.id ? null : sale.id; setExpandedId(next); if (next && hasTracked(sale)) loadSaleSerials(sale.id) }}
           data-sale-row={sale.id} data-sale-shop={saleShopId} aria-expanded={expandedId === sale.id}
         >
-          <TableCell className="font-mono text-xs font-medium text-stockshop-blue dark:text-blue-400">
+          <TableCell className="whitespace-nowrap font-mono text-xs font-medium text-stockshop-blue dark:text-blue-400">
             #{sale.sale_number}
             {isCancelled && (
               <span className="ml-1.5 text-[10px] font-semibold text-red-500 bg-red-50 dark:bg-red-950/50 border border-red-200 dark:border-red-800 rounded px-1">{t('sales.cancelled_badge')}</span>
@@ -986,8 +1010,7 @@ export default function SalesHistoryPage() {
           <TableCell className="hidden sm:table-cell text-xs text-muted-foreground">
             {format(new Date(sale.created_at), 'dd MMM · HH:mm', { locale: dateFnsLocale(locale) })}
           </TableCell>
-          <TableCell className="text-right font-medium">{fmtS(sale.total)}</TableCell>
-          <TableCell className="hidden md:table-cell text-right text-green-600 dark:text-green-400">{fmtS(sale.amount_paid)}</TableCell>
+          <TableCell className={`whitespace-nowrap text-right font-medium ${isCancelled ? 'line-through' : ''}`}>{fmtS(sale.total)}</TableCell>
           <TableCell className="hidden md:table-cell text-right">
             {Number(sale.balance) > 0
               ? <span className="text-red-500">{fmtS(sale.balance)}</span>
@@ -1011,7 +1034,7 @@ export default function SalesHistoryPage() {
         </TableRow>
         {expandedId === sale.id && (
           <TableRow key={`${sale.id}-expand`}>
-            <TableCell colSpan={9} className="bg-muted/20 p-0">
+            <TableCell colSpan={8} className="bg-muted/20 p-0">
               <div className="p-3 space-y-2">
                 <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">{t('sales.items')}</p>
                 {(sale as any).sale_items?.map((raw: any) => receiptView(raw, tM as any)).map((item: any) => (
@@ -1109,12 +1132,11 @@ export default function SalesHistoryPage() {
       <TableRow>
         <TableHead>{t('sales.sale_number')}</TableHead>
         <TableHead>{t('sales.customer')}</TableHead>
-        <TableHead className="hidden lg:table-cell">{t('sales.cashier')}</TableHead>
+        <TableHead className="hidden lg:table-cell">{t('history_page.col_seller')}</TableHead>
         <TableHead className="hidden sm:table-cell">{t('sales.date')}</TableHead>
         <TableHead className="text-right">{t('sales.total')}</TableHead>
-        <TableHead className="hidden md:table-cell text-right">{t('payment.amount_paid')}</TableHead>
-        <TableHead className="hidden md:table-cell text-right">{t('payment.balance')}</TableHead>
-        <TableHead>{t('status.active')}</TableHead>
+        <TableHead className="hidden md:table-cell text-right">{t('history_page.col_balance')}</TableHead>
+        <TableHead>{t('history_page.col_payment')}</TableHead>
         <TableHead className="w-8"></TableHead>
       </TableRow>
     </TableHeader>
@@ -1122,23 +1144,26 @@ export default function SalesHistoryPage() {
 
   return (
     <div className="space-y-4">
-      <PageHeader title={t('nav.sales_history')} description={t('page_header.sales_history')} />
-      {/* View toggle */}
-      <SegmentedTabs value={view} onChange={v => setView(v as typeof view)} testId="sales-history-tabs" items={[
-        { key: 'sales', label: t('sales.sales_tab') },
-        { key: 'repayments', label: t('sales.repayments_tab'), icon: CornerDownLeft },
+      {/* Comme les onglets du Stock (7 nov. 2026) : la barre d'onglets en haut, puis le titre, la phrase et la boutique
+          PROPRES à l'onglet ouvert */}
+      <SegmentedTabs value={view} onChange={v => setView(v as HistoryView)} testId="sales-history-tabs" items={[
+        { key: 'sales', label: t('sales.sales_tab'), icon: Receipt },
+        { key: 'repayments', label: t('sales.repayments_tab'), icon: HandCoins },
         ...(canSeeLogs ? [{ key: 'logs', label: t('sales.logs_tab'), icon: Activity }] : []),
       ]} />
+      <PageHeader
+        title={view === 'repayments' ? t('sales.repayments_tab') : view === 'logs' ? t('sales.logs_tab') : t('sales.sales_tab')}
+        description={view === 'repayments' ? t('page_header.sales_history_credit') : view === 'logs' ? t('page_header.sales_history_journal') : t('page_header.sales_history_sales')}
+      />
 
-      {/* Filters row */}
-      <div className="flex flex-wrap items-end gap-2">
-        <div className="relative flex-1 min-w-[160px]">
+      {/* Filtres (7 nov. 2026) : recherche et période visibles ; le reste dans « Filtres », comme Stock › Produits */}
+      <div className="flex flex-wrap items-center gap-2">
+        <div className="relative min-w-[160px] basis-full sm:basis-0 sm:flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input value={search} onChange={e => setFilter({ search: e.target.value })} placeholder={t('sales.search_history')} className="pl-9 h-9" />
         </div>
 
-        <div className="flex flex-col gap-0.5">
-          <Label className="text-[10px] font-normal text-muted-foreground px-0.5">{t('reports.date_range')}</Label>
+        <div className="flex-1 sm:flex-none">
           <Select
             value={dateFilter}
             onValueChange={v => {
@@ -1156,7 +1181,7 @@ export default function SalesHistoryPage() {
               }
             }}
           >
-            <SelectTrigger className="w-[150px] h-9" data-testid="sales-period"><SelectValue /></SelectTrigger>
+            <SelectTrigger className="h-9 w-full sm:w-[150px]" data-testid="sales-period" aria-label={t('reports.date_range')}><SelectValue /></SelectTrigger>
             <SelectContent>
               {SALES_PERIODS.filter(f => presetAllowed(f) || hist.lock === 'locked').map(f => (
                 <SelectItem key={f} value={f} data-testid={`sales-preset-${f}`}>
@@ -1192,49 +1217,54 @@ export default function SalesHistoryPage() {
           </>
         )}
 
-        <div className="flex flex-col gap-0.5">
-          <Label className="text-[10px] font-normal text-muted-foreground px-0.5">{t('sales.filter_method_label')}</Label>
-          <Select value={methodFilter} onValueChange={v => setFilter({ methodFilter: v })}>
-            <SelectTrigger className="w-[140px] h-9"><SelectValue /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">{t('sales.all_methods')}</SelectItem>
-              <SelectItem value="cash">{t('payment.cash')}</SelectItem>
-              <SelectItem value="mobile_money">{t('payment.mobile_money')}</SelectItem>
-              <SelectItem value="transfer">{t('payment.transfer')}</SelectItem>
-              <SelectItem value="credit">{t('payment.credit')}</SelectItem>
-              <SelectItem value="paystack">{t('payment.paystack')}</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-
-        {view === 'sales' && (
-          <>
-            <div className="flex flex-col gap-0.5">
-              <Label className="text-[10px] font-normal text-muted-foreground px-0.5">{t('sales.filter_status_label')}</Label>
-              <Select value={statusFilter} onValueChange={v => setFilter({ statusFilter: v })}>
-                <SelectTrigger className="w-[130px] h-9"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">{t('sales.all_statuses')}</SelectItem>
-                  <SelectItem value="paid">{t('status.paid')}</SelectItem>
-                  <SelectItem value="partial">{t('status.partial')}</SelectItem>
-                  <SelectItem value="pending">{t('status.pending')}</SelectItem>
-                </SelectContent>
-              </Select>
+        {view !== 'logs' && (() => {
+          // Choix à toucher (pas de menu déroulant dans le panneau : il se refermerait au premier choix)
+          const Choices = ({ label, value, options, onPick, testId }: { label: string; value: string; options: { v: string; label: string }[]; onPick: (v: string) => void; testId: string }) => (
+            <div className="space-y-1.5" role="group" aria-label={label} data-testid={testId}>
+              <p className="text-xs font-medium">{label}</p>
+              <div className="flex flex-wrap gap-1.5">
+                {options.map(o => (
+                  <button key={o.v} type="button" aria-pressed={value === o.v} data-value={o.v} onClick={() => onPick(o.v)}
+                    className={cn('min-h-9 rounded-full border px-3 text-sm transition-colors',
+                      value === o.v ? 'border-stockshop-blue bg-stockshop-blue text-white dark:border-blue-500 dark:bg-blue-500' : 'bg-background hover:bg-muted')}>
+                    {o.label}
+                  </button>
+                ))}
+              </div>
             </div>
-
-            <div className="flex flex-col gap-0.5">
-              <Label className="text-[10px] font-normal text-muted-foreground px-0.5">{t('sales.filter_sale_label')}</Label>
-              <Select value={saleStatusFilter} onValueChange={v => setFilter({ saleStatusFilter: v as any })}>
-                <SelectTrigger className="w-[130px] h-9"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">{t('sales.filter_all')}</SelectItem>
-                  <SelectItem value="active">{t('sales.filter_active')}</SelectItem>
-                  <SelectItem value="cancelled">{t('sales.filter_cancelled')}</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          </>
-        )}
+          )
+          const extraCount = (methodFilter !== 'all' ? 1 : 0) + (view === 'sales' && statusFilter !== 'all' ? 1 : 0) + (view === 'sales' && saleStatusFilter !== 'all' ? 1 : 0)
+          return (
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button variant="outline" size="sm" className="h-9 shrink-0 gap-1.5 px-2.5 sm:px-3" aria-label={t('history_page.filters')} data-testid="history-filters">
+                  <SlidersHorizontal className="h-4 w-4 sm:h-3.5 sm:w-3.5" />
+                  <span className="hidden sm:inline">{t('history_page.filters')}</span>
+                  {extraCount > 0 && <span className="rounded-full bg-stockshop-blue px-1.5 text-[11px] font-semibold leading-5 text-white">{extraCount}</span>}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent align="end" className="w-80 max-w-[calc(100vw-2rem)] space-y-4">
+                <Choices label={t('history_page.payment_method')} value={methodFilter} onPick={v => setFilter({ methodFilter: v })} testId="filter-method" options={[
+                  { v: 'all', label: t('sales.all_methods') }, { v: 'cash', label: t('payment.cash') }, { v: 'mobile_money', label: t('payment.mobile_money') },
+                  { v: 'transfer', label: t('payment.transfer') }, { v: 'credit', label: t('payment.credit') }, { v: 'paystack', label: t('payment.paystack') },
+                ]} />
+                {view === 'sales' && (<>
+                  <Choices label={t('history_page.payment_state')} value={statusFilter} onPick={v => setFilter({ statusFilter: v })} testId="filter-payment" options={[
+                    { v: 'all', label: t('sales.all_statuses') }, { v: 'paid', label: t('status.paid') }, { v: 'partial', label: t('status.partial') }, { v: 'pending', label: t('status.pending') },
+                  ]} />
+                  <Choices label={t('history_page.cancelled_label')} value={saleStatusFilter} onPick={v => setFilter({ saleStatusFilter: v as any })} testId="filter-cancelled" options={[
+                    { v: 'all', label: t('history_page.cancelled_show') }, { v: 'active', label: t('history_page.cancelled_hide') }, { v: 'cancelled', label: t('history_page.cancelled_only') },
+                  ]} />
+                </>)}
+                {extraCount > 0 && (
+                  <Button variant="ghost" size="sm" className="w-full" onClick={() => setFilter({ methodFilter: 'all', statusFilter: 'all', saleStatusFilter: 'all' })}>
+                    {t('history_page.reset')}
+                  </Button>
+                )}
+              </PopoverContent>
+            </Popover>
+          )
+        })()}
 
         {isOwner && (
           <div className="relative flex-shrink-0">
@@ -1269,7 +1299,7 @@ export default function SalesHistoryPage() {
         const fmt = (d: Date) => format(d, 'd MMM yyyy', { locale: dateFnsLocale(locale) })
         const startStr = fmt(start)
         const endStr   = fmt(end)
-        const label = startStr === endStr ? startStr : `${startStr} – ${endStr}`
+        const label = startStr === endStr ? startStr : t('history_page.period_range', { start: startStr, end: endStr })
         return <p className="text-xs text-muted-foreground -mt-1">{label}</p>
       })()}
 
@@ -1378,28 +1408,45 @@ export default function SalesHistoryPage() {
           )}
           {searchStats.balance > 0 && (
             <span className="text-red-500">
-              {t('sales.balance_summary')}: {formatNaira(searchStats.balance)}
+              {t('history_page.kpi_balance')} {formatNaira(searchStats.balance)}
             </span>
           )}
         </div>
       )}
       {view === 'sales' && isOwner && !searchActive && periodStats !== null && (
-        <div className="flex gap-x-4 gap-y-0.5 text-sm flex-wrap" data-testid="history-period-stats" data-count={periodStats.count}
-          data-collected={periodStats.collected} data-revenue={periodStats.ca} data-balance={periodStats.balance}>
-          <span className="text-muted-foreground">
-            {periodStats.count} {t('sales.sales_count_label')} ·{' '}
-            <span className="font-semibold text-foreground">{formatNaira(periodStats.collected)}</span>
-            <span className="text-muted-foreground font-normal"> {t('sales.collected_inline')}</span>
-          </span>
-          {periodStats.ca !== periodStats.collected && (
-            <span className="text-muted-foreground text-xs self-center">
-              {t('sales.revenue_inline')} {formatNaira(periodStats.ca)}
-            </span>
-          )}
-          {periodStats.balance > 0 && (
-            <span className="text-red-500">
-              {t('sales.balance_summary')}: {formatNaira(periodStats.balance)}
-            </span>
+        // Quatre chiffres de la période (7 nov. 2026), comme les cartes du Stock ; ventes ACTIVES seulement, les
+        // annulées comptées à part. « Seulement les annulées » : une seule ligne (rien n'est vendu ni encaissé).
+        <div data-testid="history-period-stats" data-count={periodStats.count} data-collected={periodStats.collected}
+          data-revenue={periodStats.ca} data-balance={periodStats.balance} data-cancelled={periodStats.cancelledCount}>
+          {saleStatusFilter === 'cancelled' ? (
+            <p className="text-sm text-muted-foreground" data-testid="history-cancelled-summary">
+              {t('history_page.cancelled_summary', { count: periodStats.cancelledCount, amount: formatNaira(periodStats.cancelledAmount) })}
+            </p>
+          ) : (
+            <div className="grid grid-cols-2 gap-2 lg:grid-cols-4">
+              {[
+                { key: 'sales', label: t('history_page.kpi_sales'), value: new Intl.NumberFormat(dateLocaleTag(locale)).format(periodStats.count) },
+                { key: 'revenue', label: t('history_page.kpi_revenue'), value: formatNaira(periodStats.ca) },
+                { key: 'collected', label: t('history_page.kpi_collected'), value: formatNaira(periodStats.collected), tone: 'text-emerald-600 dark:text-emerald-400' },
+                { key: 'balance', label: t('history_page.kpi_balance'), value: formatNaira(periodStats.balance), tone: periodStats.balance > 0 ? 'text-red-600 dark:text-red-400' : '' },
+              ].map(k => (
+                <div key={k.key} className="rounded-lg border bg-card px-3 py-2.5 shadow-sm" data-testid={`history-kpi-${k.key}`}>
+                  <p className="text-xs text-muted-foreground">{k.label}</p>
+                  <p className={cn('mt-0.5 text-base font-semibold tabular-nums sm:text-lg', k.tone)}>{k.value}</p>
+                  {k.key === 'sales' && periodStats.cancelledCount > 0 && saleStatusFilter === 'all' && (
+                    <button type="button" className="mt-0.5 text-left text-xs text-muted-foreground underline-offset-2 hover:underline"
+                      onClick={() => setFilter({ saleStatusFilter: 'cancelled' })} data-testid="history-kpi-cancelled">
+                      {t('history_page.kpi_cancelled', { count: periodStats.cancelledCount })}
+                    </button>
+                  )}
+                  {k.key === 'balance' && periodStats.balance > 0 && (
+                    <Link href={`/${locale}/payments`} className="mt-0.5 inline-block text-xs text-stockshop-blue underline-offset-2 hover:underline dark:text-blue-400">
+                      {t('history_page.kpi_balance_link')}
+                    </Link>
+                  )}
+                </div>
+              ))}
+            </div>
           )}
         </div>
       )}
@@ -1468,15 +1515,8 @@ export default function SalesHistoryPage() {
                   <div className="flex items-center gap-2 pt-1">
                     <Store className="h-3.5 w-3.5 text-stockshop-blue dark:text-blue-400 flex-shrink-0" />
                     <span className="text-xs font-semibold text-stockshop-blue dark:text-blue-400 uppercase tracking-wide">{shopEntry.name}</span>
-                    <span className="text-xs text-muted-foreground ml-1">
-                      {/* shopSales already reflects the "Vente" filter (saleStatusFilter)
-                          via the server query behind `filtered` — hardcoding "active only"
-                          here made this badge disagree with the rows shown right below it
-                          whenever the filter was set to "all" or "cancelled" (same bug
-                          already fixed for the page-level periodStats summary bar). */}
-                      {shopSales.length} {t('sales.sales_count_label')} ·{' '}
-                      {fmtIn(shopEntry.id)(shopSales.reduce((acc, s) => acc + Number(s.total), 0))}
-                    </span>
+                    {/* Plus de sous-total ici (7 nov. 2026) : il n'additionnait que les lignes CHARGÉES (100 par page),
+                        pas toute la période ; les totaux exacts sont les cartes du haut */}
                     <div className="flex-1 h-px bg-border" />
                   </div>
                   <div className="rounded-lg border bg-card shadow-sm overflow-hidden">
