@@ -1,12 +1,13 @@
 import type { Metadata } from 'next'
 import Image from 'next/image'
 import { getTranslations, unstable_setRequestLocale } from 'next-intl/server'
-import { SectionNav } from '@/components/marketing/section-nav'
+import { PlatformTabs } from '@/components/marketing/platform-tabs'
 import { FinalCta, MultiShopsSection } from '@/components/marketing/sections'
 import { IconAlert, IconCart, IconChart, IconKey, IconShield } from '@/components/marketing/icons'
 
 // Page Plateforme (lot B du 6 nov. 2026, maquette v6 validée) : le socle commun, identique pour tous les métiers.
-// Pastilles collantes qui suivent la lecture, puis Multi-boutiques, Vente, Stock, Pilotage, Clients et crédits, Équipe.
+// En onglets depuis le 7 nov. 2026 (une partie à la fois) : Vente, Stock, Pilotage, Clients et crédits, Équipe,
+// Plusieurs boutiques ; bouton « Suivant » en bas de chaque partie.
 // Chaque promesse correspond à une fonction réelle de l'application (vérifié le 6 nov. 2026) ; captures du compte de
 // démonstration (tests/e2e/landing-captures.js).
 
@@ -56,52 +57,42 @@ export default async function PlatformPage({ params: { locale } }: { params: { l
     </div>
   )
 
-  return (
-    <>
-      <section className="page-head">
-        <div className="wrap">
-          <span className="kicker">{t('kicker')}</span>
-          <h1>{t('title')}</h1>
-          <p className="lead">{t('lead')}</p>
-          <div data-sticky-anchor />
-        </div>
-      </section>
-      <SectionNav label={t('nav_label')} items={[
-        { id: 'multi', label: t('nav_multi') }, { id: 'vente', label: t('nav_sale') }, { id: 'stock', label: t('nav_stock') },
-        { id: 'pilotage', label: t('nav_pilot') }, { id: 'clients', label: t('nav_clients') }, { id: 'equipe', label: t('nav_team') },
-      ]} />
-
-      <MultiShopsSection locale={locale} id="multi" />
-
-      <section id="vente" className="sec tint">
+  // Onglets : Vente d'abord (la plupart des visiteurs ont une seule boutique), Plusieurs boutiques en dernier
+  const tabs = [
+    { id: 'vente', label: t('nav_sale'), content: (
+      <section className="sec">
         <div className="wrap two narrow flip acc-green">
           {copy('sale', 'green', <IconCart />)}
           <Phone src="/landing/tel-pos.webp" alt={t('sale_img')} />
         </div>
       </section>
-
-      <section id="stock" className="sec">
+    ) },
+    { id: 'stock', label: t('nav_stock'), content: (
+      <section className="sec">
         <div className="wrap two acc-orange">
           {copy('stock', 'orange', <IconAlert />)}
           <Window src="/landing/pc-stock.webp" alt={t('stock_img')} />
         </div>
       </section>
-
-      <section id="pilotage" className="sec alt">
+    ) },
+    { id: 'pilotage', label: t('nav_pilot'), content: (
+      <section className="sec">
         <div className="wrap two flip acc-violet">
           {copy('pilot', 'violet', <IconChart />)}
           <Window src="/landing/pc-dashboard.webp" alt={t('pilot_img')} />
         </div>
       </section>
-
-      <section id="clients" className="sec">
+    ) },
+    { id: 'clients', label: t('nav_clients'), content: (
+      <section className="sec">
         <div className="wrap two narrow acc-blue">
           {copy('clients', 'blue', <IconShield />)}
           <Phone src="/landing/tel-credits.webp" alt={t('clients_img')} />
         </div>
       </section>
-
-      <section id="equipe" className="sec tint">
+    ) },
+    { id: 'equipe', label: t('nav_team'), content: (
+      <section className="sec">
         <div className="wrap two flip acc-blue">
           {copy('team', 'blue', <IconKey />)}
           <div>
@@ -119,6 +110,21 @@ export default async function PlatformPage({ params: { locale } }: { params: { l
           </div>
         </div>
       </section>
+    ) },
+    { id: 'multi', label: t('nav_multi'), content: <MultiShopsSection locale={locale} className="sec" /> },
+  ]
+
+  return (
+    <>
+      <section className="page-head">
+        <div className="wrap">
+          <span className="kicker">{t('kicker')}</span>
+          <h1>{t('title')}</h1>
+          <p className="lead">{t('lead')}</p>
+          <div data-sticky-anchor />
+        </div>
+      </section>
+      <PlatformTabs label={t('nav_label')} tabs={tabs.map((tab, i) => ({ ...tab, next: tabs[i + 1] ? t('next_tab', { name: tabs[i + 1].label }) : undefined }))} />
 
       <FinalCta locale={locale} showPlatform={false} />
     </>

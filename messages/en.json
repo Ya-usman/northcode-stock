@@ -6215,6 +6215,7 @@
       "nav_pilot": "Insights",
       "nav_clients": "Customers and credit",
       "nav_team": "Team",
+      "next_tab": "Next: {name}",
       "sale_kicker": "Sales",
       "sale_title": "Sell in seconds, even without internet.",
       "sale_sub": "Products with photos, favourites on top, barcodes scanned with the camera.",

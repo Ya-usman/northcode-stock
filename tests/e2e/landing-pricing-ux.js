@@ -122,7 +122,15 @@ const text = async (page, id) => norm(await page.getByTestId(id).first().innerTe
     v = await visit({ locale, width, height: 700 }); p = v.page
     const w = await p.evaluate(() => [document.documentElement.scrollWidth, document.documentElement.clientWidth])
     if (w[0] > w[1]) wide.push(`${locale} ${width} : ${w[0]}`)
-    // En-tête du site (6 nov. 2026) : sur téléphone, pages, langue (une ligne) et thème rangés dans le menu ☰
+    // Barre du haut (7 nov. 2026) : logo jamais recouvert par la langue ; durées sur une seule ligne
+    const lay = await p.evaluate(() => {
+      const r = s => document.querySelector(s)?.getBoundingClientRect()
+      const tops = Array.from(document.querySelectorAll('[data-testid^="landing-period-"]')).map(b => Math.round(b.getBoundingClientRect().top))
+      return { gap: Math.round(r('[data-testid="site-lang"]').left - r('.brand-link span[aria-hidden]').right), rows: new Set(tops).size }
+    })
+    if (lay.gap < 0) wide.push(`${locale} ${width} : logo recouvert (${lay.gap} px)`)
+    if (lay.rows !== 1) wide.push(`${locale} ${width} : durées sur ${lay.rows} lignes`)
+    // En-tête du site : le menu ☰ garde pages, langue (une ligne) et thème, en plus des boutons de la barre (7 nov. 2026)
     if (width === 320 && locale === 'fr') {
       const t = p.getByTestId('site-menu-toggle')
       ok(await t.getAttribute('aria-label') === 'Ouvrir le menu' && await t.getAttribute('aria-expanded') === 'false', 'menu : nom accessible et état fermé')
@@ -137,11 +145,11 @@ const text = async (page, id) => norm(await page.getByTestId(id).first().innerTe
     }
     if (width === 360 && locale === 'fr') {
       ok(!(await p.getByTestId('site-mmenu').count()) && await p.getByTestId('site-menu-toggle').isVisible(), '360 px : menu fermé, bouton ☰ visible')
-      ok(!(await p.getByTestId('site-lang').isVisible()), "360 px : la langue est dans le menu, pas dans l'en-tête")
+      ok(await p.getByTestId('site-lang').isVisible() && await p.getByTestId('site-theme').isVisible() && (await p.getByTestId('site-lang').innerText()).trim() === 'FR', '360 px : langue « FR » et thème dans la barre, à côté du menu')
     }
     await v.browser.close()
   }
-  ok(wide.length === 0, "en-tête : aucune page plus large que l'écran (320 et 360 px, fr / en / ha)", wide)
+  ok(wide.length === 0, "en-tête : aucune page plus large que l'écran, logo jamais recouvert, durées sur une ligne (320 et 360 px, fr / en / ha)", wide)
   v = await visit({ locale: 'en' }); p = v.page
   ok(/10,000/.test(await text(p, 'landing-price-pro')) && /Paystack/.test(await text(p, 'landing-pay-methods')), 'anglais sans pays connu : Nigeria', await text(p, 'landing-price-pro'))
   ok(/Compare plans/.test(await text(p, 'landing-compare-toggle')) && /Transfers between shops/.test(await text(p, 'landing-plan-pro')), 'anglais : textes')

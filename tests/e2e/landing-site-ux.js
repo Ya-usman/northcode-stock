@@ -117,7 +117,16 @@ async function visit({ locale = 'fr', path = '', geo = null, width = 1440, heigh
   const sh = await sticky.locator('a').evaluate(e => e.getBoundingClientRect().height)
   ok(sh >= 44, `bouton collant de ${sh} px (≥ 44)`)
   await p.evaluate(() => window.scrollTo(0, 0)); await wait(300)
-  ok(!(await p.getByTestId('site-lang').isVisible()) && !(await p.getByTestId('site-login').isVisible()), 'en-tête du téléphone : logo et menu seulement')
+  // Barre du téléphone (7 nov. 2026) : langue (globe + code, sans drapeau) et thème à côté du menu ☰ ; connexion dans le menu
+  const bar = await p.evaluate(() => {
+    const r = s => document.querySelector(s)?.getBoundingClientRect()
+    const lang = r('[data-testid="site-lang"]'), theme = r('[data-testid="site-theme"]'), brand = r('.brand-link span[aria-hidden]')
+    return { code: document.querySelector('[data-testid="site-lang"]')?.innerText.trim(), hLang: lang?.height, hTheme: theme?.height, gap: lang && brand ? Math.round(lang.left - brand.right) : null, flag: !!document.querySelector('.site-header img[src*="flag"], .site-header [class*="flag"]') }
+  })
+  ok(bar.code === 'FR' && bar.hLang >= 44 && bar.hTheme >= 44 && bar.gap >= 0 && !bar.flag && !(await p.getByTestId('site-login').isVisible()), 'en-tête du téléphone : « FR » (globe, pas de drapeau) et thème à côté du menu, touches de 44 px, logo non recouvert', bar)
+  await p.getByTestId('site-lang').click(); await wait(300)
+  ok(/Français/.test(await p.getByTestId('site-lang-list').innerText()) && /English/.test(await p.getByTestId('site-lang-list').innerText()) && /Hausa/.test(await p.getByTestId('site-lang-list').innerText()), 'téléphone : le bouton de langue ouvre la liste (noms dans leur langue)')
+  await p.keyboard.press('Escape'); await wait(200)
   await p.getByTestId('site-menu-toggle').click(); await wait(300)
   const mm = norm(await p.getByTestId('site-mmenu').innerText())
   ok(/Tarifs/.test(mm) && /Langue Français/.test(mm) && /Mode clair/.test(mm) && /Mode sombre/.test(mm) && /Essayer gratuitement 30 jours/.test(mm) && /Se connecter/.test(mm), 'menu : pages, « Langue : Français », thème, essai, connexion', mm)

@@ -5,7 +5,7 @@
 // panneau à côté du formulaire ; téléphone : bandeau au-dessus, détail replié.
 import Link from 'next/link'
 import { useTranslations } from 'next-intl'
-import { Check } from 'lucide-react'
+import { Check, ChevronDown } from 'lucide-react'
 import { PLAN_LINE_KEYS } from '@/lib/saas/plan-offer'
 import { planName, type ChosenOffer } from '@/lib/site/chosen-offer'
 
@@ -37,8 +37,10 @@ export function TrialPanel({ locale, chosen, variant }: { locale: string; chosen
     return (
       <div className="mb-4 space-y-2 lg:hidden" data-testid="register-trial-top">
         {banner}
-        <details className="rounded-xl border border-[#dce7ff] bg-white px-4 py-3 dark:border-[#152034] dark:bg-[#0b1525]">
-          <summary className="cursor-pointer text-sm font-semibold">{t('offer_title')}</summary>
+        <details className="group rounded-xl border border-[#dce7ff] bg-white px-4 py-3 dark:border-[#152034] dark:bg-[#0b1525]">
+          <summary className="flex min-h-[28px] cursor-pointer list-none items-center justify-between gap-3 text-sm font-semibold [&::-webkit-details-marker]:hidden">
+            {t('offer_title')}<ChevronDown className="h-4 w-4 shrink-0 text-[#073e8a] transition-transform group-open:rotate-180 dark:text-[#7EB0FF]" aria-hidden />
+          </summary>
           <div className="mt-3">{lines}</div>
         </details>
       </div>

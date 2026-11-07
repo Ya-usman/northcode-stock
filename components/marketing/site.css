@@ -242,7 +242,7 @@ html.dark .mk .acc-cyan .list li { border-left-color: #155E6E; }
 @media (max-width: 760px) {
   .mk .wrap { padding: 0 16px; }
   .mk .site-header .wrap { height: 58px; gap: 12px; }
-  .mk .site-nav, .mk .hdr-right .lang-menu, .mk .hdr-right .icon-btn, .mk .hdr-right .btn { display: none; }
+  .mk .site-nav, .mk .hdr-right .btn { display: none; }
   .mk .burger { display: grid; }
   .mk .sticky-cta { display: block; position: fixed; left: 0; right: 0; bottom: 0; z-index: 30; padding: 10px 16px calc(10px + env(safe-area-inset-bottom)); background: var(--glass); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); border-top: 1px solid var(--line); transform: translateY(110%); transition: transform .2s; }
   .mk .sticky-cta.show { transform: none; }
@@ -282,7 +282,7 @@ html.dark .mk .acc-cyan .list li { border-left-color: #155E6E; }
 
 /* Coche du choix de langue : taille fixe (icône sans dimensions propres) */
 .mk .lang-list svg, .mk .mmenu .lang-opt svg { width: 16px; height: 16px; color: var(--link); }
-.mk .brand-link { display: inline-flex; align-items: center; }
+.mk .brand-link { display: inline-flex; align-items: center; flex-shrink: 0; }
 
 /* Colonnes qui peuvent rétrécir (sinon un montant sans retour à la ligne élargit la page sur petit téléphone) */
 .mk .two > * { min-width: 0; }
@@ -463,3 +463,42 @@ html.dark .mk .wl-error { color: #F87171; }
 .mk .help-contact strong { display: block; font-size: 17px; } .mk .help-contact span { display: block; margin-top: 4px; color: var(--ink-2); font-size: 15px; }
 .mk .help-contact .center-link { margin-top: 0; }
 @media (max-width: 760px) { .mk .help-contact .btn { width: 100%; } }
+
+/* Barre du haut sur téléphone (7 nov. 2026) : langue (globe + code) et thème à côté du menu ☰, sans drapeau */
+.mk .lang-code { display: none; }
+@media (max-width: 760px) {
+  .mk .hdr-right { gap: 6px; }
+  .mk .lang-btn { height: 44px; padding: 0 10px; gap: 5px; border-color: var(--line); background: var(--surface); font-weight: 600; color: var(--ink); }
+  .mk .lang-btn .lang-name, .mk .lang-btn > svg:last-child { display: none; }
+  .mk .lang-code { display: inline; font-size: 13px; letter-spacing: 0.02em; }
+  .mk .hdr-right .icon-btn { width: 44px; height: 44px; }
+}
+@media (max-width: 359px) {
+  .mk .site-header .wrap { gap: 8px; }
+  .mk .site-header .brand-link > * { font-size: 16px; }
+  .mk .hdr-right { gap: 4px; }
+  .mk .lang-btn { padding: 0 8px; }
+  .mk .hdr-right .icon-btn { width: 40px; }
+}
+
+/* Plateforme en onglets (7 nov. 2026) : une partie à la fois, même fond pour toutes, « Suivant » en bas */
+.mk .subnav a[aria-selected="true"] { background: var(--blue); border-color: var(--blue); color: #fff; }
+.mk .subnav a:focus-visible { outline: 2px solid var(--link); outline-offset: 2px; }
+.mk .tabpanel { background: var(--tint); scroll-margin-top: 132px; }
+.mk .tabpanel .sec { padding: 64px 0 32px; }
+.mk .tab-next { display: flex; justify-content: flex-end; max-width: 1160px; margin: 0 auto; padding: 0 24px 64px; }
+.mk .tab-next a { display: inline-flex; align-items: center; gap: 8px; min-height: 44px; padding: 0 18px; border-radius: 12px; border: 1px solid var(--line); background: var(--surface); font-size: 15px; font-weight: 600; color: var(--link); }
+.mk .tab-next a:hover { border-color: var(--link); }
+@media (max-width: 760px) {
+  .mk .tabpanel { scroll-margin-top: 114px; }
+  .mk .tabpanel .sec { padding: 32px 0 20px; }
+  .mk .tab-next { padding: 0 16px 40px; }
+  .mk .tab-next a { width: 100%; justify-content: center; }
+}
+
+/* Durées de /tarifs sur téléphone : trois colonnes égales sur une ligne, remise sous la durée (plus d'empilement) */
+@media (max-width: 760px) {
+  .mk .pseg { display: grid; grid-template-columns: repeat(3, 1fr); width: 100%; max-width: 420px; }
+  .mk .pseg button { flex-direction: column; justify-content: center; gap: 3px; min-height: 54px; padding: 6px 4px; text-align: center; }
+  .mk .pseg em { white-space: normal; line-height: 1.25; font-size: 11px; }
+}

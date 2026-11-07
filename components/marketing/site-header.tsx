@@ -1,7 +1,8 @@
 'use client'
 
 // En-tête des pages publiques. Ordinateur : vraies pages, langue en menu déroulant, thème, Se connecter, Essai gratuit
-// (jaune). Téléphone : menu ☰ plein écran (pages, « Langue : Français › » qui ouvre la liste, thème, boutons).
+// (jaune). Téléphone : langue (globe + code, jamais de drapeau : une langue n'est pas un pays) et thème à côté du
+// menu ☰ (7 nov. 2026) ; le menu plein écran garde pages, « Langue : Français › », thème et boutons.
 // Textes passés par le serveur (aucun catalogue de traductions envoyé au navigateur pour l'en-tête).
 import { useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
@@ -64,7 +65,7 @@ export function SiteHeader({ locale, labels }: { locale: string; labels: SiteHea
           <div className="hdr-right">
             <div className="lang-menu" ref={langRef}>
               <button type="button" className="lang-btn" aria-haspopup="true" aria-expanded={langOpen} aria-label={`${labels.language} : ${languageName(locale)}`} onClick={() => setLangOpen(o => !o)} data-testid="site-lang">
-                <IconLanguage />{languageName(locale)}<IconChevronDown />
+                <IconLanguage /><span className="lang-name">{languageName(locale)}</span><span className="lang-code" aria-hidden="true">{locale.toUpperCase()}</span><IconChevronDown />
               </button>
               {langOpen && (
                 <ul className="lang-list" data-testid="site-lang-list">
