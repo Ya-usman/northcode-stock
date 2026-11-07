@@ -1,7 +1,9 @@
 // Pages Métiers et Santé, liste d'attente (lot C du 6 nov. 2026, migration 217). LECTURE SEULE par défaut :
 //   1-4. Navigateur (visiteur) : /api/waitlist SIMULÉ (aucune inscription réelle). Cartes, « Me prévenir » qui choisit le
-//        métier, contrôles du formulaire, hors connexion (saisie gardée, « Réessayer »), succès, page Santé (pastilles,
-//        illustrations annoncées, aucune promesse d'assurance, métier fixé + établissement), téléphone, haoussa.
+//        métier, contrôles du formulaire, hors connexion (saisie gardée, « Réessayer »), succès, page Santé (onglets
+//        depuis le 7 nov. : une partie à la fois, adresse par onglet, « Suivant », Retour, clavier, liste d'attente
+//        atteinte depuis chaque onglet, contenu de tous les onglets dans le HTML ; illustrations annoncées, aucune
+//        promesse d'assurance, métier fixé + établissement), téléphone, haoussa.
 //   5. Serveur réel, sans écriture : refus des envois invalides, piège à robots (réponse normale, rien d'enregistré),
 //      table toujours fermée au navigateur (clé publique).
 //   6. Admin → Liste d'attente (lecture).
@@ -98,14 +100,42 @@ const deadLinks = async v => {
   console.log('\n2. Page Santé (ordinateur)')
   v = await visit({ path: '/metiers/sante' }); p = v.page
   ok(v.status === 200 && norm(await p.locator('h1').innerText()) === 'Gérez votre clinique, votre pharmacie ou votre laboratoire.', 'page servie, titre')
-  const pills = await p.locator('[data-testid="platform-nav"] a').allInnerTexts()
-  ok(pills.join('|') === 'Clinique|Pharmacie|Laboratoire|Cabinets et centres de soins|Le socle commun', 'pastilles des sous-métiers', pills)
-  const main = norm(await p.locator('main').innerText())
+  const tabNames = await p.locator('[data-testid="health-nav"] [role=tab]').allInnerTexts()
+  ok(tabNames.join('|') === 'Clinique|Pharmacie|Laboratoire|Cabinets et centres de soins|Le socle commun', 'onglets des sous-métiers, dans l\'ordre', tabNames)
+  const shown = await p.locator('[role=tabpanel]:not([hidden])').evaluateAll(els => els.map(e => e.id))
+  ok(shown.join() === 'clinique' && await p.locator('[role=tabpanel]').count() === 5, 'une seule partie affichée (Clinique), 5 parties dans la page', shown)
+  const activeBg = await p.locator('#tab-clinique').evaluate(e => getComputedStyle(e).backgroundColor)
+  ok(activeBg === 'rgb(21, 128, 61)', 'onglet actif à la couleur de la Santé (vert)', activeBg)
+  // Tout le contenu reste dans la page (moteurs de recherche), même les parties cachées
+  const main = norm(await p.locator('main').evaluate(e => e.textContent))
   ok(!/assuran/i.test(main), 'aucune promesse d\'assurance (retirée jusqu\'à la V1 du module)')
   ok(!/bilan du matin/i.test(main), 'pas de « bilan du matin »')
-  ok((main.match(/Illustration : le module Santé est en préparation\./g) || []).length === 3, 'trois illustrations, chacune annoncée comme telle')
+  ok(await p.locator('[data-testid^="illus-"]').count() === 3 && await p.locator('.illus-note').count() === 3, 'trois illustrations, chacune annoncée comme telle')
+  const html = await (await v.ctx.request.get(`${BASE}/fr/metiers/sante`)).text()
+  const inHtml = ['Chaque boîte suivie', 'Amoxicilline 500 mg', 'NFS', 'Pour les structures plus légères aussi.', 'Et tout ce que StockShop fait déjà.']
+  ok(inHtml.every(x => html.includes(x)), 'HTML du serveur : contenu de tous les onglets', inHtml.filter(x => !html.includes(x)))
+  // Onglets : adresse, « Suivant », Retour, clavier, adresse directe
+  await p.locator('#tab-pharmacie').click(); await wait(300)
+  ok(new URL(p.url()).hash === '#pharmacie' && await p.getByTestId('health-panel-pharmacie').isVisible() && !(await p.getByTestId('health-panel-clinique').isVisible()), 'clic sur Pharmacie : partie affichée, adresse #pharmacie')
+  await p.locator('[role=tabpanel]:not([hidden]) [data-testid="health-next"]').click(); await wait(400)
+  ok(new URL(p.url()).hash === '#laboratoire' && await p.locator('#tab-laboratoire').getAttribute('aria-selected') === 'true', '« Suivant : Laboratoire » ouvre le Laboratoire')
+  const navTop = await p.getByTestId('health-nav').evaluate(e => e.getBoundingClientRect().top)
+  ok(navTop <= 80, `après « Suivant », les onglets sont en haut de l'écran (${Math.round(navTop)} px)`)
+  await p.goBack(); await wait(400)
+  ok(await p.locator('#tab-pharmacie').getAttribute('aria-selected') === 'true', 'Retour : de nouveau Pharmacie')
+  await p.locator('#tab-pharmacie').focus(); await p.keyboard.press('End'); await wait(200)
+  ok(await p.locator('#tab-socle').getAttribute('aria-selected') === 'true' && await p.evaluate(() => document.activeElement.id) === 'tab-socle', 'clavier : Fin va au dernier onglet')
+  ok(await p.locator('[role=tabpanel]:not([hidden]) [data-testid="health-next"]').count() === 0, 'dernier onglet : pas de « Suivant »')
+  const direct = await v.ctx.newPage()
+  await direct.goto(`${BASE}/fr/metiers/sante#laboratoire`, { waitUntil: 'networkidle', timeout: 120000 }); await wait(800)
+  ok(await direct.locator('#tab-laboratoire').getAttribute('aria-selected') === 'true' && await direct.getByTestId('health-panel-laboratoire').isVisible(), 'adresse directe #laboratoire : onglet Laboratoire ouvert')
+  await direct.close()
+  // Liste d'attente sous les onglets : « Me prévenir » y mène, l'onglet ouvert ne change pas
+  await p.evaluate(() => window.scrollTo(0, 0)); await p.locator('#tab-laboratoire').click(); await wait(300)
   ok(await p.getByTestId('waitlist-sector').count() === 0 && await p.getByTestId('waitlist-sub').count() === 1, 'formulaire : métier fixé (Santé), établissement au choix')
   await p.getByTestId('health-notify').click(); await wait(900)
+  const listInView = await p.locator('#liste').evaluate(e => { const r = e.getBoundingClientRect(); return r.top < window.innerHeight && r.bottom > 0 })
+  ok(listInView && await p.locator('#tab-laboratoire').getAttribute('aria-selected') === 'true', '« Me prévenir » : liste d\'attente à l\'écran, onglet Laboratoire toujours ouvert')
   await p.getByTestId('waitlist-sub').selectOption('laboratory'); await p.getByTestId('waitlist-contact').fill('Labo@Exemple.CM'); await p.getByTestId('waitlist-submit').click(); await wait(800)
   const hb = v.posted[v.posted.length - 1] || {}
   ok(hb.sector === 'health' && hb.sub_trade === 'laboratory' && /C'est noté/.test(norm(await p.getByTestId('waitlist-done').innerText().catch(() => ''))), 'inscription Santé / laboratoire', hb)
@@ -130,6 +160,13 @@ const deadLinks = async v => {
   await p.locator('#liste').scrollIntoViewIfNeeded(); await wait(400)
   const bh = await p.getByTestId('waitlist-submit').evaluate(e => e.getBoundingClientRect().height)
   ok(bh >= 44, `téléphone : bouton « Me prévenir » de ${bh} px`)
+  await p.evaluate(() => window.scrollTo(0, 0)); await p.locator('#tab-cabinets').click(); await wait(400)
+  const next = p.locator('[role=tabpanel]:not([hidden]) [data-testid="health-next"]')
+  await next.scrollIntoViewIfNeeded(); await wait(300)
+  const nb = await next.evaluate(e => { const r = e.getBoundingClientRect(); return { w: Math.round(r.width), h: Math.round(r.height) } })
+  const stuck = await p.getByTestId('health-nav').evaluate(e => Math.round(e.getBoundingClientRect().top))
+  const tabSeen = await p.locator('#tab-cabinets').evaluate(e => { const r = e.getBoundingClientRect(); return r.left >= 0 && r.right <= window.innerWidth })
+  ok(nb.w >= 350 && nb.h >= 44 && stuck === 58 && tabSeen, `téléphone : onglets collés sous la barre (${stuck} px), onglet actif visible, « Suivant » sur toute la largeur`, { nb, stuck, tabSeen })
   await p.screenshot({ path: OUT + '/site-health-phone.png' })
   await v.browser.close()
 

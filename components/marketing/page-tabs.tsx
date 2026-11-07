@@ -1,7 +1,7 @@
 'use client'
 
-// Onglets de la page Plateforme (7 nov. 2026, demande de l'utilisateur) : une partie affichée à la fois au lieu d'une
-// longue page. Tout le contenu reste dans le HTML (moteurs de recherche, page générée à l'avance) ; les autres parties
+// Onglets des pages publiques Plateforme et Santé (7 nov. 2026, demande de l'utilisateur) : une partie affichée à la
+// fois au lieu d'une longue page. Tout le contenu reste dans le HTML (moteurs de recherche, page générée à l'avance) ; les autres parties
 // sont seulement cachées. Chaque onglet a son adresse (#vente, #stock…) : lien partageable, bouton Retour, liens de
 // l'accueil et du pied de page qui ouvrent le bon onglet. Vrais onglets au clavier (flèches, Début, Fin).
 import { useCallback, useEffect, useRef, useState, type KeyboardEvent, type MouseEvent, type ReactNode } from 'react'
@@ -15,9 +15,9 @@ function scrollToTabs(anchor: HTMLElement | null) {
   if (window.scrollY > target) window.scrollTo({ top: target })
 }
 
-export interface PlatformTab { id: string; label: string; next?: string; content: ReactNode }
+export interface PageTab { id: string; label: string; next?: string; content: ReactNode }
 
-export function PlatformTabs({ label, tabs }: { label: string; tabs: PlatformTab[] }) {
+export function PageTabs({ label, tabs, testid }: { label: string; tabs: PageTab[]; testid: string }) {
   const [active, setActive] = useState(tabs[0].id)
   const anchorRef = useRef<HTMLDivElement>(null)
   const listRef = useRef<HTMLDivElement>(null)
@@ -25,12 +25,17 @@ export function PlatformTabs({ label, tabs }: { label: string; tabs: PlatformTab
 
   // Onglet demandé par l'adresse : à l'arrivée, avec Retour / Suivant du navigateur, ou par un lien de la page
   useEffect(() => {
-    const fromHash = () => {
-      const id = decodeURIComponent(window.location.hash.slice(1))
-      setActive(isTab(id) ? id : tabs[0].id)
+    const hashId = () => decodeURIComponent(window.location.hash.slice(1))
+    const first = hashId()
+    setActive(isTab(first) ? first : tabs[0].id)
+    // Adresse d'un onglet (ou plus d'adresse : retour au début) ; une autre ancre de la page (#liste…) ne change pas
+    // l'onglet ouvert et laisse le navigateur y descendre
+    const onHash = () => {
+      const id = hashId()
+      if (id && !isTab(id)) return
+      setActive(id ? id : tabs[0].id)
+      scrollToTabs(anchorRef.current)
     }
-    fromHash()
-    const onHash = () => { fromHash(); scrollToTabs(anchorRef.current) }
     // Liens Next.js vers un onglet de cette page (pied de page) : l'adresse change sans événement hashchange
     const onLink = (e: globalThis.MouseEvent) => {
       const a = (e.target as Element | null)?.closest?.('a[href*="#"]') as HTMLAnchorElement | null
@@ -79,7 +84,7 @@ export function PlatformTabs({ label, tabs }: { label: string; tabs: PlatformTab
   return (
     <>
       <div ref={anchorRef} />
-      <nav className="subnav" aria-label={label} data-testid="platform-nav">
+      <nav className="subnav" aria-label={label} data-testid={`${testid}-nav`}>
         <div className="wrap" ref={listRef} role="tablist" aria-label={label} onKeyDown={onKey}>
           {tabs.map(t => (
             <a key={t.id} id={`tab-${t.id}`} href={`#${t.id}`} role="tab" aria-selected={active === t.id} aria-controls={t.id}
@@ -88,11 +93,11 @@ export function PlatformTabs({ label, tabs }: { label: string; tabs: PlatformTab
         </div>
       </nav>
       {tabs.map((t, i) => (
-        <div key={t.id} id={t.id} className="tabpanel" role="tabpanel" aria-labelledby={`tab-${t.id}`} hidden={active !== t.id} data-testid={`platform-panel-${t.id}`}>
+        <div key={t.id} id={t.id} className="tabpanel" role="tabpanel" aria-labelledby={`tab-${t.id}`} hidden={active !== t.id} data-testid={`${testid}-panel-${t.id}`}>
           {t.content}
           {t.next && tabs[i + 1] && (
             <div className="tab-next">
-              <a href={`#${tabs[i + 1].id}`} onClick={onClick(tabs[i + 1].id)} data-testid="platform-next">{t.next} <IconArrow /></a>
+              <a href={`#${tabs[i + 1].id}`} onClick={onClick(tabs[i + 1].id)} data-testid={`${testid}-next`}>{t.next} <IconArrow /></a>
             </div>
           )}
         </div>

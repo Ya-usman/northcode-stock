@@ -291,12 +291,11 @@ html.dark .mk .acc-cyan .list li { border-left-color: #155E6E; }
   .mk .rows { padding: 6px 16px 14px; } .mk .panel-top { padding: 14px 16px; }
 }
 
-/* Page Plateforme (lot B) : pastilles collantes qui suivent la lecture, sections en deux colonnes alternées */
+/* Pages Plateforme et Santé : rangée d'onglets collante, sections en deux colonnes alternées */
 .mk .subnav { position: sticky; top: 68px; z-index: 30; background: var(--glass); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); border-bottom: 1px solid var(--line-2); }
 .mk .subnav .wrap { display: flex; gap: 8px; overflow-x: auto; padding-top: 12px; padding-bottom: 12px; scrollbar-width: none; }
 .mk .subnav .wrap::-webkit-scrollbar { display: none; }
 .mk .subnav a { flex-shrink: 0; padding: 8px 14px; border-radius: 999px; border: 1px solid var(--line); font-size: 14px; font-weight: 600; color: var(--ink-2); background: var(--surface); }
-.mk .subnav a[aria-current="true"] { background: var(--blue); border-color: var(--blue); color: #fff; }
 .mk .sec[id] { scroll-margin-top: 140px; }
 .mk .two.narrow { grid-template-columns: 1fr 1fr; }
 .mk .two.flip > .copy { order: 2; }
@@ -481,8 +480,12 @@ html.dark .mk .wl-error { color: #F87171; }
   .mk .hdr-right .icon-btn { width: 40px; }
 }
 
-/* Plateforme en onglets (7 nov. 2026) : une partie à la fois, même fond pour toutes, « Suivant » en bas */
+/* Plateforme et Santé en onglets (7 nov. 2026) : une partie à la fois, même fond pour toutes, « Suivant » en bas.
+   Onglet actif à la couleur du domaine sur une page de métier (vert pour la Santé) ; texte foncé sur le vert clair du
+   mode sombre (contraste) */
 .mk .subnav a[aria-selected="true"] { background: var(--blue); border-color: var(--blue); color: #fff; }
+.mk .sector-health .subnav a[aria-selected="true"] { background: var(--sector); border-color: var(--sector); }
+html.dark .mk .sector-health .subnav a[aria-selected="true"] { color: #052E16; }
 .mk .subnav a:focus-visible { outline: 2px solid var(--link); outline-offset: 2px; }
 .mk .tabpanel { background: var(--tint); scroll-margin-top: 132px; }
 .mk .tabpanel .sec { padding: 64px 0 32px; }

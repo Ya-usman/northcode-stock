@@ -1,7 +1,7 @@
 import type { Metadata } from 'next'
 import Image from 'next/image'
 import { getTranslations, unstable_setRequestLocale } from 'next-intl/server'
-import { PlatformTabs } from '@/components/marketing/platform-tabs'
+import { PageTabs } from '@/components/marketing/page-tabs'
 import { FinalCta, MultiShopsSection } from '@/components/marketing/sections'
 import { IconAlert, IconCart, IconChart, IconKey, IconShield } from '@/components/marketing/icons'
 
@@ -124,7 +124,7 @@ export default async function PlatformPage({ params: { locale } }: { params: { l
           <div data-sticky-anchor />
         </div>
       </section>
-      <PlatformTabs label={t('nav_label')} tabs={tabs.map((tab, i) => ({ ...tab, next: tabs[i + 1] ? t('next_tab', { name: tabs[i + 1].label }) : undefined }))} />
+      <PageTabs testid="platform" label={t('nav_label')} tabs={tabs.map((tab, i) => ({ ...tab, next: tabs[i + 1] ? t('next_tab', { name: tabs[i + 1].label }) : undefined }))} />
 
       <FinalCta locale={locale} showPlatform={false} />
     </>

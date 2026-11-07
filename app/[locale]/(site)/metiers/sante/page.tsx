@@ -1,15 +1,15 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
 import { getTranslations, unstable_setRequestLocale } from 'next-intl/server'
-import { SectionNav } from '@/components/marketing/section-nav'
+import { PageTabs } from '@/components/marketing/page-tabs'
 import { FinalCta, getWaitlistLabels } from '@/components/marketing/sections'
 import { WaitlistForm } from '@/components/marketing/waitlist-form'
 import { IconArrow, IconChevron, IconFlask, IconHealth, IconPill, IconStore } from '@/components/marketing/icons'
 
 // Page Santé (lot C du 6 nov. 2026, maquette validée) : module EN PRÉPARATION. Illustrations HTML sobres, toujours
 // annoncées comme telles (noms fictifs), aucune capture inventée. Promesses retirées jusqu'à la V1 du module :
-// assurances / part assurance (décision du 6 nov.). Même modèle que Plateforme : pastilles collantes, sections, socle
-// commun rappelé, liste d'attente du métier.
+// assurances / part assurance (décision du 6 nov.). Même modèle que Plateforme : onglets (7 nov.), socle commun
+// rappelé ; la liste d'attente du métier reste visible sous les onglets (« Me prévenir » y mène depuis chaque onglet).
 export async function generateMetadata({ params: { locale } }: { params: { locale: string } }): Promise<Metadata> {
   const t = await getTranslations({ locale, namespace: 'site.sante' })
   return {
@@ -22,6 +22,7 @@ export default async function HealthPage({ params: { locale } }: { params: { loc
   unstable_setRequestLocale(locale)
   const t = await getTranslations({ locale, namespace: 'site.sante' })
   const tTrades = await getTranslations({ locale, namespace: 'site.trades_page' })
+  const tPlatform = await getTranslations({ locale, namespace: 'site.platform' })
   const labels = await getWaitlistLabels(locale)
   const copy = (k: string, icon: React.ReactNode) => (
     <div className="copy">
@@ -44,25 +45,9 @@ export default async function HealthPage({ params: { locale } }: { params: { loc
     </div>
   )
 
-  return (
-    <div className="sector-health">
-      <section className="page-head sector-head">
-        <div className="wrap">
-          <span className="crumb"><Link href={`/${locale}/metiers`}>{t('crumb')}</Link><IconChevron /><span>{tTrades('health_t')}</span><span className="tag tag-next">{t('tag')}</span></span>
-          <h1>{t('title')}</h1>
-          <p className="lead">{t('lead')}</p>
-          <div className="hero-actions" data-sticky-anchor>
-            <a href="#liste" className="btn btn-cta" data-testid="health-notify">{t('cta_notify')}</a>
-            <Link href={`/${locale}/plateforme`} className="btn btn-ghost">{t('cta_existing')}</Link>
-          </div>
-        </div>
-      </section>
-      <SectionNav label={t('nav_label')} items={[
-        { id: 'clinique', label: t('nav_clinic') }, { id: 'pharmacie', label: t('nav_pharmacy') }, { id: 'laboratoire', label: t('nav_lab') },
-        { id: 'cabinets', label: t('nav_small') }, { id: 'socle', label: t('nav_core') },
-      ]} />
-
-      <section id="clinique" className="sec">
+  const tabs = [
+    { id: 'clinique', label: t('nav_clinic'), content: (
+      <section className="sec">
         <div className="wrap two acc-sector">
           {copy('clinic', <IconHealth />)}
           <Illus id="clinic" title={t('clinic_panel')} meta={t('clinic_meta', { count: 14 })}>
@@ -73,8 +58,9 @@ export default async function HealthPage({ params: { locale } }: { params: { loc
           </Illus>
         </div>
       </section>
-
-      <section id="pharmacie" className="sec tint">
+    ) },
+    { id: 'pharmacie', label: t('nav_pharmacy'), content: (
+      <section className="sec">
         <div className="wrap two flip acc-sector">
           {copy('pharmacy', <IconPill />)}
           <Illus id="pharmacy" title={t('pharmacy_panel')} meta={t('pharmacy_meta')}>
@@ -85,8 +71,9 @@ export default async function HealthPage({ params: { locale } }: { params: { loc
           </Illus>
         </div>
       </section>
-
-      <section id="laboratoire" className="sec">
+    ) },
+    { id: 'laboratoire', label: t('nav_lab'), content: (
+      <section className="sec">
         <div className="wrap two acc-sector">
           {copy('lab', <IconFlask />)}
           <Illus id="lab" title={t('lab_panel')} meta={t('lab_meta', { count: 23 })}>
@@ -97,8 +84,9 @@ export default async function HealthPage({ params: { locale } }: { params: { loc
           </Illus>
         </div>
       </section>
-
-      <section id="cabinets" className="sec alt">
+    ) },
+    { id: 'cabinets', label: t('nav_small'), content: (
+      <section className="sec">
         <div className="wrap center">
           <span className="kicker k-sector">{t('small_kicker')}</span>
           <h2>{t('small_title')}</h2>
@@ -113,8 +101,9 @@ export default async function HealthPage({ params: { locale } }: { params: { loc
           </div>
         </div>
       </section>
-
-      <section id="socle" className="sec">
+    ) },
+    { id: 'socle', label: t('nav_core'), content: (
+      <section className="sec">
         <div className="wrap center">
           <span className="kicker"><span className="ic ic-blue"><IconStore /></span>{t('core_kicker')}</span>
           <h2>{t('core_title')}</h2>
@@ -125,8 +114,25 @@ export default async function HealthPage({ params: { locale } }: { params: { loc
           <Link className="center-link" href={`/${locale}/plateforme`}>{t('core_more')} <IconArrow /></Link>
         </div>
       </section>
+    ) },
+  ]
 
-      <section className="sec tint" id="liste">
+  return (
+    <div className="sector-health">
+      <section className="page-head sector-head">
+        <div className="wrap">
+          <span className="crumb"><Link href={`/${locale}/metiers`}>{t('crumb')}</Link><IconChevron /><span>{tTrades('health_t')}</span><span className="tag tag-next">{t('tag')}</span></span>
+          <h1>{t('title')}</h1>
+          <p className="lead">{t('lead')}</p>
+          <div className="hero-actions" data-sticky-anchor>
+            <a href="#liste" className="btn btn-cta" data-testid="health-notify">{t('cta_notify')}</a>
+            <Link href={`/${locale}/plateforme`} className="btn btn-ghost">{t('cta_existing')}</Link>
+          </div>
+        </div>
+      </section>
+      <PageTabs testid="health" label={t('nav_label')} tabs={tabs.map((tab, i) => ({ ...tab, next: tabs[i + 1] ? tPlatform('next_tab', { name: tabs[i + 1].label }) : undefined }))} />
+
+      <section className="sec" id="liste">
         <div className="wl-block">
           <div className="wrap">
             <span className="kicker k-sector">{t('wl_kicker')}</span>
