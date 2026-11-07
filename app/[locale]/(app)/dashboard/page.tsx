@@ -516,11 +516,19 @@ export default function DashboardPage() {
 
     runIdlePrefetch(tasks, isOnline)
   }, [effectiveShopIds.join(','), isOnline])
-  // Rechargement discret après un événement temps réel : un seul pour une rafale (1,5 s)
+  // Rechargement discret après un événement temps réel : regroupé (1,5 s après le premier événement) et AU PLUS un
+  // toutes les 10 s (7 nov. 2026, état des lieux de la montée en charge : une boutique qui vend en continu relançait
+  // tout le calcul du tableau de bord après chaque paiement, sur chaque appareil ouvert)
   const silentTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const lastSilentRef = useRef(0)
   const scheduleSilentRefresh = () => {
-    if (silentTimer.current) clearTimeout(silentTimer.current)
-    silentTimer.current = setTimeout(() => { silentTimer.current = null; loadDashboard(false, true) }, 1500)
+    if (silentTimer.current) return
+    const wait = Math.max(1500, lastSilentRef.current + 10_000 - Date.now())
+    silentTimer.current = setTimeout(() => {
+      silentTimer.current = null
+      lastSilentRef.current = Date.now()
+      loadDashboard(false, true)
+    }, wait)
   }
   useEffect(() => () => { if (silentTimer.current) clearTimeout(silentTimer.current) }, [])
   useDashboardRealtime(shop?.id || null, {
@@ -530,7 +538,8 @@ export default function DashboardPage() {
         if (isOwnSale) {
           setRecentSales(prev => [sale, ...prev])
           setTodaySalesCount(prev => (prev ?? 0) + 1)
-          // Revenue is added by onPaymentUpdate when the payment record is inserted.
+          // L'encaissé du jour est recalculé par le serveur (rechargement discret)
+          scheduleSilentRefresh()
         }
         // Pas de message ici : la notification « nouvelle vente » est celle de la
         // coquille (app-layout), qui exclut ses propres ventes — y compris celles
@@ -545,12 +554,9 @@ export default function DashboardPage() {
       setTodayRevenue(prev => Math.max(0, (prev ?? 0) - Number((sale as any).amount_paid ?? 0)))
       try { localStorage.removeItem('dashboard_cache_v1') } catch {}
     },
-    onPaymentUpdate: (payment: any) => {
-      // Paiements déjà pris en compte par la dernière lecture : ignorés (le temps réel peut livrer un événement ancien)
-      const paymentMs = new Date(payment.paid_at || 0).getTime()
-      if (paymentMs < lastFetchStartRef.current) return
-      // Avant : la vente du paiement était relue ici, directement dans la base. Désormais le serveur refait le calcul
-      // (rechargement discret, regroupé si plusieurs paiements arrivent ensemble) — mêmes règles que l'ouverture.
+    onSaleUpdated: (sale) => {
+      // Paiement reçu, remboursement ou correction : le serveur refait le calcul (mêmes règles qu'à l'ouverture)
+      if (!shopIds.includes((sale as any).shop_id || '')) return
       scheduleSilentRefresh()
     },
     onProductUpdate: (product) => {
@@ -561,7 +567,7 @@ export default function DashboardPage() {
         toast({ title: t('dashboard.low_stock_toast', { product: product.name, qty: product.quantity }) })
       }
     },
-  })
+  }, shopIds)
 
   // Show skeleton only on very first load before any data arrives.
   // Never blank on authLoading — token refreshes must not erase the dashboard.

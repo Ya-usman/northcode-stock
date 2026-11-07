@@ -5,7 +5,7 @@
 // qui a le stock (elle décide dans Stock › Transferts). Utilisé en caisse et dans la fiche produit.
 
 import { PlanBadge, handlePlanRefusal, openPlanLock, useFeatureLock } from '@/components/saas/plan-lock'
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { useTranslations } from 'next-intl'
 import { Clock, MapPin, Minus, Phone, Plus, Send, Store } from 'lucide-react'
 import { AppDrawer } from '@/components/ui/app-drawer'
@@ -25,17 +25,32 @@ export interface ElsewhereData {
 }
 
 /** Stock des autres boutiques pour des produits de la boutique (null = pas encore chargé ou indisponible) */
+// Pause de frappe avant de demander (7 nov. 2026, état des lieux de la montée en charge) : en caisse, la liste des
+// produits change à chaque lettre tapée, et chaque demande relit le stock des autres boutiques
+const SETTLE_MS = 400
+
 export function useElsewhere(shopId: string | null | undefined, productIds: string[], active = true) {
   const [data, setData] = useState<ElsewhereData | null>(null)
-  const key = productIds.slice().sort().join(',')
+  const liveKey = productIds.slice().sort().join(',')
+  const [key, setKey] = useState(liveKey)
+  useEffect(() => {
+    if (liveKey === key) return
+    const timer = setTimeout(() => setKey(liveKey), SETTLE_MS)
+    return () => clearTimeout(timer)
+  }, [liveKey, key])
+  // Seule la réponse à la DERNIÈRE demande est appliquée
+  const seq = useRef(0)
   const load = useCallback(async () => {
+    const mine = ++seq.current
     if (!active || !shopId || !key) { setData(null); return }
     try {
       const res = await fetch(`/api/stock/elsewhere?shop_id=${shopId}&product_ids=${key}`)
+      if (mine !== seq.current) return
       if (!res.ok) { setData(null); return }
       const j = await res.json()
+      if (mine !== seq.current) return
       setData({ enabled: !!j.enabled, canRequest: !!j.can_request, items: j.items || {} })
-    } catch { setData(null) }
+    } catch { if (mine === seq.current) setData(null) }
   }, [shopId, key, active])
   useEffect(() => { load() }, [load])
   return { data, reload: load }

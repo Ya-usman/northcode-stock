@@ -403,50 +403,44 @@ export default function SalesHistoryPage() {
     return query
   }
 
-  // Aggregate query for accurate period totals (not limited by page size).
-  // sale_status must mirror buildSalesQuery's own filter exactly — the "Vente"
-  // dropdown defaults to "all" (active + cancelled together, like the list
-  // below), so hardcoding 'active' here made the summary count/CA never match
-  // the number of rows actually shown whenever a cancelled sale existed in
-  // the period.
+  // Totaux de la période calculés par la BASE (migration 218, 7 nov. 2026) : avant, toutes les ventes et tous les
+  // paiements de la période étaient lus pour être additionnés ici, et la base ne renvoie que 1000 lignes par réponse :
+  // au-delà de 1000 ventes, nombre, CA, encaissé et reste dû étaient faux. Mêmes filtres que la liste (le statut de
+  // vente « toutes » = actives + annulées, comme la liste) et même règle « mes ventes » (onlyMine) : dans les boutiques
+  // où l'on est vendeur, seules ses ventes (cashier_id) et ses encaissements (received_by) comptent. Les fonctions
+  // s'exécutent avec les droits de la personne (règles d'accès des ventes et des paiements inchangées). Appelées en
+  // LECTURE (GET : fonctions sans écriture) ; un filtre absent n'est pas envoyé (undefined), la valeur par défaut de la
+  // fonction s'applique (null serait envoyé comme le texte « null »).
+  const periodFilters = () => ({
+    methods: methodFilter === 'mobile_money' ? (mobileMoneyIds.length ? mobileMoneyIds : ['__none__'])
+      : methodFilter !== 'all' ? [methodFilter] : undefined,
+    mine: cashierShopIds.length && profile?.id ? cashierShopIds : undefined,
+  })
   const buildStatsQuery = (start: Date, end: Date) => {
-    let q = supabase
-      .from('sales')
-      .select('total, amount_paid, balance, sale_status')
-      .in('shop_id', effectiveShopIds)
-      .gte('created_at', start.toISOString())
-      .lte('created_at', end.toISOString())
-    if (saleStatusFilter !== 'all') q = q.eq('sale_status', saleStatusFilter)
-    else q = q.in('sale_status', ['active', 'cancelled'])
-    q = onlyMine(q, 'cashier_id')
-    if (methodFilter === 'mobile_money') q = q.in('payment_method', mobileMoneyIds.length ? mobileMoneyIds : ['__none__'])
-    else if (methodFilter !== 'all') q = q.eq('payment_method', methodFilter)
-    if (statusFilter !== 'all') q = q.eq('payment_status', statusFilter)
-    return q
+    const f = periodFilters()
+    return supabase.rpc('sales_period_totals', {
+      p_shop_ids: effectiveShopIds,
+      p_start: start.toISOString(),
+      p_end: end.toISOString(),
+      p_sale_statuses: saleStatusFilter !== 'all' ? [saleStatusFilter] : ['active', 'cancelled'],
+      p_methods: f.methods,
+      p_payment_status: statusFilter !== 'all' ? statusFilter : undefined,
+      p_mine_shop_ids: f.mine,
+    }, { get: true })
   }
 
-  // Cash actually collected during the period — sourced from the payments
-  // ledger (paid_at), not from sales.amount_paid (created_at). A debt
-  // repayment collected today retroactively bumps the ORIGINAL sale's
-  // amount_paid, which stays dated to when the sale was created — so a
-  // stats query keyed on sales.created_at silently attributes that cash to
-  // the wrong day (or misses it entirely from "today"). Querying payments
-  // directly by paid_at attributes every cash-in event (initial payment or
-  // later repayment alike) to the day it was actually received.
-  const buildCollectedQuery = (start: Date, end: Date, shopIds: string[] = effectiveShopIds, mine = false) => {
-    let q = supabase
-      .from('payments')
-      .select('amount, sales!inner(shop_id, sale_status)')
-      .in('sales.shop_id', shopIds.length ? shopIds : ['00000000-0000-0000-0000-000000000000'])
-      .eq('is_cancelled', false)
-      .eq('is_write_off', false)
-      .gte('paid_at', start.toISOString())
-      .lte('paid_at', end.toISOString())
-    if (saleStatusFilter !== 'all') q = q.eq('sales.sale_status', saleStatusFilter)
-    if (mine) q = q.eq('received_by', profile!.id)
-    if (methodFilter === 'mobile_money') q = q.in('method', mobileMoneyIds.length ? mobileMoneyIds : ['__none__'])
-    else if (methodFilter !== 'all') q = q.eq('method', methodFilter)
-    return q
+  // Encaissé de la période : lu dans les paiements (date de paiement), pas dans sales.amount_paid (date de la vente) :
+  // un remboursement reçu aujourd'hui compte aujourd'hui, pas le jour de la vente d'origine.
+  const buildCollectedQuery = (start: Date, end: Date) => {
+    const f = periodFilters()
+    return supabase.rpc('payments_period_collected', {
+      p_shop_ids: effectiveShopIds,
+      p_start: start.toISOString(),
+      p_end: end.toISOString(),
+      p_sale_statuses: saleStatusFilter !== 'all' ? [saleStatusFilter] : undefined,
+      p_methods: f.methods,
+      p_mine_shop_ids: f.mine,
+    }, { get: true })
   }
 
   const enrichCashiers = async (salesData: Sale[], existingMap: Record<string, string> = {}) => {
@@ -498,12 +492,10 @@ export default function SalesHistoryPage() {
       const { start, end } = getDateBounds()
       // Bounded so a stale connection/session after the app sat backgrounded
       // a while can never leave `loading` stuck true forever.
-      const mixed = cashierShopIds.length > 0 && otherShopIds.length > 0
-      const [listResult, statsResult, collectedResult, collectedMine] = await withTimeout(Promise.all([
+      const [listResult, statsResult, collectedResult] = await withTimeout(Promise.all([
         buildSalesQuery(start, end, 0, isSearchMode),
         buildStatsQuery(start, end),
-        cashierShopIds.length && !mixed ? buildCollectedQuery(start, end, cashierShopIds, true) : buildCollectedQuery(start, end, mixed ? otherShopIds : effectiveShopIds),
-        mixed ? buildCollectedQuery(start, end, cashierShopIds, true) : Promise.resolve({ data: [], error: null }),
+        buildCollectedQuery(start, end),
       ]), 20_000, 'Chargement des ventes trop lent : réessayez.')
       if (stale()) return
       // A transient auth/RLS hiccup can resolve statsResult/collectedResult
@@ -511,12 +503,12 @@ export default function SalesHistoryPage() {
       // alone let a failure limited to just these two silently reset the
       // owner-facing summary bar (count/CA/encaissé/solde) to zero while the
       // sales table underneath still looked fine.
-      if (listResult.error || statsResult.error || collectedResult.error || collectedMine.error) {
-        throw listResult.error || statsResult.error || collectedResult.error || collectedMine.error
+      if (listResult.error || statsResult.error || collectedResult.error) {
+        throw listResult.error || statsResult.error || collectedResult.error
       }
+      if (!statsResult.data || collectedResult.data === null || collectedResult.data === undefined) throw new Error('period_totals_missing')
       const salesData = (listResult.data || []) as Sale[]
-      const statsRows = (statsResult.data || []) as Array<{ total: number; amount_paid: number; balance: number; sale_status: string }>
-      const collectedRows = [...(collectedResult.data || []), ...(collectedMine.data || [])] as Array<{ amount: number }>
+      const totals = (Array.isArray(statsResult.data) ? statsResult.data[0] : statsResult.data) as { sale_count: number; revenue: number; open_balance: number } | undefined
       setSales(salesData)
       setHasMoreSales(!isSearchMode && salesData.length === PAGE_SIZE)
       const cashiers = await enrichCashiers(salesData)
@@ -524,16 +516,12 @@ export default function SalesHistoryPage() {
       setCashierMap(cashiers)
       setPageCache(cacheKey, salesData)
       setPeriodStats({
-        count:     statsRows.length,
-        ca:        statsRows.reduce((s, r) => s + Number(r.total), 0),
-        collected: collectedRows.reduce((s, r) => s + Number(r.amount), 0),
-        // A cancelled sale's balance is never real debt — cancelling already
-        // reverses customers.total_debt (cancel_sale RPC), but sales.balance
-        // itself is a generated column (total - amount_paid) that keeps
-        // reflecting the sale's own arithmetic regardless of sale_status.
-        // Summing it blindly here would double-count debt that no longer
-        // exists whenever "Toutes ventes" includes cancelled rows.
-        balance:   statsRows.filter(r => r.sale_status !== 'cancelled').reduce((s, r) => s + Number(r.balance), 0),
+        count:     Number(totals?.sale_count ?? 0),
+        ca:        Number(totals?.revenue ?? 0),
+        collected: Number(collectedResult.data ?? 0),
+        // Reste dû : la base exclut les ventes annulées (l'annulation a déjà retiré la dette du client ; sales.balance,
+        // colonne calculée, garde l'arithmétique de la vente quel que soit son statut)
+        balance:   Number(totals?.open_balance ?? 0),
       })
     } catch {
       // cache already applied if available
@@ -1396,7 +1384,8 @@ export default function SalesHistoryPage() {
         </div>
       )}
       {view === 'sales' && isOwner && !searchActive && periodStats !== null && (
-        <div className="flex gap-x-4 gap-y-0.5 text-sm flex-wrap">
+        <div className="flex gap-x-4 gap-y-0.5 text-sm flex-wrap" data-testid="history-period-stats" data-count={periodStats.count}
+          data-collected={periodStats.collected} data-revenue={periodStats.ca} data-balance={periodStats.balance}>
           <span className="text-muted-foreground">
             {periodStats.count} {t('sales.sales_count_label')} ·{' '}
             <span className="font-semibold text-foreground">{formatNaira(periodStats.collected)}</span>

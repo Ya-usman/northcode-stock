@@ -606,16 +606,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return () => { supabase.removeChannel(channel) }
   }, [state.activeShop?.id])
 
-  // Update last_seen every 3 minutes while the user is active
+  // last_seen : au plus une écriture toutes les 15 min par utilisateur (7 nov. 2026, état des lieux de la montée en
+  // charge ; avant : toutes les 3 min ET à chaque retour sur l'application). Seul l'espace administrateur le lit
+  // (inactivité sur des jours) : 15 min de précision suffisent.
   useEffect(() => {
     if (!state.user?.id) return
     const userId = state.user.id
+    const LAST_SEEN_MS = 15 * 60 * 1000
+    let lastWrite = 0
     const updateLastSeen = () => {
+      if (Date.now() - lastWrite < LAST_SEEN_MS) return
+      lastWrite = Date.now()
       // Fire-and-forget — use user id from closure, no network round-trip for session
       ;(supabase as any).from('profiles').update({ last_seen: new Date().toISOString() }).eq('id', userId).then(() => {})
     }
     updateLastSeen()
-    const interval = setInterval(updateLastSeen, 3 * 60 * 1000)
+    const interval = setInterval(updateLastSeen, LAST_SEEN_MS)
     const onVisible = () => {
       if (document.visibilityState !== 'visible') return
       updateLastSeen()

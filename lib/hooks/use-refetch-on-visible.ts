@@ -20,13 +20,22 @@ const supabase = createClient()
  * fetchFn is read from a ref, so callers don't need a dependency array —
  * the latest closure is always used without resubscribing the listener.
  */
+// Absence minimale avant de relire (7 nov. 2026, état des lieux de la montée en charge) : sur téléphone, chaque passage
+// par une autre application (WhatsApp, appel) relisait le catalogue, les clients ou les rapports en entier. Un retour
+// après moins d'une minute garde l'écran tel quel ; le temps réel et les actions de la page le tiennent à jour.
+const MIN_HIDDEN_MS = 60_000
+
 export function useRefetchOnVisible(fetchFn: () => void) {
   const fetchRef = useRef(fetchFn)
   fetchRef.current = fetchFn
 
   useEffect(() => {
+    let hiddenAt: number | null = document.visibilityState === 'hidden' ? Date.now() : null
     const onVisible = () => {
-      if (document.visibilityState !== 'visible') return
+      if (document.visibilityState !== 'visible') { hiddenAt = Date.now(); return }
+      const away = hiddenAt === null ? Infinity : Date.now() - hiddenAt
+      hiddenAt = null
+      if (away < MIN_HIDDEN_MS) return
       ensureFreshSession(supabase).then(() => fetchRef.current())
     }
     document.addEventListener('visibilitychange', onVisible)

@@ -3,6 +3,7 @@ import { getApiTranslator } from '@/lib/api/i18n'
 import { inventoryAccess, inventoryDbError, actorNames, COUNT_COLUMNS } from '@/lib/api/inventory'
 import { suggestCycleProducts } from '@/lib/stock/cycle-count-load'
 import { normalizeCycleSize } from '@/lib/stock/cycle-count'
+import { fetchAllRows } from '@/lib/dashboard/fetch-rows'
 
 // GET /api/stock/inventory-sessions?shop_id= — état de l'inventaire d'UNE boutique :
 //   session en cours (ou aucune), ses comptages courants, la liste des produits À COMPTER — SANS leur stock
@@ -16,10 +17,13 @@ export async function GET(request: Request) {
     if (!access.ok) return access.response
     const { admin } = access
 
-    const [{ data: session }, { data: products }, { data: categories }, { data: last }, { count: historyCount }] = await Promise.all([
+    // Produits et comptages lus page par page (7 nov. 2026, état des lieux de la montée en charge) : la base ne renvoie
+    // que 1000 lignes par réponse, un inventaire de plus de 1000 produits était coupé sans le dire
+    const [{ data: session }, products, { data: categories }, { data: last }, { count: historyCount }] = await Promise.all([
       admin.from('inventory_sessions').select('id, reference, status, started_by, started_at, products_total, updated_at, scope, scope_product_ids')
         .eq('shop_id', shopId).eq('status', 'in_progress').maybeSingle(),
-      admin.from('products').select('id, name, unit, sku, category_id, location, track_serials').eq('shop_id', shopId).eq('is_active', true).order('name'),
+      fetchAllRows<any>(() => admin.from('products').select('id, name, unit, sku, category_id, location, track_serials')
+        .eq('shop_id', shopId).eq('is_active', true).order('name').order('id')),
       admin.from('categories').select('id, name').eq('shop_id', shopId).order('name'),
       admin.from('inventory_sessions').select('id, reference, completed_at, legacy').eq('shop_id', shopId).eq('status', 'completed')
         .order('completed_at', { ascending: false }).limit(1).maybeSingle(),
@@ -32,9 +36,8 @@ export async function GET(request: Request) {
 
     let counts: any[] = []
     if (session) {
-      const { data } = await admin.from('inventory_counts').select(COUNT_COLUMNS)
-        .eq('session_id', session.id).is('superseded_at', null)
-      counts = data || []
+      counts = await fetchAllRows<any>(() => admin.from('inventory_counts').select(COUNT_COLUMNS)
+        .eq('session_id', session.id).is('superseded_at', null).order('id'))
     }
     const names = await actorNames(admin, [session?.started_by, ...counts.map(c => c.counted_by)])
 

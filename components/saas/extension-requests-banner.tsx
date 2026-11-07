@@ -2,8 +2,8 @@
 
 // Demandes de prolongation pour le propriétaire et les personnes qui ont le droit « Prolonger » (décisions du
 // 29 oct. 2026), de TOUTES les boutiques où l'on peut accepter, quelle que soit la boutique active (chaque demande
-// porte le nom et les horaires de sa boutique). Une seule source (ExtensionRequestsProvider, relue toutes les 30 s et
-// au retour sur l'onglet) pour la carte en haut de page et la cloche de l'en-tête. La carte montre ce qu'il faut pour décider : qui, combien, pourquoi,
+// porte le nom et les horaires de sa boutique). Une seule source (ExtensionRequestsProvider, relue toutes les 30 s autour
+// de la fermeture, toutes les 10 min sinon, et au retour sur l'onglet) pour la carte en haut de page et la cloche de l'en-tête. La carte montre ce qu'il faut pour décider : qui, combien, pourquoi,
 // la fermeture actuelle et la NOUVELLE fermeture, calculée comme la base (migration 186 : à partir de maintenant,
 // plafond 23:59 à l'heure de la boutique), recalculée chaque minute ; le bouton dit exactement ce qui va se passer.
 import { createContext, useCallback, useContext, useEffect, useState } from 'react'
@@ -31,9 +31,20 @@ export interface RequestShop {
 export interface InboxRequest extends PendingRequest { shop: RequestShop }
 
 const DAILY_LIMIT = 2
-// Personne qui peut accepter quelque part : relue toutes les 30 s ; sinon, simple vérification toutes les 10 min
-const POLL_APPROVER_MS = 30_000
-const POLL_OTHERS_MS = 10 * 60_000
+// Relue toutes les 30 s seulement quand une demande peut arriver (7 nov. 2026, état des lieux de la montée en charge) :
+// personne qui peut accepter, avec une demande en attente ou une de ses boutiques à moins de 30 min de sa fermeture
+// (une demande n'est possible qu'après la fermeture, jusqu'à minuit). Sinon toutes les 10 min ; chaque nouvelle
+// demande est de toute façon poussée sur le téléphone de qui peut accepter.
+const POLL_HOT_MS = 30_000
+const POLL_CALM_MS = 10 * 60_000
+const HOT_BEFORE_CLOSE_MS = 30 * 60_000
+
+function closingWindow(shops: Record<string, any>, now = new Date()) {
+  return Object.values(shops).some((s: any) => {
+    const close = effectiveCloseInstant(s.closing_time, s.hours_extension_until, now, s.timezone)
+    return close !== null && now.getTime() >= close - HOT_BEFORE_CLOSE_MS
+  })
+}
 
 interface Ctx {
   requests: InboxRequest[]
@@ -55,6 +66,7 @@ export function ExtensionRequestsProvider({ enabled, onDecided, children }: {
   const { toast } = useToast()
   const [requests, setRequests] = useState<InboxRequest[]>([])
   const [approver, setApprover] = useState(false)
+  const [hot, setHot] = useState(false)
   const [busy, setBusy] = useState<string | null>(null)
 
   const load = useCallback(async () => {
@@ -66,21 +78,34 @@ export function ExtensionRequestsProvider({ enabled, onDecided, children }: {
       setApprover(!!j.approver)
       const shops: Record<string, any> = j.shops || {}
       const now = new Date()
-      setRequests(j.available ? ((j.requests || []) as any[]).filter(r => shops[r.shop_id]).map(r => {
+      const list: InboxRequest[] = j.available ? ((j.requests || []) as any[]).filter(r => shops[r.shop_id]).map(r => {
         const s = shops[r.shop_id]
         return { ...r, shop: { id: s.id, name: s.name, closing_time: s.closing_time, hours_extension_until: s.hours_extension_until, timezone: s.timezone, extensionsUsed: extensionsUsedToday(s, now) } }
-      }) : [])
+      }) : []
+      setRequests(list)
+      setHot(!!j.approver && (list.length > 0 || closingWindow(shops, now)))
     } catch { /* hors connexion */ }
   }, [enabled])
 
+  // Lecture à l'ouverture et au retour sur l'application (après au moins une minute d'absence)
   useEffect(() => {
     load()
     if (!enabled) return
-    const interval = setInterval(load, approver ? POLL_APPROVER_MS : POLL_OTHERS_MS)
-    const onVisible = () => { if (document.visibilityState === 'visible') load() }
+    let hiddenAt: number | null = null
+    const onVisible = () => {
+      if (document.visibilityState !== 'visible') { hiddenAt = Date.now(); return }
+      if (hiddenAt !== null && Date.now() - hiddenAt >= 60_000) load()
+      hiddenAt = null
+    }
     document.addEventListener('visibilitychange', onVisible)
-    return () => { clearInterval(interval); document.removeEventListener('visibilitychange', onVisible) }
-  }, [load, enabled, approver])
+    return () => document.removeEventListener('visibilitychange', onVisible)
+  }, [load, enabled])
+
+  useEffect(() => {
+    if (!enabled) return
+    const interval = setInterval(load, hot ? POLL_HOT_MS : POLL_CALM_MS)
+    return () => clearInterval(interval)
+  }, [load, enabled, hot])
 
   const decide = useCallback(async (id: string, approve: boolean) => {
     setBusy(id)

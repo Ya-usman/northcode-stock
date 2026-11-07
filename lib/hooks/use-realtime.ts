@@ -11,28 +11,44 @@ const supabase = createClient()
 interface RealtimeHandlers {
   onNewSale?: (sale: Sale) => void
   onSaleCancelled?: (sale: Sale) => void
+  /** Toute autre modification d'une vente (paiement reçu, remboursement, correction) */
+  onSaleUpdated?: (sale: Sale) => void
   onProductUpdate?: (product: Product) => void
-  onPaymentUpdate?: (payload: any) => void
 }
 
-export function useDashboardRealtime(shopId: string | null, handlers: RealtimeHandlers) {
+// Filtre temps réel sur les boutiques affichées : une boutique = égalité, plusieurs = liste (100 au plus, limite du
+// filtre « in » du temps réel)
+function shopFilter(ids: string[]) {
+  const list = ids.slice(0, 100)
+  return list.length === 1 ? `shop_id=eq.${list[0]}` : `shop_id=in.(${list.join(',')})`
+}
+
+/**
+ * Tableau de bord en direct : ventes des boutiques affichées (`saleShopIds`, « Toutes » comprise), alertes de stock de
+ * la boutique active. Plus d'écoute de la table des paiements (7 nov. 2026, état des lieux de la montée en charge) : elle
+ * n'a pas de colonne boutique, donc chaque paiement de TOUTE la plateforme était confronté aux règles d'accès de chaque
+ * tableau de bord ouvert. Un paiement modifie toujours sa vente (création ou remboursement) : écouter les ventes suffit.
+ */
+export function useDashboardRealtime(shopId: string | null, handlers: RealtimeHandlers, saleShopIds: string[] = []) {
   const channelRef = useRef<any>(null)
   const handlersRef = useRef(handlers)
   // Keep handlers ref current on every render so callbacks never go stale
   handlersRef.current = handlers
+  const salesKey = saleShopIds.slice().sort().join(',')
 
   useEffect(() => {
     if (!shopId) return
+    const salesFilter = shopFilter(salesKey ? salesKey.split(',') : [shopId])
 
     const channel = supabase
-      .channel(`dashboard-live-${shopId}`)
+      .channel(`dashboard-live-${shopId}-${salesKey.length}`)
       .on(
         'postgres_changes',
         {
           event: 'INSERT',
           schema: 'public',
           table: 'sales',
-          filter: `shop_id=eq.${shopId}`,
+          filter: salesFilter,
         },
         (payload) => {
           handlersRef.current.onNewSale?.(payload.new as Sale)
@@ -44,12 +60,14 @@ export function useDashboardRealtime(shopId: string | null, handlers: RealtimeHa
           event: 'UPDATE',
           schema: 'public',
           table: 'sales',
-          filter: `shop_id=eq.${shopId}`,
+          filter: salesFilter,
         },
         (payload) => {
           const updated = payload.new as Sale
           if ((updated as any).sale_status === 'cancelled') {
             handlersRef.current.onSaleCancelled?.(updated)
+          } else {
+            handlersRef.current.onSaleUpdated?.(updated)
           }
         }
       )
@@ -65,17 +83,6 @@ export function useDashboardRealtime(shopId: string | null, handlers: RealtimeHa
           handlersRef.current.onProductUpdate?.(withoutProductCost(payload.new as Product))
         }
       )
-      .on(
-        'postgres_changes',
-        {
-          event: 'INSERT',
-          schema: 'public',
-          table: 'payments',
-        },
-        (payload) => {
-          handlersRef.current.onPaymentUpdate?.(payload.new)
-        }
-      )
       .subscribe()
 
     channelRef.current = channel
@@ -83,7 +90,7 @@ export function useDashboardRealtime(shopId: string | null, handlers: RealtimeHa
     return () => {
       supabase.removeChannel(channel)
     }
-  }, [shopId])
+  }, [shopId, salesKey])
 }
 
 export function useStockRealtime(shopId: string | null, onUpdate: (product: Product) => void) {

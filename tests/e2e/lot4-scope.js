@@ -155,6 +155,9 @@ const xlsxText = async (page, trigger, name) => {
   // Liste et statistiques (le simple comptage « la boutique a-t-elle déjà vendu ? » n'est pas concerné)
   const salesReq = s.requests.filter(u => u.includes('/rest/v1/sales?') && !/select=id(&|$)/.test(u))
   ok(salesReq.length > 0 && salesReq.every(u => u.includes(`cashier_id=eq.${fatouId}`)), 'requêtes des ventes filtrées sur ses propres ventes (boutique où elle est caissière)')
+  // Totaux de la période calculés par la base (218) : demandés en lecture, avec la règle « mes ventes » sur sa boutique
+  const totalsReq = s.requests.filter(u => /\/rest\/v1\/rpc\/(sales_period_totals|payments_period_collected)\?/.test(u)).map(u => decodeURIComponent(u))
+  ok(totalsReq.length >= 2 && totalsReq.every(u => u.includes(`p_mine_shop_ids={${AKWA}}`)), 'totaux et encaissé demandés à la base avec « mes ventes » (boutique où elle est caissière)', totalsReq.length)
   ok(await page.getByRole('tab', { name: /Journal/ }).count() === 0, 'onglet « Journal » absent')
   await s.browser.close()
 
