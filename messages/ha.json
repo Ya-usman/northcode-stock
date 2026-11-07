@@ -2940,6 +2940,13 @@
     "delete_sale": "Goge wannan sayarwa har abada?"
   },
   "register": {
+    "offer_chosen": "Kun zaɓi: {plan}, {period}",
+    "offer_change": "Canza",
+    "offer_title": "Abin da ke cikin gwajin",
+    "offer_free": "Kwanaki 30 da duk abin da ke cikin Pro, ba tare da katin banki ba.",
+    "offer_end": "A ƙarshen gwajin, za ku zaɓi tsarinku: ba a cire kuɗi kai tsaye ba.",
+    "offer_end_chosen": "A ƙarshen gwajin, za a fara ba ku {plan} ({period}). Ba a cire kuɗi kai tsaye ba.",
+    "offer_see": "Duba farashi",
     "title": "Ƙirƙiri Asusu",
     "account_section": "Asusunka",
     "full_name": "Cikakken Suna",
@@ -3171,6 +3178,8 @@
     "pay_soon": "Biyan kuɗi ta katin Visa / Mastercard a intanet zai buɗe nan ba da jimawa ba a wannan ƙasa ({country}). Kuna iya fara gwaji yanzu."
   },
   "billing_page": {
+    "chosen_badge": "Zaɓinku",
+    "chosen_line": "Zaɓinku lokacin rajista: {plan}, {period}.",
     "pricing_activity": "Ana amfani da kantinka galibi daga: {country} ({share}% na ayyuka a kwanaki 30 da suka wuce). Farashin wannan ƙasa ne ke aiki. Kuskure ne? Tuntuɓe mu.",
     "pricing_override": "Farashin {country}, ƙungiyarmu ce ta sanya shi. Kana da tambaya? Tuntuɓe mu.",
     "pricing_activity_short": "Ana amfani da kantinka galibi daga: {country} ({share}% na ayyuka a kwanaki 30 da suka wuce). Farashin wannan ƙasa ne ke aiki.",
@@ -6440,6 +6449,34 @@
       "wl_title": "A sanar da ku idan aka buɗe.",
       "wl_sub": "Sashen Lafiya shi ne na gaba a jerin. Bar lambarku, za mu rubuta muku a ranar buɗewa.",
       "wl_price": "Za a wallafa farashin sashen Lafiya a lokacin."
+    },
+    "help": {
+      "meta_title": "Taimako · StockShop",
+      "meta_desc": "Tambayoyin da aka fi yi game da StockShop: gwaji kyauta, aiki ba intanet, na'urori, kantuna, ma'aikata, biyan kuɗi. Da yadda za ku rubuta mana.",
+      "kicker": "Taimako",
+      "title": "Tambayoyin da aka fi yi",
+      "lead": "Amsoshin tambayoyin da aka fi yi kafin a fara. Kuna da wata tambaya? Rubuta mana.",
+      "g_start": "Farawa",
+      "g_use": "Kowace rana",
+      "g_billing": "Biyan kuɗi",
+      "q_card": "Ana buƙatar katin banki don gwajin?",
+      "a_card": "A'a. Gwajin yana ɗaukar kwanaki 30 da duk abin da ke cikin Pro, ba tare da katin banki ba. A ƙarshe, za ku zaɓi tsarinku: ba a cire kuɗi kai tsaye ba.",
+      "q_devices": "A waɗanne na'urori StockShop ke aiki?",
+      "a_devices": "A waya, tablet da kwamfuta. A Android, saka manhajar daga Play Store; a iPhone da kwamfuta, StockShop yana buɗewa a burauza kuma ana iya saka shi a shafin farko na na'urar.",
+      "q_setup": "Yaya zan fara?",
+      "a_setup": "Ƙirƙiri asusunku, saka kayanku (ɗaya bayan ɗaya ko daga fayil ɗin Excel), sannan ku yi sayarwar farko. Jagora mai matakai biyar yana taimaka muku a cikin manhajar.",
+      "q_offline": "Me zai faru idan babu intanet?",
+      "a_offline": "Wurin sayarwa yana ci gaba da aiki. Sayarwa tana zama a na'urar kuma tana tafiya da zarar intanet ta dawo; sayarwar da ke da matsala idan ta isa ana nuna ta « a duba », ba a rasa ta ba.",
+      "q_shops": "Zan iya gudanar da kantuna da yawa?",
+      "a_shops": "I: {starter} da Starter, {pro} da Pro, {business} da Business, da tayin da aka tsara bayan haka. Kuna bin kowane kanti ko duka tare, kuma kaya na iya tafiya daga wani zuwa wani.",
+      "q_team": "Ma'aikatana suna ganin ribata?",
+      "a_team": "A'a, sai idan kun yanke shawara. Kowane ma'aikaci yana da matsayi a kowane kanti; farashin saye da riba suna bayyana ga waɗanda kuka zaɓa kawai, kuma sabobinmu ne ke aiwatar da dokar.",
+      "q_lang": "Waɗanne harsuna da kuɗaɗe?",
+      "a_lang": "Manhajar tana cikin Faransanci, Turanci da Hausa. Kowane kanti yana aiki da kuɗin ƙasarsa.",
+      "contact_title": "Wata tambaya?",
+      "contact_text": "Rubuta mana, za mu amsa ta imel. Idan kun shiga, sashen Taimako na manhajar yana nuna kowane shafi mataki-mataki.",
+      "contact_cta": "Rubuta wa tallafi",
+      "pricing_link": "Duba farashi"
     }
   }
 }

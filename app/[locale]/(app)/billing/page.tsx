@@ -29,6 +29,7 @@ import { CustomPlanSection } from '@/components/billing/custom-plan-section'
 import { AddonsCard, type AddonInfo } from '@/components/billing/addons-card'
 import { addonsMonthly, parseAddons, renewalAddons } from '@/lib/saas/addons'
 import { PLAN_LINE_KEYS, POPULAR_PLAN } from '@/lib/saas/plan-offer'
+import { parseChosenOffer, planName as offerPlanName, readStoredOffer, type ChosenOffer } from '@/lib/site/chosen-offer'
 import { isDowngrade } from '@/lib/saas/plan-change'
 
 type PlanId = 'starter' | 'pro' | 'business'
@@ -214,6 +215,18 @@ export default function BillingPage({ params: { locale } }: { params: { locale: 
   const trialDaysLeft = getTrialDaysLeft(shop?.trial_ends_at)
   const isSubscribed = hasActiveSubscription(shop?.plan ?? null, shop?.plan_expires_at ?? null)
   const isTrialActive = !isSubscribed && trialDaysLeft >= 0
+  // Formule choisie sur la page Tarifs à l'inscription (lot D, 7 nov. 2026) : proposée en premier tant qu'aucun
+  // abonnement n'est actif (durée présélectionnée, carte mise en avant). Affichage seulement : le prix reste celui du serveur.
+  const [chosenOffer, setChosenOffer] = useState<ChosenOffer | null>(null)
+  useEffect(() => {
+    const meta = (user as any)?.user_metadata?.chosen_offer
+    setChosenOffer(parseChosenOffer(meta?.plan, meta?.period) ?? readStoredOffer())
+  }, [user])
+  const offerFirst = isSubscribed ? null : chosenOffer
+  const chosenPeriodApplied = useRef(false)
+  useEffect(() => {
+    if (offerFirst && !chosenPeriodApplied.current) { chosenPeriodApplied.current = true; setPeriod(offerFirst.period) }
+  }, [offerFirst])
 
   // Prix du pays de TARIFICATION calculé par le serveur (même règle que le paiement), le pays de la boutique en attendant
   const country = getCountry(terms?.pricing?.country || shop?.billing_country || shop?.country)
@@ -477,8 +490,16 @@ export default function BillingPage({ params: { locale } }: { params: { locale: 
               {t('legacy_limits', { date: new Date(terms.limits.until).toLocaleDateString(dateLocaleTag(locale), { day: 'numeric', month: 'long', year: 'numeric' }), shops: terms.limits.shops, members: terms.limits.team_members })}
             </p>
           )}
+          {offerFirst && (
+            <p className="mb-4 text-sm text-muted-foreground" data-testid="billing-chosen-offer">
+              {t('chosen_line', { plan: offerPlanName(offerFirst.plan), period: tOffer(`period_${offerFirst.period}` as any) })}
+            </p>
+          )}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            {PLAN_DETAILS.map(({ id, popular, features }) => {
+            {PLAN_DETAILS.map(({ id, popular: isPopular, features }) => {
+              // La formule choisie à l'inscription prend la place de « la plus choisie »
+              const isChosen = offerFirst?.plan === id
+              const popular = offerFirst ? isChosen : isPopular
               const isCurrent = shop?.plan === id && isSubscribed
               const planName = id.charAt(0).toUpperCase() + id.slice(1)
               const switchFrom = isSubscribed && isDowngrade(shop?.plan, id) ? (shop as any)?.plan_expires_at as string | null : null
@@ -496,7 +517,7 @@ export default function BillingPage({ params: { locale } }: { params: { locale: 
                   {popular && (
                     <div className="absolute -top-3 left-1/2 -translate-x-1/2 z-10">
                       <Badge className="bg-stockshop-blue text-white px-3 py-1 text-xs font-semibold whitespace-nowrap">
-                        {t('popular_badge')}
+                        {isChosen ? t('chosen_badge') : t('popular_badge')}
                       </Badge>
                     </div>
                   )}

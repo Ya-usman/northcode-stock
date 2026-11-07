@@ -1,21 +1,29 @@
 'use client'
 
-// Section Tarifs (étape 4B du 5 nov. 2026), sortie de l'ancienne page d'accueil le 6 nov. 2026 pour la page /tarifs :
-// mêmes règles (pays de départ via /api/geo puis langue, durées, options, comparaison repliée, offre sur mesure) et
-// mêmes repères de test. Les montants viennent de lib/saas (countries, plan-offer), jamais écrits en dur.
+// Section Tarifs de la page /tarifs (étape 4B du 5 nov. 2026 ; restylée au lot D du 7 nov. 2026 comme les autres pages
+// publiques). Mêmes règles : pays de départ via /api/geo puis langue, durées, options, comparaison repliée, offre sur
+// mesure. Les montants viennent de lib/saas (countries, plan-offer), jamais écrits en dur. Chaque formule mène à
+// l'inscription avec la formule ET la durée choisies (« Vous avez choisi : Pro, 1 an »). Mêmes repères de test.
 import { useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
-import { CheckCircle2, ChevronDown, CreditCard, Minus, Smartphone } from 'lucide-react'
 import { useTranslations } from 'next-intl'
-import { Button } from '@/components/ui/button'
-import { Badge } from '@/components/ui/badge'
 import { CountrySelect } from '@/components/ui/country-select'
-import { cn } from '@/lib/utils/cn'
 import { formatCurrency } from '@/lib/utils/currency'
 import { COUNTRIES, getBillingCurrency, getPeriodPrice, BILLING_PERIODS, OFFERED_PERIODS, type BillingPeriod, type CountryCode } from '@/lib/saas/countries'
 import { OFFER_PLANS, PLAN_LINE_KEYS, POPULAR_PLAN, COMPARE_ROWS, compareCell, defaultPricingCountry } from '@/lib/saas/plan-offer'
+import { IconCheck, IconMinus } from './icons'
 
-export function PricingSection({ locale }: { locale: string }) {
+export interface PricingFaq {
+  title: string
+  items: { q: string; a: string }[]
+  /** Question sur le paiement : réponse selon le pays choisi ({gateway}, {country}, {methods}) */
+  pay_q: string; pay_gateway: string; pay_unavailable: string
+}
+
+const GATEWAY_LABEL: Record<string, string> = { paystack: 'Paystack', notchpay: 'NotchPay', stripe: 'Stripe', flutterwave: 'Flutterwave' }
+const fill = (s: string, v: Record<string, string>) => s.replace(/\{(\w+)\}/g, (_, k) => v[k] ?? '')
+
+export function PricingSection({ locale, faq }: { locale: string; faq?: PricingFaq }) {
   const t = useTranslations('landing')
   const tOffer = useTranslations('plan_offer')
   const tCountries = useTranslations('countries')
@@ -40,7 +48,6 @@ export function PricingSection({ locale }: { locale: string }) {
     name: id.charAt(0).toUpperCase() + id.slice(1),
     monthly: country.prices[id],
     popular: id === POPULAR_PLAN,
-    color: id === POPULAR_PLAN ? 'border-stockshop-blue dark:border-blue-500' : 'border-gray-200 dark:border-gray-700',
     features: PLAN_LINE_KEYS[id].map(k => tOffer(k as any)),
   }))
   const periodSuffix = { monthly: tOffer('per_month'), semiannual: tOffer('per_6months'), quarterly: tOffer('per_3months'), annual: tOffer('per_year') }[period]
@@ -48,160 +55,93 @@ export function PricingSection({ locale }: { locale: string }) {
   // Prix affiché = prix FACTURÉ par StockShop, donc en billingCurrency (pas la devise boutique du pays : pour 6 pays UE
   // elles divergent, CZ/DK/HU/PL/RO/SE facturent en EUR malgré une devise locale)
   const formatPrice = (n: number) => formatCurrency(n, getBillingCurrency(country))
+  const methods = country.paymentMethods.filter(m => m.type !== 'cash' && m.type !== 'credit').map(m => m.label).join(', ')
+  const payAnswer = faq && (country.gateway === 'stripe'
+    ? fill(faq.pay_unavailable, { country: tCountries(country.code as any) })
+    : fill(faq.pay_gateway, { gateway: GATEWAY_LABEL[country.gateway], country: tCountries(country.code as any), methods }))
 
   return (
-    <section id="pricing" className="py-12 md:py-20 px-4">
-      <div className="mx-auto max-w-5xl">
-        <div className="text-center mb-8 md:mb-10">
-                      <p className="text-base md:text-lg text-muted-foreground mb-5">{t('pricing.subtitle')}</p>
-
-          {/* Sélecteur de pays — 52 pays (dont les 27 de l'UE individuellement)
-              ne tiennent plus dans une rangée de boutons (Phase 2 "pays UE"). */}
-          <div className="max-w-xs mx-auto">
-            <CountrySelect value={pricingCountry} onChange={choosePricingCountry} />
-          </div>
+    <section id="pricing" className="pricing">
+      <div className="wrap">
+        <div className="ptools">
+          <p className="psub">{t('pricing.subtitle')}</p>
+          {/* Sélecteur de pays : 52 pays, avec recherche */}
+          <div className="pcountry"><CountrySelect value={pricingCountry} onChange={choosePricingCountry} /></div>
           {country.gateway === 'stripe' ? (
             // Paiement en ligne pas encore ouvert pour ce pays (Flutterwave partout : lot 4C)
-            <p className="mx-auto mt-2 max-w-md text-xs text-amber-800 dark:text-amber-300" data-testid="landing-pay-soon">
-              {tOffer('pay_soon', { country: tCountries(country.code as any) })}
-            </p>
+            <p className="ppay soon" data-testid="landing-pay-soon">{tOffer('pay_soon', { country: tCountries(country.code as any) })}</p>
           ) : (
-            <p className="text-xs text-muted-foreground mt-2 flex items-center justify-center gap-1" data-testid="landing-pay-methods">
-              {country.gateway === 'paystack' && <><CreditCard className="h-3.5 w-3.5" /> {t('payment_paystack')}</>}
-              {country.gateway === 'notchpay' && <><CreditCard className="h-3.5 w-3.5" /> {t('payment_notchpay')}</>}
-              {country.gateway === 'flutterwave' && <><Smartphone className="h-3.5 w-3.5" /> {t('payment_flutterwave')}</>}
+            <p className="ppay" data-testid="landing-pay-methods">
+              {country.gateway === 'paystack' && t('payment_paystack')}
+              {country.gateway === 'notchpay' && t('payment_notchpay')}
+              {country.gateway === 'flutterwave' && t('payment_flutterwave')}
             </p>
           )}
-
           {/* Durées : mensuel, 6 mois (2 semaines offertes), 1 an (2 mois offerts) ; même calcul que le paiement */}
-          <div role="radiogroup" aria-label={tOffer('period_label')} className="mx-auto mt-5 inline-flex max-w-full flex-wrap justify-center gap-1 rounded-xl bg-gray-100 p-1 dark:bg-gray-800" data-testid="landing-period">
+          <div role="radiogroup" aria-label={tOffer('period_label')} className="pseg" data-testid="landing-period">
             {OFFERED_PERIODS.map(p => (
-              <button
-                key={p}
-                type="button"
-                role="radio"
-                aria-checked={period === p}
-                data-testid={`landing-period-${p}`}
-                onClick={() => setPeriod(p)}
-                className={cn(
-                  'flex min-h-[40px] items-center gap-1.5 rounded-lg px-3 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-stockshop-blue',
-                  period === p ? 'bg-white text-gray-900 shadow-sm dark:bg-gray-700 dark:text-white' : 'text-gray-600 hover:text-gray-900 dark:text-gray-300 dark:hover:text-white'
-                )}
-              >
+              <button key={p} type="button" role="radio" aria-checked={period === p} data-testid={`landing-period-${p}`} onClick={() => setPeriod(p)}>
                 {tOffer(`period_${p}` as any)}
-                {p !== 'monthly' && (
-                  <span className={cn('rounded-full px-1.5 py-0.5 text-xs font-bold', p === 'annual'
-                    ? 'bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-400'
-                    : 'bg-stockshop-blue-muted text-stockshop-blue dark:bg-blue-900/40 dark:text-blue-400')}>{tOffer(`badge_${p}` as any)}</span>
-                )}
+                {p !== 'monthly' && <em className={p === 'annual' ? 'save' : ''}>{tOffer(`badge_${p}` as any)}</em>}
               </button>
             ))}
           </div>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6">
+        <div className="plans">
           {plans.map(plan => (
-            <div
-              key={plan.id}
-              data-testid={`landing-plan-${plan.id}`}
-              className={cn(
-                'relative rounded-2xl border-2 bg-white dark:bg-gray-800/50 p-6 shadow-sm',
-                plan.color,
-                plan.popular && 'shadow-xl ring-2 ring-stockshop-blue dark:ring-blue-500 mt-4 md:mt-0'
-              )}
-            >
-              {plan.popular && (
-                <div className="absolute -top-3 left-1/2 -translate-x-1/2">
-                  <Badge className="bg-stockshop-blue text-white px-3 py-1 text-xs font-semibold">
-                    {t('pricing.popular')}
-                  </Badge>
-                </div>
-              )}
-
-              <div className="mb-5">
-                <p className="font-bold text-gray-900 dark:text-white text-lg mb-1">{plan.name}</p>
-                <div className="flex items-baseline gap-1 flex-wrap">
-                  <span className="text-2xl md:text-3xl font-extrabold text-stockshop-blue dark:text-blue-400" data-testid={`landing-price-${plan.id}`}>
-                    {formatPrice(getPeriodPrice(plan.monthly, period))}
-                  </span>
-                  <span className="text-muted-foreground text-sm">{periodSuffix}</span>
-                </div>
-                {period !== 'monthly' && (
-                  <p className="mt-1 text-sm" data-testid="landing-period-note">
-                    <span className="font-semibold text-green-700 dark:text-green-400">{tOffer(`badge_${period}` as any)}</span>
-                    <span className="text-muted-foreground"> · </span>
-                    <span className="font-medium text-gray-900 dark:text-white">{tOffer('per_month_equiv', { price: formatPrice(Math.round(getPeriodPrice(plan.monthly, period) / BILLING_PERIODS[period].months)) })}</span>
-                  </p>
-                )}
+            <div key={plan.id} className={`plan${plan.popular ? ' pop' : ''}`} data-testid={`landing-plan-${plan.id}`}>
+              <div className="plan-top">
+                <h3>{plan.name}</h3>
+                {plan.popular && <span className="flag">{t('pricing.popular')}</span>}
               </div>
-
-              <ul className="space-y-2 mb-5">
-                {plan.features.map(f => (
-                  <li key={f} className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
-                    <CheckCircle2 className="h-4 w-4 text-green-500 flex-shrink-0" />
-                    {f}
-                  </li>
-                ))}
-              </ul>
-
-              <Link href={`/${locale}/register?plan=${plan.id}`}>
-                <Button className={cn(
-                  'w-full',
-                  plan.popular
-                    ? 'bg-stockshop-blue hover:bg-stockshop-blue-light dark:bg-blue-600 dark:hover:bg-blue-500 text-white'
-                    : 'border border-stockshop-blue dark:border-blue-400 text-stockshop-blue dark:text-blue-400 hover:bg-stockshop-blue-muted dark:hover:bg-blue-950/40 bg-transparent'
-                )}>
-                  {t('pricing.cta')}
-                </Button>
+              <div className="price">
+                <span className="num" data-testid={`landing-price-${plan.id}`}>{formatPrice(getPeriodPrice(plan.monthly, period))}</span>
+                <small>{periodSuffix}</small>
+              </div>
+              {period !== 'monthly' && (
+                <p className="pnote" data-testid="landing-period-note">
+                  <b>{tOffer(`badge_${period}` as any)}</b> · {tOffer('per_month_equiv', { price: formatPrice(Math.round(getPeriodPrice(plan.monthly, period) / BILLING_PERIODS[period].months)) })}
+                </p>
+              )}
+              <ul>{plan.features.map(f => <li key={f}>{f}</li>)}</ul>
+              <Link href={`/${locale}/register?plan=${plan.id}&period=${period}`} className={`btn ${plan.popular ? 'btn-cta' : 'btn-ghost'}`} data-testid={`landing-cta-${plan.id}`}>
+                {t('pricing.cta')}
               </Link>
             </div>
           ))}
         </div>
 
         {/* Options payantes : vrais montants du pays choisi (lib/saas/countries, addons) */}
-        <p className="mt-5 text-center text-sm text-gray-700 dark:text-gray-300" data-testid="landing-addons">
+        <p className="paddons" data-testid="landing-addons">
           {tOffer('addons_line', { seat: formatPrice(country.addons.seat), shop: formatPrice(country.addons.shop) })}
         </p>
 
         {/* Comparer les formules : replié par défaut, mêmes règles que le serveur (lib/saas/plan-offer) */}
-        <div className="mt-4 text-center">
-          <button
-            type="button"
-            onClick={() => setCompareOpen(o => !o)}
-            aria-expanded={compareOpen}
-            aria-controls="landing-compare"
-            data-testid="landing-compare-toggle"
-            className="inline-flex min-h-[44px] items-center gap-1.5 rounded-lg px-3 text-sm font-semibold text-stockshop-blue hover:bg-stockshop-blue-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-stockshop-blue dark:text-blue-400 dark:hover:bg-blue-950/40"
-          >
+        <div className="center">
+          <button type="button" className="pcompare-toggle" onClick={() => setCompareOpen(o => !o)} aria-expanded={compareOpen} aria-controls="landing-compare" data-testid="landing-compare-toggle">
             {compareOpen ? tOffer('compare_hide') : tOffer('compare_toggle')}
-            <ChevronDown className={cn('h-4 w-4 transition-transform motion-reduce:transition-none', compareOpen && 'rotate-180')} aria-hidden />
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true" style={{ transform: compareOpen ? 'rotate(180deg)' : undefined }}><path d="M6 9l6 6 6-6" /></svg>
           </button>
         </div>
         {compareOpen && (
-          <div id="landing-compare" className="relative mx-auto mt-3 max-w-5xl overflow-x-auto rounded-2xl border bg-white dark:border-gray-700 dark:bg-gray-900" data-testid="landing-compare">
-            <table className="w-full min-w-[480px] text-sm">
+          <div id="landing-compare" className="pcompare" data-testid="landing-compare">
+            <table>
               <caption className="sr-only">{tOffer('compare_caption')}</caption>
-              <thead>
-                <tr className="border-b dark:border-gray-700">
-                  <td className="px-4 py-3" />
-                  {plans.map(plan => (
-                    <th key={plan.id} scope="col" className={cn('px-3 py-3 text-center font-bold', plan.popular ? 'text-stockshop-blue dark:text-blue-400' : 'text-gray-900 dark:text-white')}>{plan.name}</th>
-                  ))}
-                </tr>
-              </thead>
+              <thead><tr><td />{plans.map(plan => <th key={plan.id} scope="col" className={plan.popular ? 'pop' : ''}>{plan.name}</th>)}</tr></thead>
               <tbody>
                 {COMPARE_ROWS.map(row => (
-                  <tr key={row} className="border-b last:border-0 dark:border-gray-800" data-testid={`landing-compare-${row}`}>
-                    <th scope="row" className="px-4 py-2.5 text-left font-normal text-gray-700 dark:text-gray-300">{tOffer(`row_${row}` as any)}</th>
+                  <tr key={row} data-testid={`landing-compare-${row}`}>
+                    <th scope="row">{tOffer(`row_${row}` as any)}</th>
                     {plans.map(plan => {
                       const cell = compareCell(row, plan.id)
                       return (
-                        <td key={plan.id} className="px-3 py-2.5 text-center tabular-nums text-gray-900 dark:text-white">
+                        <td key={plan.id}>
                           {cell.kind === 'count' && cell.value}
                           {cell.kind === 'text' && tOffer(cell.key)}
                           {cell.kind === 'bool' && (cell.value
-                            ? <><CheckCircle2 className="mx-auto h-4 w-4 text-green-600 dark:text-green-400" aria-hidden /><span className="sr-only">{tOffer('included')}</span></>
-                            : <><Minus className="mx-auto h-4 w-4 text-gray-400" aria-hidden /><span className="sr-only">{tOffer('not_included')}</span></>)}
+                            ? <><span className="yes"><IconCheck /></span><span className="sr-only">{tOffer('included')}</span></>
+                            : <><span className="no"><IconMinus /></span><span className="sr-only">{tOffer('not_included')}</span></>)}
                         </td>
                       )
                     })}
@@ -213,18 +153,28 @@ export function PricingSection({ locale }: { locale: string }) {
         )}
 
         {/* Offre sur mesure (à partir de 4 boutiques) : essai d'abord, puis demande de devis dans l'application */}
-        <div className="mx-auto mt-6 flex max-w-5xl flex-col gap-3 rounded-2xl border-2 border-dashed border-stockshop-blue/30 bg-white p-5 text-left sm:flex-row sm:items-center sm:justify-between dark:border-blue-400/30 dark:bg-gray-900" data-testid="landing-custom">
+        <div className="pcustom" data-testid="landing-custom">
           <div>
-            <p className="font-semibold text-gray-900 dark:text-white">{t('pricing.custom_title')}</p>
-            <p className="text-sm text-gray-600 dark:text-gray-300">{t('pricing.custom_text')}</p>
-            <a href="mailto:support@stockshop.tech" className="mt-1 inline-block text-sm text-stockshop-blue hover:underline dark:text-blue-400">{t('pricing.custom_contact')}</a>
+            <strong>{t('pricing.custom_title')}</strong>
+            <span>{t('pricing.custom_text')}</span>
+            <a href="mailto:support@stockshop.tech">{t('pricing.custom_contact')}</a>
           </div>
-          <Link href={`/${locale}/register?plan=business`} className="shrink-0">
-            <Button className="w-full bg-stockshop-blue text-white hover:bg-stockshop-blue-light sm:w-auto dark:bg-blue-600 dark:hover:bg-blue-500">{t('pricing.custom_cta')}</Button>
-          </Link>
+          <Link href={`/${locale}/register?plan=business`} className="btn btn-ghost">{t('pricing.custom_cta')}</Link>
         </div>
 
-        <p className="text-center text-sm text-muted-foreground mt-6" data-testid="landing-pricing-note">{t('pricing.note')}</p>
+        <p className="pfine" data-testid="landing-pricing-note">{t('pricing.note')}</p>
+
+        {faq && (
+          <div className="pfaq" data-testid="pricing-faq">
+            <h2>{faq.title}</h2>
+            {[...faq.items.slice(0, 2), { q: faq.pay_q, a: payAnswer || '' }, ...faq.items.slice(2)].map(item => (
+              <details key={item.q}>
+                <summary>{item.q}</summary>
+                <p>{item.a}</p>
+              </details>
+            ))}
+          </div>
+        )}
       </div>
     </section>
   )

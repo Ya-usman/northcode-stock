@@ -13,6 +13,7 @@ import { claimTrial } from '@/lib/saas/trial-claim-server'
 import { z } from 'zod'
 import { getApiTranslator } from '@/lib/api/i18n'
 import { deleteShops } from '@/lib/api/delete-shops'
+import { parseChosenOffer } from '@/lib/site/chosen-offer'
 import { timezoneForNewShop } from '@/lib/api/shop-timezone'
 
 const registerSchema = z.object({
@@ -28,6 +29,9 @@ const registerSchema = z.object({
   referral_code: z.string().max(20).optional().nullable(),
   // Fuseau IANA de la boutique (migration 178) : obligatoire pour un pays à plusieurs fuseaux
   timezone: z.string().max(64).optional().nullable(),
+  // Formule choisie sur la page Tarifs (préférence d'affichage, lot D du 7 nov. 2026)
+  chosen_plan: z.string().max(20).optional().nullable(),
+  chosen_period: z.string().max(20).optional().nullable(),
 })
 
 export async function POST(request: Request) {
@@ -41,6 +45,7 @@ export async function POST(request: Request) {
     const { password, full_name, email, shop_name, city, country, referral_code, timezone } = validated.data
 
     const supabase = await createAdminClient() as any
+    const chosenOffer = parseChosenOffer(validated.data.chosen_plan, validated.data.chosen_period)
 
     const countryConfig = getCountry(country || 'NG')
 
@@ -59,7 +64,9 @@ export async function POST(request: Request) {
       email,
       password,
       email_confirm: false,
-      user_metadata: { full_name },
+      // chosen_offer : formule et durée vues sur la page Tarifs, proposées en premier à la fin de l'essai (affichage
+      // seulement, contrôlées ici ; le prix payé reste calculé par le serveur au moment du paiement)
+      user_metadata: { full_name, ...(chosenOffer ? { chosen_offer: { ...chosenOffer, at: new Date().toISOString() } } : {}) },
     })
     if (authError || !authData?.user) {
       return NextResponse.json({ error: authError?.message || 'Erreur création compte' }, { status: 400 })

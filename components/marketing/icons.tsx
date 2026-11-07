@@ -17,6 +17,7 @@ export const IconShield = () => <Svg><path d="M12 3l8 3v6c0 4.5-3.4 8.3-8 9-4.6-
 export const IconDevices = () => <Svg><rect x="2" y="4" width="14" height="10" rx="1.5" /><path d="M6 18h6" /><rect x="17" y="8" width="5" height="12" rx="1.2" /></Svg>
 export const IconSync = () => <Svg><path d="M20 11a8 8 0 00-14.5-4.5L4 8M4 4v4h4M4 13a8 8 0 0014.5 4.5L20 16M20 20v-4h-4" /></Svg>
 export const IconCheck = () => <Svg stroke={2.4}><path d="M5 12l5 5 9-10" /></Svg>
+export const IconMinus = () => <Svg stroke={2}><path d="M7 12h10" /></Svg>
 export const IconArrow = () => <Svg size={16} stroke={2}><path d="M5 12h14M13 6l6 6-6 6" /></Svg>
 export const IconChevron = () => <Svg size={16} stroke={2}><path d="M9 6l6 6-6 6" /></Svg>
 export const IconChevronDown = () => <Svg size={14} stroke={2}><path d="M6 9l6 6 6-6" /></Svg>

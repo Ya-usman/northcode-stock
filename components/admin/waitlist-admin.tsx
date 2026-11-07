@@ -18,6 +18,9 @@ const SECTOR_FR: Record<string, string> = {
   restaurant: 'Restaurants', beauty: 'Salons de beauté', property: 'Gestion locative', other: 'Autre activité',
 }
 const SUB_FR: Record<string, string> = { clinic: 'Clinique', pharmacy: 'Pharmacie', laboratory: 'Laboratoire', medical_office: 'Cabinet médical', care_center: 'Centre de soins' }
+// Langue de la page et pays du visiteur en clair (avant : « FR · FR », peu lisible)
+const LANG_FR: Record<string, string> = { fr: 'Français', en: 'Anglais', ha: 'Haoussa' }
+const countryName = (code: string) => { try { return new Intl.DisplayNames(['fr'], { type: 'region' }).of(code) || code } catch { return code } }
 const day = (iso: string) => new Date(iso).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' })
 
 export function WaitlistAdmin({ rows, loadError }: { rows: WaitlistRow[]; loadError: string | null }) {
@@ -76,7 +79,7 @@ export function WaitlistAdmin({ rows, loadError }: { rows: WaitlistRow[]; loadEr
                     <span className="truncate">{r.contact}</span>
                   </span>
                   <span className="text-muted-foreground">{SECTOR_FR[r.sector] ?? r.sector}{r.sub_trade ? ` · ${SUB_FR[r.sub_trade] ?? r.sub_trade}` : ''}</span>
-                  <span className="text-muted-foreground">{r.locale.toUpperCase()}{r.country ? ` · ${r.country}` : ''}</span>
+                  <span className="text-muted-foreground">{LANG_FR[r.locale] ?? r.locale}{r.country ? ` · ${countryName(r.country)}` : ''}</span>
                   {r.signups > 1 && <span className="text-xs text-muted-foreground">{r.signups} inscriptions</span>}
                   <span className="ml-auto text-xs text-muted-foreground">{day(r.created_at)}{r.notified_at ? ` · prévenu le ${day(r.notified_at)}` : ''}</span>
                 </li>

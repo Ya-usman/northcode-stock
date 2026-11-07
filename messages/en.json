@@ -2900,6 +2900,13 @@
     "delete_sale": "Permanently delete this sale?"
   },
   "register": {
+    "offer_chosen": "You chose: {plan}, {period}",
+    "offer_change": "Change",
+    "offer_title": "What the trial includes",
+    "offer_free": "30 days with everything in Pro, no bank card.",
+    "offer_end": "At the end of the trial, you choose your plan: nothing is charged automatically.",
+    "offer_end_chosen": "At the end of the trial, {plan} ({period}) will be offered to you first. Nothing is charged automatically.",
+    "offer_see": "See pricing",
     "title": "Create Account",
     "account_section": "Your Account",
     "full_name": "Full Name",
@@ -3171,6 +3178,8 @@
     "pay_soon": "Online card payment (Visa / Mastercard) opens soon in this country ({country}). You can start the trial right now."
   },
   "billing_page": {
+    "chosen_badge": "Your choice",
+    "chosen_line": "Your choice at sign-up: {plan}, {period}.",
     "pricing_activity": "Your shop is mostly used from: {country} ({share}% of activity over the last 30 days). That country’s pricing applies. A mistake? Contact us.",
     "pricing_override": "{country} pricing, set by our team. A question? Contact us.",
     "pricing_activity_short": "Your shop is mostly used from: {country} ({share}% of activity over the last 30 days). That country’s pricing applies.",
@@ -6440,6 +6449,34 @@
       "wl_title": "Be notified when it opens.",
       "wl_sub": "The Health module is next on the list. Leave your contact and we will write to you on opening day.",
       "wl_price": "Health module pricing will be published at that time."
+    },
+    "help": {
+      "meta_title": "Help · StockShop",
+      "meta_desc": "Frequently asked questions about StockShop: free trial, offline use, devices, shops, team, subscription. And how to write to us.",
+      "kicker": "Help",
+      "title": "Frequently asked questions",
+      "lead": "Answers to the questions asked most before getting started. Another question? Write to us.",
+      "g_start": "Getting started",
+      "g_use": "Day to day",
+      "g_billing": "Subscription",
+      "q_card": "Do I need a bank card for the trial?",
+      "a_card": "No. The trial lasts 30 days with everything in Pro, no bank card needed. At the end, you choose your plan: nothing is charged automatically.",
+      "q_devices": "Which devices does StockShop work on?",
+      "a_devices": "Phone, tablet and computer. On Android, install the app from the Play Store; on iPhone and computer, StockShop opens in the browser and can be added to the home screen.",
+      "q_setup": "How do I start?",
+      "a_setup": "Create your account, add your products (one by one or from an Excel file), then make your first sale. A five-step guide walks you through it in the app.",
+      "q_offline": "What happens without internet?",
+      "a_offline": "The checkout keeps working. Sales stay on the device and are sent as soon as the network is back; a sale with a problem on arrival is flagged \"to check\", never lost.",
+      "q_shops": "Can I manage several shops?",
+      "a_shops": "Yes: {starter} with Starter, {pro} with Pro, {business} with Business, and a custom offer beyond that. Follow each shop or all of them together, and stock can move from one to another.",
+      "q_team": "Can my staff see my margins?",
+      "a_team": "No, unless you decide so. Each member has a role per shop; purchase prices and margins are visible only to the people you choose, and the rule is enforced by our servers.",
+      "q_lang": "Which languages and currencies?",
+      "a_lang": "The app is in French, English and Hausa. Each shop works in its own country's currency.",
+      "contact_title": "Another question?",
+      "contact_text": "Write to us and we will answer by email. Once logged in, the app's Help section also shows every screen step by step.",
+      "contact_cta": "Write to support",
+      "pricing_link": "See pricing"
     }
   }
 }

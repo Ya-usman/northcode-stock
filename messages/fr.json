@@ -2900,6 +2900,13 @@
     "delete_sale": "Supprimer définitivement cette vente ?"
   },
   "register": {
+    "offer_chosen": "Vous avez choisi : {plan}, {period}",
+    "offer_change": "Modifier",
+    "offer_title": "Ce que contient l'essai",
+    "offer_free": "30 jours avec tout le Pro, sans carte bancaire.",
+    "offer_end": "À la fin de l'essai, vous choisissez votre formule : rien n'est prélevé automatiquement.",
+    "offer_end_chosen": "À la fin de l'essai, {plan} ({period}) vous sera proposé en premier. Rien n'est prélevé automatiquement.",
+    "offer_see": "Voir les tarifs",
     "title": "Créer un compte",
     "account_section": "Votre compte",
     "full_name": "Nom complet",
@@ -3171,6 +3178,8 @@
     "pay_soon": "Le paiement en ligne par carte Visa / Mastercard ouvre bientôt dans ce pays ({country}). Vous pouvez commencer l'essai dès maintenant."
   },
   "billing_page": {
+    "chosen_badge": "Votre choix",
+    "chosen_line": "Votre choix à l'inscription : {plan}, {period}.",
     "pricing_activity": "Votre boutique est utilisée surtout depuis : {country} ({share} % de l’activité de ces 30 derniers jours). Le tarif de ce pays s’applique. Une erreur ? Contactez-nous.",
     "pricing_override": "Tarif de {country}, fixé par notre équipe. Une question ? Contactez-nous.",
     "pricing_activity_short": "Votre boutique est utilisée surtout depuis : {country} ({share} % de l’activité de ces 30 derniers jours). Le tarif de ce pays s’applique.",
@@ -6440,6 +6449,34 @@
       "wl_title": "Soyez prévenu à l'ouverture.",
       "wl_sub": "Le module Santé est le prochain sur la liste. Laissez votre contact, nous vous écrivons le jour de l'ouverture.",
       "wl_price": "Les tarifs du module Santé seront publiés à ce moment."
+    },
+    "help": {
+      "meta_title": "Aide · StockShop",
+      "meta_desc": "Questions fréquentes sur StockShop : essai gratuit, hors connexion, appareils, boutiques, équipe, abonnement. Et comment nous écrire.",
+      "kicker": "Aide",
+      "title": "Questions fréquentes",
+      "lead": "Les réponses aux questions les plus posées avant de commencer. Une autre question ? Écrivez-nous.",
+      "g_start": "Commencer",
+      "g_use": "Au quotidien",
+      "g_billing": "Abonnement",
+      "q_card": "Faut-il une carte bancaire pour l'essai ?",
+      "a_card": "Non. L'essai dure 30 jours avec tout le Pro, sans carte bancaire. À la fin, vous choisissez votre formule : rien n'est prélevé automatiquement.",
+      "q_devices": "Sur quels appareils fonctionne StockShop ?",
+      "a_devices": "Sur téléphone, tablette et ordinateur. Sur Android, installez l'application depuis le Play Store ; sur iPhone et sur ordinateur, StockShop s'ouvre dans le navigateur et s'ajoute à l'écran d'accueil.",
+      "q_setup": "Comment démarrer ?",
+      "a_setup": "Créez votre compte, ajoutez vos produits (un par un ou depuis un fichier Excel), puis faites votre première vente. Un guide en cinq étapes vous accompagne dans l'application.",
+      "q_offline": "Que se passe-t-il sans internet ?",
+      "a_offline": "La caisse continue de fonctionner. Les ventes restent sur l'appareil et partent dès que le réseau revient ; une vente qui pose problème à son arrivée est signalée « à vérifier », jamais perdue.",
+      "q_shops": "Puis-je gérer plusieurs boutiques ?",
+      "a_shops": "Oui : {starter} avec Starter, {pro} avec Pro, {business} avec Business, et une offre sur mesure au-delà. Vous suivez chaque boutique ou toutes ensemble, et le stock peut passer de l'une à l'autre.",
+      "q_team": "Mes employés voient-ils mes marges ?",
+      "a_team": "Non, sauf si vous le décidez. Chaque membre a un rôle par boutique ; le prix d'achat et les marges ne sont visibles que par les personnes que vous choisissez, et la règle est tenue par nos serveurs.",
+      "q_lang": "Dans quelles langues et quelles devises ?",
+      "a_lang": "L'application est en français, en anglais et en haoussa. Chaque boutique travaille dans la devise de son pays.",
+      "contact_title": "Une autre question ?",
+      "contact_text": "Écrivez-nous, nous répondons par e-mail. Une fois connecté, la rubrique Aide de l'application montre aussi chaque écran pas à pas.",
+      "contact_cta": "Écrire au support",
+      "pricing_link": "Voir les tarifs"
     }
   }
 }

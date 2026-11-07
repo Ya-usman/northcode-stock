@@ -24,6 +24,8 @@ import { BrandLogo } from '@/components/brand/brand-logo'
 import { cn } from '@/lib/utils/cn'
 import dynamic from 'next/dynamic'
 import { getDeviceId, DEVICE_ID_KEY } from '@/lib/device-id'
+import { TrialPanel } from '@/components/auth/trial-panel'
+import { parseChosenOffer, readStoredOffer, storeOffer, type ChosenOffer } from '@/lib/site/chosen-offer'
 
 // Champ téléphone international (indicatif + validation du pays) : chargé à l'usage (métadonnées de numérotation)
 const PhoneInput = dynamic(() => import('@/components/ui/phone-input').then(m => m.PhoneInput), { ssr: false })
@@ -82,6 +84,14 @@ export default function RegisterPage({ params: { locale } }: { params: { locale:
   const [trialRefused, setTrialRefused] = useState(false)
   const [referralMatch, setReferralMatch] = useState<{ kind: 'agent' | 'referrer'; name: string | null } | null>(null)
   const [referralChecking, setReferralChecking] = useState(false)
+  // Formule vue sur la page Tarifs (?plan=pro&period=annual), sinon celle gardée sur l'appareil (lot D, 7 nov. 2026)
+  const [chosenOffer, setChosenOffer] = useState<ChosenOffer | null>(null)
+  useEffect(() => {
+    const q = new URLSearchParams(window.location.search)
+    const fromUrl = parseChosenOffer(q.get('plan'), q.get('period'))
+    if (fromUrl) storeOffer(fromUrl)
+    setChosenOffer(fromUrl ?? readStoredOffer())
+  }, [])
   const referralTimeout = useRef<NodeJS.Timeout | null>(null)
 
   useEffect(() => {
@@ -241,6 +251,8 @@ export default function RegisterPage({ params: { locale } }: { params: { locale:
           country,
           timezone,
           referral_code: referralCode.trim() || null,
+          chosen_plan: chosenOffer?.plan ?? null,
+          chosen_period: chosenOffer?.period ?? null,
         }),
       }), 20_000, t('account_error_timeout'))
       const created = await res.json().catch(() => ({}))
@@ -352,8 +364,11 @@ export default function RegisterPage({ params: { locale } }: { params: { locale:
       {glowDiv}
       {themeBtn}
 
+      <div className="relative z-10 w-full max-w-sm lg:grid lg:max-w-4xl lg:grid-cols-[1fr_24rem] lg:items-center lg:gap-12">
+      <TrialPanel locale={locale} chosen={chosenOffer} variant="side" />
       <motion.div initial={{ opacity: 0, y: 24 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4 }} className="w-full max-w-sm relative z-10">
         {logoBlock}
+        <TrialPanel locale={locale} chosen={chosenOffer} variant="top" />
 
         <div className="rounded-2xl bg-white dark:bg-[#0b1525] border border-[#dce7ff] dark:border-[#152034] shadow-[0_10px_40px_rgba(7,62,138,0.10)] dark:shadow-none overflow-hidden">
           <div className="p-6">
@@ -571,6 +586,7 @@ export default function RegisterPage({ params: { locale } }: { params: { locale:
           </Link>
         </p>
       </motion.div>
+      </div>
     </div>
   )
 }

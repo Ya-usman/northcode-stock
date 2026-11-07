@@ -7,7 +7,7 @@ export const SITE_PAGES: { key: SitePageKey; path: string; live: boolean }[] = [
   { key: 'platform', path: '/plateforme', live: true },
   { key: 'trades', path: '/metiers', live: true },
   { key: 'pricing', path: '/tarifs', live: true },
-  { key: 'help', path: '/aide', live: false },
+  { key: 'help', path: '/aide', live: true },
 ]
 export const livePages = () => SITE_PAGES.filter(p => p.live)
 export const isLive = (key: SitePageKey) => SITE_PAGES.some(p => p.key === key && p.live)
